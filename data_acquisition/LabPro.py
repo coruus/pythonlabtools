@@ -1,7 +1,7 @@
 """LabPro supports communications with the Vernier Instruments (www.vernier.com) LabPro Module
 over a serial line"""
 
-_rcsid="$Id: LabPro.py,v 1.16 2003-06-13 19:48:31 mendenhall Exp $"
+_rcsid="$Id: LabPro.py,v 1.17 2003-06-24 16:20:06 mendenhall Exp $"
 
 import time
 import Numeric
@@ -388,6 +388,8 @@ class RawLabPro:
 			points=(points, )
 		self.command('dig_out',*points)
 
+_have_default_labpro=0
+
 try:
 	import termios
 	class termios_mixin:
@@ -431,10 +433,63 @@ try:
 		"default LabPro uses system native serial, on MacOSX & Linux, this is termios"
 		pass
 	
+	_have_default_labpro=1 #flag that this worked, don't look for other methods to make default
+	
 except: #no termios serial support
 	#insert check for other system architectures here, such as Windows or MacOS classic
 	pass
 
+if not _have_default_labpro:
+	try:
+		#this code written by Michael Mendenhall, Vanderbilt University, June 2003, for use under Mac OS Classic python (not Carbon!)
+		import ctb
+		class ctb_mixin:
+			"mixin class for RawLabPro for serial on pre-OS-X Macs running Classic python (not Carbon)"
+						
+			def close(self):
+				self.serial_read_port.Close(1,1)
+				if self.serial_write_port != self.serial_read_port:
+					self.serial_write_port.Close(1,1)
+					
+			def set_port_params(self):
+				pass
+			
+			def setup_serial(self, port_name):
+				port=ctb.CMNew("Serial Tool",None)
+				port.SetConfig(port.GetConfig()+" Baud 38400 Port "+port_name)
+				port.Open(-1)
+				self.serial_write_port=port
+				self.serial_read_port=port
+			
+			def high_speed_serial(self):
+				"use this if you know the LabPro is already running at high speed"
+				pass
+		
+			def write(self, data):
+				"override this if communication is not over normal serial"
+				self.serial_write_port.Write(data,ctb.cmData,0x3fffffff,0)
+			
+			def read(self, maxlen=None):
+				"override this as for write()"
+				if maxlen is None:
+					indata=self.serial_read_port.Read(100,ctb.cmData,.01)
+				else:
+					indata=self.serial_read_port.read(maxlen,ctb.cmData,.05)
+				return indata[0]
+	
+		class LabPro(ctb_mixin, RawLabPro):
+			"LabPro using Communications Toolbox for older Macintoshes"
+			pass
+		
+		_have_default_labpro=1
+		
+	except: #no CTB serial support
+		#insert check for other system architectures here, such as Windows or MacOS classic
+		pass
+
+if not _have_default_labpro:
+	pass #insert other attempts to find a valid serial connection method
+	
 try:
 	import vxi_11
 	class e5810_serial_mixin:
