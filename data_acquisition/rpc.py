@@ -1,5 +1,5 @@
-"A an RPC module, with optimizations for National Instruments DSTP protocol RPCs"
-_rcsid="$Id: rpc.py,v 1.4 2003-05-30 13:29:23 mendenhall Exp $"
+"A an RPC module, with optimizations for VXI-11 rpc calls"
+_rcsid="$Id: rpc.py,v 1.5 2003-08-08 20:58:18 mendenhall Exp $"
 
 #this module is 99% from the python distribution, Demo/rpc/rpc.py, with a few modifications 
 #by Marcus Mendenhall to improve timeout handling, etc.  It probably should follow any licensing 
