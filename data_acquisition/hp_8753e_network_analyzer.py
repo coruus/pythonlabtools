@@ -1,5 +1,5 @@
 "A basic wrapper for some of the more useful external functionality for the Hewlett-Packard / Agilent 8753E-class Network Analyzers"
-_rcsid="$Id: hp_8753e_network_analyzer.py,v 1.2 2003-08-06 22:30:39 mendenhall Exp $"
+_rcsid="$Id: hp_8753e_network_analyzer.py,v 1.3 2003-08-07 15:49:48 mendenhall Exp $"
 
 from vxi_11 import vxi_11_connection
 import struct
@@ -113,40 +113,32 @@ class hp_8753e(vxi_11_connection):
 			return Numeric.exp(basearray*Numeric.log(stop/start))*start
 		else:
 			raise HP8753_Error("Unknown x-axis mode... not linear, log, or time, and I don't handle segments yet")
-			
-							
-if __name__=='__main__':
-	from pyx import *
-	import os
-	import sys
-	import FFT
 	
-	def unitgauss(sigmac):	
-		convolver=Numeric.array(range(int(4*sigmac)), Numeric.Float)
-		convolver=Numeric.exp((convolver*convolver)*(-1.0/(2.0*sigmac*sigmac)))
-		convolver=Numeric.concatenate((convolver[-1:0:-1],convolver))
-		return convolver
-
-	class graphxy(graph.graphxy):
-		" a local pyx.graph.graphxy with some extra housekeeping and a spare copy of LaTeX"
-		def __init__(self, **kwargs):
-			graph.graphxy.__init__(self,**kwargs)
-			self.settexrunner(text.texrunner(mode='tex'))
-			self.latex=text.texrunner(mode='latex')
-			
-		def display(self, file):
-			self.writetofile(file)
-			os.system('rm %s.* %s.*' % (self.texrunner.texfilename, self.latex.texfilename) )
-					
-			if sys.platform=='darwin': #use pdf display with open on Mac
-				os.system("epstopdf %s.eps;rm %s.eps;open %s.pdf"% (3*(file,)))
-			else:
-				os.system("gv %s.eps &"%file)
+	def release_to_local(self):
+		self.write("CONT;") #return to continuous trigger
+		self.local()
 	
-		def latex_text(self, *args):
-			self.insert(self.latex.text(*args))
+	def opc_setup(self):
+		self.write("CLES;ESE 01;OPC;")
+	
+	def opc_wait(self, wait_loop_time=1.0, max_wait_time=10.0):
+		opcstat=0
+		starttime=time.time()
+ 		while(not opcstat and (time.time() - starttime) < max_wait_time):
+			time.sleep(wait_loop_time)
+			opcstat=self.read_status_byte()[1] & 0x20	
 		
-			
+		if not opcstat:
+			raise 	HP8753_Error("Data taking not completed before timeout")
+		
+	def average_and_wait(self, averages=1, wait_loop_time=1.0, max_wait_time=None):
+		if max_wait_time is None:
+			max_wait_time=averages #assume typical 1-second sweep time
+		self.opc_setup()
+		self.write("AVERFACT %d;NUMG %d;" % (averages, averages))
+		self.opc_wait(wait_loop_time, max_wait_time)
+	
+if __name__=='__main__':		
 	analyzer=hp_8753e(host="***REMOVED***", 
 		 device="gpib0,3",  timeout=4000, device_name="network_analyzer", raise_on_err=1)
 	print analyzer.idn	
