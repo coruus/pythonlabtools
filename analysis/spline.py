@@ -1,5 +1,5 @@
 """cubic spline handling, in a manner compatible with the API in Numeric Recipes"""
-_rcsid="$Id: spline.py,v 1.10 2003-10-14 16:23:24 mendenhall Exp $"
+_rcsid="$Id: spline.py,v 1.11 2003-10-14 16:26:00 mendenhall Exp $"
 
 __all__=["spline","splint","cubeinterpolate","RangeError"]
 
@@ -110,7 +110,7 @@ def cubeinterpolate(xlist, ylist, x3):
 from analysis import fitting_toolkit
 
 def approximate_least_squares_spline(xvals, yvals, nodelist=None, nodecount=None):
-	"""Compute an approximation the the true least-squares-spline to the dataset.  If the <nodelist> is not None,
+	"""Compute an approximation to the true least-squares-spline to the dataset.  If the <nodelist> is not None,
 	nodes will be placed near the x values indicated.  If <nodelist> is None,<nodecount> equally-spaced nodes will be placed"""
 	
 	assert nodelist or nodecount, "Must have either a list of nodes or a node count"
