@@ -1,15 +1,15 @@
 """LabPro supports communications with the Vernier Instruments (www.vernier.com) LabPro Module
 over a serial line"""
 
-_rcsid="$Id: LabPro.py,v 1.9 2003-05-27 17:17:16 mendenhall Exp $"
+_rcsid="$Id: LabPro.py,v 1.10 2003-05-29 18:32:05 mendenhall Exp $"
 
 import time
 import Numeric
 import os
 import sys
 import math
-import termios
 import array
+import types
 
 import struct
 _bigendian=(struct.unpack('H','\00\01')[0] == 1)
@@ -51,7 +51,9 @@ def remember_highspeed_port(port_name):
 	if port_name not in _highspeedports:
 		_highspeedports.append(port_name)
 		
-class LabPro:
+class RawLabPro:
+	"support for Vernier Software LabPro data acquisition device.  RawLabPro class has no I/O and needs a mixin for the serial port support"
+	
 	commands={'reset':0, 'channel_setup':1, 'data_collection_setup':3, 
 			'conversion_equation_setup':4, 'data_control':5, 'system_setup':6, 
 			'request_system_status':7, 'request_channel_status':8, 'request_channel_data':9,
@@ -77,41 +79,7 @@ class LabPro:
 				if i==2: raise #last try failed, allow exception out
 			else:
 				break #transfer worked, all done
-			
-	def close(self):
-		self.serial_read_port.close()
-		if self.serial_write_port != self.serial_read_port:
-			self.serial_write_port.close()
-		
-	def set_port_params(self, baud=termios.B38400):
-		port=self.serial_read_port
-		attrs=termios.tcgetattr(port)
-		attrs[4]=attrs[5]=baud #set 38.4kbaud
-		attrs[2] = attrs[2] | termios.CLOCAL #ignore connection indicators
-		cc=attrs[6]; cc[termios.VMIN]=0; cc[termios.VTIME]=0 #non-blocking reads
-		termios.tcsetattr(port, termios.TCSADRAIN, attrs)
-	
-	def setup_serial(self, port_name):
-		self.serial_write_port=port=open(port_name,"r+" , 0)
-		self.serial_read_port=self.serial_write_port	
-		self.set_port_params() #setup default port
-	
-	def high_speed_serial(self):
-		"use this if you know the LabPro is already running at high speed"
-		self.set_port_params(baud=termios.B115200) #should work now, since it worked before
-		time.sleep(0.1)
-
-	def write(self, data):
-		"override this if communication is not over normal serial"
-		self.serial_write_port.write(data)
-	
-	def read(self, maxlen=None):
-		"override this as for write()"
-		if maxlen is None:
-			return self.serial_read_port.read()
-		else:
-			return self.serial_read_port.read(maxlen)
-			
+						
 	def high_speed_setup(self):
 		"use this to command the LabPro up to high speed, then switch the serial up. Do not use if it has already been commanded!"
 		self.write('s\rs\rs\rs\r')
@@ -128,12 +96,16 @@ class LabPro:
 		self.read()
 		
 	def send_string(self, s='s', delay=0.05):
+		"send a string with appropriate end-of-line, and wait the specified time"
 		self.write(s+'\r')
-		#termios.tcdrain(self.serial_write_port)
 		time.sleep(delay)
 		
-	def command(self, name, *parms, **kwargs):	
-		s='s{%d' %  self.commands[name]
+	def command(self, name, *parms, **kwargs):
+		"send a command based on either a command number of a symbolic name, with specified parameters and optional delay=xxx"
+		if type(name) is not types.IntType: #if command is not an int, look it up
+			name=self.commands[name]
+			
+		s='s{%d' %  name
 		for p in parms:
 			s=s+','+str(p)
 		s=s+'}'
@@ -144,6 +116,7 @@ class LabPro:
 		self.send_string(s, delay)
 	
 	def read_ascii_response(self):
+		"read an ascii numeric list reponse that looks like {1.23e4, 5.67e8,  ...}"
 		str=''
 		empties=0
 		while(empties < 5 and str[-3:]!='}\r\n'):
@@ -163,13 +136,16 @@ class LabPro:
 
 
 	def reset(self):
+		"reset LabPro to powerupd state, except baud rate" 
 		self.send_string('s')
 		self.command('reset', delay=0.25)
 
 	def wake(self):
+		"wake up LabPro"
 		self.send_string('s', delay=0.01)
 
 	def get_system_config(self):
+		"return LabPro system status as a nice dictionary"
 		self.command('request_system_status', delay=0.1)
 		l=self.read_ascii_response()
 		if  l[3]!=8888:
@@ -190,15 +166,18 @@ class LabPro:
 
 	def setup_data_collection(self, samptime=0.1, numpoints=100, trigtype=0, trigchan=0,
 			trigthresh=0.0, prestore=0, rectime=0, filter=0, fastmode=0):
+		"set up and start LabPro data acquisition"
 		self.__saved_realtime_frag='' #just for safety
 		self.command('data_collection_setup', 
 				samptime, numpoints, trigtype, trigchan, trigthresh, prestore, 0, 
 				rectime, filter, fastmode, delay=0.1)
 		
 	def setup_channel(self, chan=0, operation=1, postproc=0, equation=0):
+		"configure a LabPro channel"
 		self.command('channel_setup', chan, operation, postproc, equation)
 
 	def wait_for_data_done(self, flasher=0):
+		"wait until LabPro indicates data acquisition is complete"
 		misses=0
 		while(misses<5):
 			if flasher:
@@ -224,11 +203,13 @@ class LabPro:
 		return state['sample count']
 
 	def get_data_ascii(self, chan=0):
+		"tell LabPro to return the data from one channel"
 		self.command('data_control',chan,0,0,0,1)
 		self.send_string('g')
 		return self.read_ascii_response()
 
 	def get_data_ascii_realtime(self):
+		"read the most recently collected realtime data from the LabPro and return as a list"
 		s=self.__saved_realtime_frag
 		while(s.find('}\r\n') < 0):
 			time.sleep(0.1)
@@ -243,9 +224,11 @@ class LabPro:
 		return [map(float, ptstr[1:].split(',')) for ptstr in sl[:-1]]
 
 	def binary_mode(self):
+		"tell LabPro that next data transfers will be in binary mode"
 		self.command('conversion_equation_setup', 0,-1)
 
 	def parse_binary(self, data, channels, chunklen):
+		"convert LabPro binary string to integer list"
 		#print repr(data)
 		chk=reduce(lambda x,y: x^y, array.array('B',data))
 		if (chk!=0 and chk!=0xff):
@@ -255,6 +238,7 @@ class LabPro:
 		return l
 		
 	def get_data_binary_realtime(self, channels=1):
+		"read the most recently collected realtime data from the LabPro and return as a list, using binary transfers and no scaling"
 		s=self.__saved_realtime_frag
 		chunklen=2*channels+5 #data+timestamp(4 bytes)+chkbyte
 		while(len(s)<chunklen):
@@ -272,10 +256,12 @@ class LabPro:
 		return self.parse_binary(s, channels, chunklen)
 
 	def scale_binary_data(self, idata, scaled_range):
+		"scale data from LabPro binary transfer to specified full-scale min and max and return in Numeric (NumPy) array"
 		scaled_min, scaled_max=scaled_range	
 		return Numeric.array(idata,Numeric.Float)*((scaled_max-scaled_min)/65536.0)+scaled_min
 	
 	def get_data_binary(self, chan=0, points=None, scaled_range=None):
+		"get specified channel data, either as raw integers if scaled_range=None, or as floats scaled to specified range in Numeric array"
 		if points is None:
 			points=self.get_system_config()['dataend']
 		self.command('data_control',chan,0,0,0,1)
@@ -308,14 +294,17 @@ class LabPro:
 			return self.scale_binary_data(data, scaled_range) 
 	
 	def stop(self):
+		"abort LabPro data acquisition"
 		self.command('system_setup',0, delay=0.25)
 		
 	def get_current_channel_data(self, channel=1):
+		"read current value of a channel"
 		self.command('request_channel_data', channel, 0)
 		self.send_string('g')
 		return self.read_ascii_response()[0]
 
 	def get_channel_setup(self, channel=1):
+		"get configuration of a channel in a convenient dictionary"
 		self.command('request_channel_setup', channel)
 		l= self.read_ascii_response()
 		dict={}
@@ -330,6 +319,7 @@ class LabPro:
 		return dict 
 
 	def analog_output(self, waveform='dc', center=0.0, amplitude=1.0, period_sec=1.0):
+		"output the specified waveform, amplitude and center value on channel 4.  Beware many funny rules from tech manual about limitations"
 		if waveform=='off':
 			self.command('analog_output',0,0,0,0)
 			return			
@@ -353,6 +343,7 @@ class LabPro:
 		self.command('analog_output', mode, ampl, offset, int(1000.0*period_sec), delay=0.1)
 
 	def analog_output_off(self):
+		"turn off analog output"
 		self.command('analog_output',0,0,0,0)
 
 	#note an LED has a number of different names
@@ -361,15 +352,18 @@ class LabPro:
 			'green':3, 'GREEN':3,'g':3,'G':3,3:3 }
 	
 	def set_led(self, color='red', state=1):
+		"set specified LED on (state=1) or off (state=0)"
 		led=self.ledcolors[color]
 		self.command('led', led, state, delay=0.01)
 	
 	def flash_led(self, color='green', flashtime=0.5):
+		"flash specified LED on and then off"
 		self.set_led(color,1)
 		time.sleep(flashtime)
 		self.set_led(color,0)
 	
 	def pattern_led(self,pattern, delay=0.0):
+		"output a list of LED states"
 		for ops in pattern:
 			self.set_led(ops[0],ops[1])
 			time.sleep(delay)
@@ -378,11 +372,97 @@ class LabPro:
 		('red',1),('yellow',1),('red',0),('green',1),('yellow',0),('green',0))
 	
 	def sound(self, frequency=500.0, duration=0.1):
+		"make a beep"
 		self.command('sound', int(0.5+duration*1e4), int(0.5+4e4/frequency))
 
 	def dig_out(self, *points):
+		"output listed values to digital out port"
+		if type(points) is type.IntType: #convert int to tuple
+			points=(points, )
 		self.command('dig_out',*points)
+
+try:
+	import termios
+	class termios_mixin:
+		"mixin class for RawLabPro to support Unix, MacOSX and Linux termios serial control"
+					
+		def close(self):
+			self.serial_read_port.close()
+			if self.serial_write_port != self.serial_read_port:
+				self.serial_write_port.close()
+			
+		def set_port_params(self, baud=termios.B38400):
+			port=self.serial_read_port
+			attrs=termios.tcgetattr(port)
+			attrs[4]=attrs[5]=baud #set 38.4kbaud
+			attrs[2] = attrs[2] | termios.CLOCAL #ignore connection indicators
+			cc=attrs[6]; cc[termios.VMIN]=0; cc[termios.VTIME]=0 #non-blocking reads
+			termios.tcsetattr(port, termios.TCSADRAIN, attrs)
 		
+		def setup_serial(self, port_name):
+			self.serial_write_port=port=open(port_name,"r+" , 0)
+			self.serial_read_port=self.serial_write_port	
+			self.set_port_params() #setup default port
+		
+		def high_speed_serial(self):
+			"use this if you know the LabPro is already running at high speed"
+			self.set_port_params(baud=termios.B115200) #should work now, since it worked before
+			time.sleep(0.1)
+	
+		def write(self, data):
+			"override this if communication is not over normal serial"
+			self.serial_write_port.write(data)
+		
+		def read(self, maxlen=None):
+			"override this as for write()"
+			if maxlen is None:
+				return self.serial_read_port.read()
+			else:
+				return self.serial_read_port.read(maxlen)
+
+	class LabPro(termios_mixin, RawLabPro):
+		"default LabPro uses system native serial, on MacOSX & Linux, this is termios"
+		pass
+	
+except: #no termios serial support
+	#insert check for other system architectures here, such as Windows or MacOS classic
+	pass
+
+try:
+	import vxi_11
+	class e5810_serial_mixin:
+		"mixin class for RawLabPro to allow operation of LabPro via remote network connection over Agilent E5810 interface"
+		def setup_serial(self,port_name=None):
+			self.__host=vxi_11.vxi_11_connection(host=port_name, device="COM1", raise_on_err=1, timeout=5000, 
+					device_name="Serial port on E5810")
+					
+		def high_speed_serial(self):
+			"not implemented on vxi-11"
+			return 
+	
+		def high_speed_setup(self):
+			"not implemented on vxi-11"
+			return 
+	
+		def set_port_params(self):
+			"not implemented on vxi-11"
+			return 
+	
+		def read(self, maxlen=None):
+			return self.__host.read(count=maxlen)[-1] #last element of read is actual data
+	
+		def write(self, data):
+			self.__host.write(data)
+	
+		def close(self):
+			self.__host.disconnect()
+
+	class LabPro_e5810(e5810_serial_mixin, RawLabPro):
+		pass
+		
+except: #apparently vxi-11 e5810 serial support can't be found, just ignore
+	pass
+
 if __name__=='__main__':
 	if sys.platform=="darwin":
 		if not "/sw/bin" in os.environ["PATH"]:
