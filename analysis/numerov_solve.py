@@ -1,5 +1,5 @@
 """Compute Schrodinger equation eigenfunctions very quickly and efficiently using Numerov's method to solve the underlying differential equations"""
-_rcsid="$Id: numerov_solve.py,v 1.1 2003-09-26 19:10:41 mendenhall Exp $"
+_rcsid="$Id: numerov_solve.py,v 1.2 2003-09-29 14:27:42 mendenhall Exp $"
 
 import math
 import Numeric
@@ -28,7 +28,7 @@ def bare_numerov(V, dx):
 	coef=2.0+dx2*V*ypsifact
 	
 	Y[0]=1.0/ypsifact[0]
-	Y[1]=(1.0+math.sqrt(V[0])*dx+0.5*V[0]*dx2)/ypsifact[1]
+	Y[1]=math.exp(math.sqrt(V[0])*dx)/ypsifact[1]
 	
 	numerov_iter(Y,coef)
 
