@@ -1,7 +1,7 @@
 """LabPro supports communications with the Vernier Instruments (www.vernier.com) LabPro Module
 over a serial line"""
 
-_rcsid="$Id: LabPro.py,v 1.13 2003-05-30 21:24:25 mendenhall Exp $"
+_rcsid="$Id: LabPro.py,v 1.14 2003-06-05 19:03:04 mendenhall Exp $"
 
 import time
 import Numeric
@@ -10,6 +10,7 @@ import sys
 import math
 import array
 import types
+import operator
 
 import struct
 _bigendian=(struct.unpack('H','\00\01')[0] == 1)
@@ -230,7 +231,7 @@ class RawLabPro:
 	def parse_binary(self, data, channels, chunklen):
 		"convert LabPro binary string to integer list"
 		#print repr(data)
-		chk=reduce(lambda x,y: x^y, array.array('B',data))
+		chk=reduce(operator.xor, array.array('B',data))
 		if (chk!=0 and chk!=0xff):
 			raise LabProDataError("Bad checksum on string: "+('%02x '%chk)+repr(data))
 		format='>'+channels*'H'+'L' #data+time+check
@@ -281,7 +282,7 @@ class RawLabPro:
 		if empties:
 			raise LabProTimeout('timeout getting binary data, got %d bytes, expected %d, stuff looks like: %s' %(len(s), chunklen, repr(s[:100])))		
 			
-		chk=reduce(lambda x,y: x^y, array.array('B',s))
+		chk=reduce(operator.xor, array.array('B',s))
 		if not (chk ==0 or chk==0xff):
 			raise LabProDataError( "Bad checksum on string: "+('%02x '%chk)+repr(s[:100]))
 		data=array.array('H')
