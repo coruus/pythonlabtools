@@ -1,5 +1,9 @@
 "A an RPC module, with optimizations for National Instruments DSTP protocol RPCs"
-#$Id: rpc.py,v 1.2 2003-04-11 17:51:03 mendenhall Exp $
+#$Id: rpc.py,v 1.3 2003-04-11 21:38:50 mendenhall Exp $
+
+#this module is 99% from the python distribution, Demo/rpc/rpc.py, with a few modifications 
+#by Marcus Mendenhall to improve timeout handling, etc.  It probably should follow any licensing 
+#intent of whoever originated it.
 
 # Sun RPC version 2 -- RFC1057.
 
