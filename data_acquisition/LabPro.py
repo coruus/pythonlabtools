@@ -1,7 +1,7 @@
 """LabPro supports communications with the Vernier Instruments (www.vernier.com) LabPro Module
 over a serial line"""
 
-_rcsid="$Id: LabPro.py,v 1.10 2003-05-29 18:32:05 mendenhall Exp $"
+_rcsid="$Id: LabPro.py,v 1.11 2003-05-30 18:32:40 mendenhall Exp $"
 
 import time
 import Numeric
@@ -435,7 +435,8 @@ try:
 		def setup_serial(self,port_name=None):
 			self.__host=vxi_11.vxi_11_connection(host=port_name, device="COM1", raise_on_err=1, timeout=5000, 
 					device_name="Serial port on E5810")
-					
+			self.__host.lock() #we are exclusive owners!
+			
 		def high_speed_serial(self):
 			"not implemented on vxi-11"
 			return 
