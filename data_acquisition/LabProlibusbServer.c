@@ -1,6 +1,6 @@
 /* serve up USB data from a Vernier LabPro device attached via USB using libusb on MacOSX, Linux or *BSD */
 
-static char rcsid[]="RCSID $Id: LabProlibusbServer.c,v 1.12 2003-11-06 21:37:55 mendenhall Exp $";
+static char rcsid[]="RCSID $Id: LabProlibusbServer.c,v 1.13 2003-11-11 18:34:48 mendenhall Exp $";
 
 /* 
 requires libusb or libusb-win32 (from www.sourceforge.net) installed 
@@ -25,11 +25,12 @@ to give the server setuid(0) privileges since libusb access to devices must be d
 #include <stdio.h>
 #include <pthread.h>
 #include <signal.h>
+#include <string.h>
 
 #include <usb.h>
 
-int keep_running=1;
-usb_dev_handle *global_intf; /* global reference to device, for cleanup */
+int keep_running=1, reader_running=0;
+usb_dev_handle *global_intf=0; /* global reference to device, for cleanup */
 int use_time_stamps=0;
 
 void handle_signal(int what)
@@ -37,11 +38,16 @@ void handle_signal(int what)
 	int err;
 	keep_running=0;
 	if (global_intf) {
-		usb_reset(global_intf); /* terminate eternal read operation */
-		sleep(1);
-		usb_reset(global_intf); /* terminate eternal read operation */
+		while(reader_running) {
+			usb_clear_halt(global_intf, USB_ENDPOINT_IN | 2); /* terminate eternal read operation */
+			usb_resetep(global_intf, USB_ENDPOINT_IN | 2); /* terminate eternal read operation */
+			usb_clear_halt(global_intf, USB_ENDPOINT_OUT | 2); /* terminate eternal read operation */
+			usb_resetep(global_intf, USB_ENDPOINT_OUT | 2); /* terminate eternal read operation */
+			sleep(1);
+		}
+		global_intf=0; /* we've done our work, don't allow funny loops */
+		fprintf(stderr,"Got signal\n");
 	}
-	fprintf(stderr,"Got signal\n");
 	
 }
 
@@ -50,7 +56,7 @@ int pass_input(usb_dev_handle *udev)
 	fd_set inpipeinfo;
 	struct timeval timeout;
 	int hasdata, count, err;
-	char buf[1024];
+	char buf[8192], *eol, *bp, *bpstart;
 	static int currbufpos=0;
 
 	while(keep_running) {
@@ -62,20 +68,33 @@ int pass_input(usb_dev_handle *udev)
 		count=select(1, &inpipeinfo, 0, 0, &timeout);
 		hasdata=FD_ISSET(fileno(stdin), &inpipeinfo);
 		if(!(count && hasdata)) continue; /* select says no data on stdin */
-		count=read(fileno(stdin), &buf[currbufpos], sizeof(buf)-10-currbufpos);	
+		if (currbufpos > sizeof(buf)-1000) { /* approaching overflow..., dump some data, something is wrong */
+			currbufpos=0;
+		}
+		
+		count=read(fileno(stdin), &buf[currbufpos], sizeof(buf)-currbufpos-10);	
 		if (count <=0) continue; /* somehow, even though select saw data, this didn't ?! */
 		currbufpos+=count;
 		buf[currbufpos]=0;
-		if(buf[currbufpos-1]=='\r' || buf[currbufpos-1]=='\n') { /* detect line ending */
-			if (strncmp(buf,"****QUIT****",12)==0) break;
-			count = usb_bulk_write(udev, USB_ENDPOINT_OUT | 2, buf, currbufpos, 1000);
-			if (count < 0 || count != currbufpos)
-			{
-				fprintf(stderr, "write error: count=%d,  %s\n", count, usb_strerror());
-				break;
+		bp=buf;
+		while(bp) {
+			bpstart=strsep(&bp, "\r\n"); /* find an eol */
+			if(bp) { /* bp points beyond a terminator character */
+				if (strstr(bpstart,"****QUIT****")!=0) break;
+				/* fprintf(stderr, "bp = %p,  bp-bpstart=%d, *bpstart=%s \n", bp, bp-bpstart, bpstart); */
+				bp[-1]='\r'; /* put on a carriage return for the LabPro */
+				count = usb_bulk_write(udev, USB_ENDPOINT_OUT | 2, bpstart, bp-bpstart, 10000);
+				if (count < 0 || count != bp-bpstart)
+				{
+					fprintf(stderr, "write error: count=%d,  %s\n", count, usb_strerror());
+					break;
+				}
 			}
-			currbufpos=0;
 		}
+		if(bp) break; /* we must have hit ****QUIT**** */
+		/* fprintf(stderr, "copying string down...\n"); */
+		strcpy(buf, bpstart); /* move leftover data down in buffer */
+		currbufpos=strlen(buf);
 	}
 	keep_running=0;
 	return 0;
@@ -91,7 +110,7 @@ int pass_output(usb_dev_handle *udev)
 	time_t start_time, stop_time;
 	
 	datastruct.blockflag=0x00ffffff; /* make it easy to find timestamps in data */
-	
+	reader_running=1;
 	while(keep_running) {
 		count=0;
 		start_time=time(NULL);
@@ -117,6 +136,8 @@ int pass_output(usb_dev_handle *udev)
 		}
 	}
 	keep_running=0;
+	reader_running=0;
+	
 	return 0;	
 }
 
@@ -127,30 +148,38 @@ void dealWithDevice(struct usb_device *dev, usb_dev_handle *udev)
 	void *thread_retval;
 	
 	/* sometime other processes may be probing the LabPro just when we try to claim it, so try a few times */
-	for(i=0; i<3 || err; i++) {	
+	for(i=0; i<3 && err; i++) {	
 		err=usb_claim_interface(udev, 0);
 		if(err) sleep(1);
 	}
 	if (err) {
-		fprintf(stderr, "error: %s\n", usb_strerror());
+		fprintf(stderr, "error claiming interface: %s\n", usb_strerror());
 		return;
 	}
 	
 	if (dev->config) {
 		/* this is what should be done, but the LabPro has no descriptors, so we will set the value to 1 if dev->config is NULL */
-		usb_set_configuration(udev, dev->config[0].bConfigurationValue); /* configure interface */
+		err=usb_set_configuration(udev, dev->config[0].bConfigurationValue); /* configure interface */
 	} else {
-		usb_set_configuration(udev, 1); /* configure interface */
+		err=usb_set_configuration(udev, 1); /* configure interface */
 	} 
-	
+	if (err) {
+		fprintf(stderr, "error configuring interface: %s\n", usb_strerror());
+		return;
+	}
+			
 	err=pthread_create(&input_thread, 0, (void *)pass_input, udev);
 	if(!err) err=pthread_create(&output_thread, 0, (void *)pass_output, udev);
 	
 	if(!err) {
 		err=pthread_join(input_thread, &thread_retval);
-		usb_reset(udev); /* terminate eternal read operation */
-		sleep(1);
-		usb_reset(udev); /* terminate eternal read operation */
+		while(reader_running) { 
+			usb_clear_halt(global_intf, USB_ENDPOINT_IN | 2); /* terminate eternal read operation */
+			usb_resetep(global_intf, USB_ENDPOINT_IN | 2); /* terminate eternal read operation */
+			usb_clear_halt(global_intf, USB_ENDPOINT_OUT | 2); /* terminate eternal read operation */
+			usb_resetep(global_intf, USB_ENDPOINT_OUT | 2); /* terminate eternal read operation */
+			sleep(1);
+		}
 		err=pthread_join(output_thread, &thread_retval);
 	}
 	usb_reset(udev);
@@ -213,6 +242,8 @@ int main (int argc, const char * argv[])
 			fprintf(stderr, "Found device %p\n", (void*)udev);
 			fflush(0);
 			global_intf=udev;
+			usb_reset(udev);
+			usb_reset(udev); /* make sure it's OK at the start */
 			usb_set_debug(0);
 			dealWithDevice(matchdev, udev);
 			global_intf=0; /* don't need resets any more */
