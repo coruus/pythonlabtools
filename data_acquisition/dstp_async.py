@@ -1,5 +1,5 @@
 "very useable National Instruments dstp protocol server"
-#$Id: dstp_async.py,v 1.3 2003-04-14 14:22:23 mendenhall Exp $
+#$Id: dstp_async.py,v 1.4 2003-04-24 20:43:28 mendenhall Exp $
 
 import socket
 import SocketServer
@@ -204,12 +204,12 @@ if __name__=='__main__':
 	th.start()
 	
 	def monitor_test(string):
-		print parse_composite_object(string)[0][-2:]
+		print get_payload_from_string(string)
 		if 0: #try error bailout on server
 			raise "oops"
 
 	def quit_server(string):
-		flag=parse_composite_object(string)[0][-1]
+		flag=get_payload_from_string(string)
 		if flag:
 			s.close()
 	
