@@ -1,6 +1,6 @@
 "MeasurementComputingUSB supports connections of  Measurement Computing, Inc.  USB devices"
 
-_rcsid="$Id: MeasurementComputingUSB.py,v 1.13 2003-11-20 22:10:50 mendenhall Exp $"
+_rcsid="$Id: MeasurementComputingUSB.py,v 1.14 2003-11-20 22:14:50 mendenhall Exp $"
 
 
 
@@ -597,20 +597,25 @@ class MCC_Device(default_server_mixin):
 	
 if __name__=='__main__':
 	
+	import cPickle
+	
 	mcc=MCC_Device()
 	time.sleep(0.5)
 	try:
 		mcc.blink_led()
 		
-		print mcc.read_user_memory()
-			
+		try:
+			print cPickle.loads(mcc.read_user_memory())
+		except:
+			print "Memory looks trashy..."
+						
 		oldid=mcc.get_id()
 		mcc.set_id( (oldid+1) & 255 )
 		
 		newid=mcc.get_id()
 		print oldid, newid
 		
-		mcc.write_user_memory(data='hello '+str(newid))
+		mcc.write_user_memory(data=cPickle.dumps({'greeting':'hello ', 'serial':newid}) )
 		
 		
 		if 1:
