@@ -1,6 +1,6 @@
 """Hessian and Levenberg-Marquardt Curve Fitting Package with resampling capability
 
-$Id: fitting_toolkit.py,v 1.4 2003-04-16 15:37:05 mendenhall Exp $
+$Id: fitting_toolkit.py,v 1.5 2003-04-18 18:02:29 mendenhall Exp $
 
 This is loosely derived from the information in 'Numerical Recipes' 2nd Ed. by Press, Flannery, Teukolsky and Vetterling.
 Implementation by Marcus H. Mendenhall, Vanderbilt University Free Electron Laser Center, Nashville, TN, USA
@@ -246,8 +246,7 @@ class fit:
 
 	def setup_resampling(self):
 		"setup_resampling() caches the 'real' arrays of x and y, so they can be resampled for bootstrapping, and seeds a random generator"
-		if hasattr(self, "saved_xarray"):
-			raise exceptions.AssertionError, "Don't even think of initializing the resampling more than once!"
+		assert not hasattr(self, "saved_xarray"), "Don't even think of initializing the resampling more than once!"
 		self.saved_xarray=self.xarray[:,:self.pointcount]
 		self.saved_yarray=self.yarray[:self.pointcount]
 		self.initialize_random_generator()
@@ -263,8 +262,7 @@ class fit:
 		
 	def resample(self):
 		"resample() randomly draws a set of points equal in size to the original set from the cached data for bootstrapping"
-		if not hasattr(self, "saved_xarray"):
-			raise exceptions.AssertionError, "resampling not set up yet.  Call setup_resampling() first."
+		assert hasattr(self, "saved_xarray"), "resampling not set up yet.  Call setup_resampling() first."
 		ranlist=Numeric.floor(self.get_random_list(self.pointcount)*self.pointcount).astype(Numeric.Int)
 		self.xarray=Numeric.take(self.saved_xarray, ranlist, -1) #take columns since vectors lie this way
 		self.yarray=Numeric.take(self.saved_yarray, ranlist)
