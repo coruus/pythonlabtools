@@ -1,5 +1,5 @@
 """cubic spline handling, in a manner compatible with the API in Numeric Recipes"""
-_rcsid="$Id: spline.py,v 1.12 2003-10-20 21:16:27 mendenhall Exp $"
+_rcsid="$Id: spline.py,v 1.13 2003-10-30 20:56:50 mendenhall Exp $"
 
 __all__=["spline","splint","cubeinterpolate","RangeError"]
 
@@ -54,14 +54,42 @@ def spline(x, y, yp1=None, ypn=None):
 
 	return y2
 
+def spline_extrapolate(x, y, yp1=None, ypn=None, xmin=None, xmax=None):
+	"""spline_extrapolate(x_vals,y_vals, yp1=None, ypn=None, xmin=None, xmax=None) 
+	returns the x, y, y2 table for the spline as needed by splint() with adjustments to allow quadratic extrapolation outside the range"""
+
+	y2=spline(x,y,yp1,ypn) #first, get basic spline table
+
+	xl=[x]
+	yl=[y]
+	y2l=[y2]
+	
+	if xmin is not None:
+		h0=x[1]-x[0]
+		h1=xmin-x[0]
+		yextrap=((y[1]-y[0])/h0 - h0*(y2[0]+2.0*y2[1])/6.0)*h1+y2[0]*h1*h1/2.0
+		yl.insert(0, (yextrap,))
+		xl.insert(0, (xmin,))
+		y2l.insert(0, (y2[0],))
+
+	if xmax is not None:
+		h0=x[-1]-x[-2]
+		h1=xmax-x[-1]
+		yextrap=((y[-1]-y[-2])/h0 + h0*(2.0*y2[-2]+y2[-1])/6.0)*h1+y2[-1]*h1*h1/2.0
+		yl.append((yextrap,))
+		xl.append((xmax,))
+		y2l.append((y2[-1],))
+
+	return Numeric.concatenate(xl), Numeric.concatenate(yl), Numeric.concatenate(y2l)
+
 import types
 
-def splint(xa, ya, y2a, x, allow_extrapolation=0):
+def splint(xa, ya, y2a, x):
 	"""splint(x_vals, y_vals, y2_vals, x, allow_extrapolation=0) returns the interpolated from from the spline
 	x can either be a scalar or a listable item, in which case a Numeric Float array will be
 	returned and the multiple interpolations will be done somewhat more efficiently."""
 	if type(x) is types.IntType or type(x) is types.FloatType: 
-		if not allow_extrapolation and (x<xa[0] or x>xa[-1]):
+		if (x<xa[0] or x>xa[-1]):
 			raise RangeError, "%f not in range (%f, %f) in splint()" % (x, xa[0], xa[-1])
 			 
 		khi=max(searchsorted(xa,x),1)
@@ -71,7 +99,7 @@ def splint(xa, ya, y2a, x, allow_extrapolation=0):
 		return a*ya[klo]+b*ya[khi]+((a*a*a-a)*y2a[klo]+(b*b*b-b)*y2a[khi])*(h*h)/6.0
 	else:
 		#if we got here, we are processing a list, and should do so more efficiently
-		if not allow_extrapolation and (min(x)<xa[0] or max(x)>xa[-1]):
+		if (min(x)<xa[0] or max(x)>xa[-1]):
 			raise RangeError, "(%f, %f) not in range (%f, %f) in splint()" % (min(x), max(x), xa[0], xa[-1])
 	
 		npoints=len(x)
@@ -172,12 +200,14 @@ if __name__=="__main__":
 		traceback.print_exc()
 	
 	try:
+		
+		xx, yy, yy2=spline_extrapolate(xlist,ylist, yp1=None, ypn=-2.5, xmin=xlist[0]-2, xmax=xlist[-1]+2)
 		import graphite
 		import Numeric
 		g=graphite.Graph()
 		ds1=graphite.Dataset()
-		ds1.x=[i[0] for i in testlist]
-		ds1.y=[i[1] for i in testlist]
+		ds1.x=xx
+		ds1.y=yy
 		g.datasets.append(ds1)
 		f1 = graphite.PointPlot()
 		f1.lineStyle = None
@@ -185,8 +215,8 @@ if __name__=="__main__":
 		f1.symbolStyle=graphite.SymbolStyle(size=5, fillColor=graphite.red, edgeColor=graphite.red)
 		g.formats=[]
 		g.formats.append(f1)
-		finex=Numeric.array(range(0,161),Float)*0.1
-		finey=splint(xlist, ylist, y2, finex)
+		finex=Numeric.array(range(-20,181),Float)*0.1
+		finey=splint(xx, yy, yy2, finex)
 		ds2=graphite.Dataset()
 		ds2.x=finex
 		ds2.y=finey
