@@ -1,6 +1,6 @@
 "MeasurementComputingUSB supports connections of  Measurement Computing, Inc.  USB devices"
 
-_rcsid="$Id: MeasurementComputingUSB.py,v 1.14 2003-11-20 22:14:50 mendenhall Exp $"
+_rcsid="$Id: MeasurementComputingUSB.py,v 1.15 2003-11-21 15:14:11 mendenhall Exp $"
 
 
 
@@ -35,8 +35,8 @@ try:
 		
 		server_executable_path=os.path.join(os.path.dirname(__file__),"/Users/marcus/Documents/python/pythonlabtools/data_acquisition/MeasurementComputingServer")
 		
-		def __init__(self):
-			self.usb_send, self.usb_recv, self.usb_err=os.popen3(self.server_executable_path+( " %d" % -self.device_index),'b',0)
+		def __init__(self, idProduct, device_index):
+			self.usb_send, self.usb_recv, self.usb_err=os.popen3(self.server_executable_path+( " %d %d" % (idProduct, -device_index) ),'b',0)
 			self.usb_timestamp=0
 			self.__usb_read_leftovers=''
 			try:
@@ -268,43 +268,15 @@ except ImportError:
 	
 	default_server_mixin=USB_Win32_libusb_mixin
 
+
 class MCC_Device(default_server_mixin):
 	
-	GAIN1_SE=0x08
-	GAIN1_DIFF=0x00
-	GAIN2_DIFF=0x10
-	GAIN4_DIFF=0x20
-	GAIN5_DIFF=0x30
-	GAIN8_DIFF=0x40
-	GAIN10_DIFF=0x50
-	GAIN16_DIFF=0x60
-	GAIN20_DIFF=0x70
 	
 	BASE_CLOCK_RATE=6000000 #correct for MiniLab1008
-	TIMER_STEPS=( #prescaler and setup times for rates between given entry and next entry
-			(100, 7, 0),
-			(200, 6, 0),
-			(400, 5, 0),
-			(800, 4, 1),
-			(1500, 3, 3),
-			(3000, 2, 6),
-			(6000, 1, 10),
-			(8000, 0, 0) #no operation beyond this speed
-	)
 	
 	DATA_SAMPLE_SIZE = 64
 	DATA_PACKET_SIZE=96
 	MAX_STORED_SAMPLES=4096
-	
-	AD_BURST_MODE=4
-	AD_CONT_MODE=2
-	AD_SINGLE_MODE=1
-	AD_EXTTRIGGER=8
-	
-	AD_DIRECT_MODE=0x80
-	
-	TRIGGER_FLAG=0xc3
-	DONE_FLAG=0xa5
 	
 	#command codes from MCC USBUTIL.H
 	CBDIN=0
@@ -333,11 +305,120 @@ class MCC_Device(default_server_mixin):
 	DIO_DIR_OUT=0
 
 	DIO_PORTA=1
-	DIO_PORTCH=2
 	DIO_PORTB=4
-	DIO_PORTCL =8
-	DIO_AUXPORT=16
 	
+	USER_MEMORY_BASE=0x1800
+	USER_MEMORY_SIZE=0x06ff
+	
+	CALIBRATION_MEMORY_BASE=0x1f00
+	CALIBRATION_MEMORY_SIZE=0x00ef
+			
+	def __init__(self, device_index=1):
+		self.device_index=device_index
+		default_server_mixin.__init__(self, self.idProduct, device_index)
+		self.scanning=0
+		self.post_init()
+		
+	def post_init(self):
+		pass
+		
+	def blink_led(self):
+		self.write((self.CBBLINK,))
+		time.sleep(2)
+		
+	def set_id(self, id_code):
+		assert id_code >=0 and id_code <=255, "Bad ID code for MCC device"
+		self.write((self.CBSETID,id_code))
+
+	def get_id(self):
+		self.write((self.CBGETID,))
+		res=self.read()
+		return ord(res[0])
+
+	def read_memory(self, base=USER_MEMORY_BASE, count=8):
+		results=''
+		while(count):
+			actcount=min(count,8)
+			self.write((self.CBMEMREAD, base & 0xff, (base >> 8) & 0xff, actcount))
+			res=self.read()
+			results+=res[:actcount]
+			base+=actcount
+			count-=actcount
+		return results
+
+	def write_memory(self, base=USER_MEMORY_BASE, data=''):
+		tc=0
+		ld=len(data)
+		bd=map(ord,data) #convert string to list for concatenation onto other list
+		while(tc<ld):
+			actcount=min(ld-tc,4)
+			self.write([self.CBMEMWRITE, base & 0xff, (base >> 8) & 0xff, actcount]+bd[tc:tc+actcount])
+			base+=actcount
+			tc+=actcount
+	
+	def write_user_memory(self, data):
+		assert len(data) < self.USER_MEMORY_SIZE-2, "Too much data for user memory"
+		lencode=struct.pack(">H",len(data))
+		self.write_memory(base=self.USER_MEMORY_BASE, data=lencode+data)
+	
+	def read_user_memory(self):
+		lendata=self.read_memory(base=self.USER_MEMORY_BASE, count=2)
+		bytes=min(struct.unpack(">H", lendata)[0], self.USER_MEMORY_SIZE-2) #protect against junk if reading uninited memory
+		return self.read_memory(base=self.USER_MEMORY_BASE+2, count=bytes)
+
+	def clear_counter(self):
+		self.write((self.CBCINIT,))
+	
+	def read_counter(self):
+		self.write((self.CBCIN32,))
+		res=self.read()
+		return struct.unpack('<L',res[:4])[0]
+	
+	def configure_digital_port(self, port=DIO_PORTA, dir=DIO_DIR_IN):
+		self.write((self.CBDCONFIG, port, dir))
+	
+	def digital_out(self, port=DIO_PORTA, data=0):
+		self.write((self.CBDOUT, port, data))
+
+	def digital_in(self, port=DIO_PORTA):
+		self.write((self.CBDIN,port))
+		res=self.read()
+		return ord(res[0])
+
+class MCC_Analog_Support:
+	
+	GAIN1_SE=0x08
+	GAIN1_DIFF=0x00
+	GAIN2_DIFF=0x10
+	GAIN4_DIFF=0x20
+	GAIN5_DIFF=0x30
+	GAIN8_DIFF=0x40
+	GAIN10_DIFF=0x50
+	GAIN16_DIFF=0x60
+	GAIN20_DIFF=0x70
+	
+	TIMER_STEPS=( #prescaler and setup times for rates between given entry and next entry
+			(100, 7, 0),
+			(200, 6, 0),
+			(400, 5, 0),
+			(800, 4, 1),
+			(1500, 3, 3),
+			(3000, 2, 6),
+			(6000, 1, 10),
+			(8000, 0, 0) #no operation beyond this speed
+	)
+	
+	
+	AD_BURST_MODE=4
+	AD_CONT_MODE=2
+	AD_SINGLE_MODE=1
+	AD_EXTTRIGGER=8
+	
+	AD_DIRECT_MODE=0x80
+	
+	TRIGGER_FLAG=0xc3
+	DONE_FLAG=0xa5
+		
 	ad_gain_scale_dict = {
 			GAIN1_SE :  (20.0/4096.0, 10.0, 1.0),
 			GAIN1_DIFF: (40.0/4096.0, 20.0, 1.0),
@@ -349,13 +430,7 @@ class MCC_Device(default_server_mixin):
 			GAIN16_DIFF: (40.0/4096.0, 20.0, 16.0),
 			GAIN20_DIFF: (40.0/4096.0, 20.0, 20.0)
 	}
-	
-	USER_MEMORY_BASE=0x1800
-	USER_MEMORY_SIZE=0x06ff
-	
-	CALIBRATION_MEMORY_BASE=0x1f00
-	CALIBRATION_MEMORY_SIZE=0x00ef
-		
+			
 	def counts_to_volts(self, gain, counts):
 		if gain==self.GAIN1_SE:
 			counts=counts*2
@@ -363,15 +438,6 @@ class MCC_Device(default_server_mixin):
 			counts = counts ^ 0x800 #sign bit is inverted, apparently, per MCC DLL
 		scale1, offset, scale2 = self.ad_gain_scale_dict[gain]
 		return ((counts*scale1)-offset)/scale2		
-			
-	def __init__(self, device_index=1):
-		self.device_index=device_index
-		default_server_mixin.__init__(self)
-		self.scanning=0
-		
-	def blink_led(self):
-		self.write((self.CBBLINK,))
-		time.sleep(2)
 		
 	def analog_output(self, channel, volts):
 		counts=max(min(int(volts*4095.0/5.0 + 0.5), 4095),0)
@@ -516,7 +582,6 @@ class MCC_Device(default_server_mixin):
 		self.continuous_scan_packet_index=index+1		
 		return index, self.unpack_scan(res[:-8])
 
-
 	def unpack_scan(self, data):
 		a=Numeric.array(data,Numeric.UnsignedInt8).astype(Numeric.Int32)
 		b=Numeric.zeros(2*len(a)//3, Numeric.Int) #3 bytes hold 2 samples
@@ -536,86 +601,49 @@ class MCC_Device(default_server_mixin):
 		self.write((self.CBAINSTOP,))
 		self.scanning=0
 
-	def set_id(self, id_code):
-		assert id_code >=0 and id_code <=255, "Bad ID code for MCC device"
-		self.write((self.CBSETID,id_code))
 
-	def get_id(self):
-		self.write((self.CBGETID,))
-		res=self.read()
-		return ord(res[0])
+class MCC_PMD_1208LS(MCC_Analog_Support, MCC_Device):
+	idProduct=0x7a #USB product id
+			
+class MCC_PMD_1024LS(MCC_Device):
+	idProduct=0x76 #USB product id
+	DIO_PORTCH=2
+	DIO_PORTCL =8
+	
+class MCC_miniLAB_1008LS(MCC_Analog_Support, MCC_Device):
+	idProduct=0x75 #USB product id
+	DIO_PORTCH=2
+	DIO_PORTCL =8
+	DIO_AUXPORT=16
 
-	def read_memory(self, base=USER_MEMORY_BASE, count=8):
-		results=''
-		while(count):
-			actcount=min(count,8)
-			self.write((self.CBMEMREAD, base & 0xff, (base >> 8) & 0xff, actcount))
-			res=self.read()
-			results+=res[:actcount]
-			base+=actcount
-			count-=actcount
-		return results
-
-	def write_memory(self, base=USER_MEMORY_BASE, data=''):
-		tc=0
-		ld=len(data)
-		bd=map(ord,data) #convert string to list for concatenation onto other list
-		while(tc<ld):
-			actcount=min(ld-tc,4)
-			self.write([self.CBMEMWRITE, base & 0xff, (base >> 8) & 0xff, actcount]+bd[tc:tc+actcount])
-			base+=actcount
-			tc+=actcount
-	
-	def write_user_memory(self, data):
-		assert len(data) < self.USER_MEMORY_SIZE-2, "Too much data for user memory"
-		lencode=struct.pack(">H",len(data))
-		self.write_memory(base=self.USER_MEMORY_BASE, data=lencode+data)
-	
-	def read_user_memory(self):
-		lendata=self.read_memory(base=self.USER_MEMORY_BASE, count=2)
-		bytes=min(struct.unpack(">H", lendata)[0], self.USER_MEMORY_SIZE-2) #protect against junk if reading uninited memory
-		return self.read_memory(base=self.USER_MEMORY_BASE+2, count=bytes)
-	
-	def clear_counter(self):
-		self.write((CBCINIT,))
-	
-	def read_counter(self):
-		self.write((CBCIN32,))
-		res=self.read()
-		return struct.unpack('<L',res[:4])[0]
-	
-	def configure_digital_port(self, port=DIO_PORTA, dir=DIO_DIR_IN):
-		self.write((CBDCONFIG, port, dir))
-	
-	def digital_out(self, port=DIO_PORTA, data=0):
-		self.write((CBDOUT, port, data))
-
-	def digital_in(self, port=DIO_PORTA):
-		self.write((CBDIN,port))
-		res=self.read()
-		return ord(res[0])
-	
 if __name__=='__main__':
 	
 	import cPickle
 	
-	mcc=MCC_Device()
+	mcc=MCC_PMD_1208LS()
 	time.sleep(0.5)
 	try:
 		mcc.blink_led()
 		
-		try:
-			print cPickle.loads(mcc.read_user_memory())
-		except:
-			print "Memory looks trashy..."
-						
 		oldid=mcc.get_id()
 		mcc.set_id( (oldid+1) & 255 )
+
+		try:
+			id_dict=cPickle.loads(mcc.read_user_memory())
+			print id_dict
+		except:
+			print "Memory looks trashy..."
+			id_dict={'greeting': 'hello'}
+			
 		
 		newid=mcc.get_id()
 		print oldid, newid
 		
-		mcc.write_user_memory(data=cPickle.dumps({'greeting':'hello ', 'serial':newid}) )
+		id_dict['serial']=newid
+		id_dict['last_used_date']=time.asctime()
+		id_dict['last_used_time']=time.time()
+		
+		mcc.write_user_memory(data=cPickle.dumps(id_dict) )
 		
 		
 		if 1:
