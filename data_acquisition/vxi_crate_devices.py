@@ -364,26 +364,24 @@ class e1458a(vxi_crate_device, tagged_data.dio_device):
 			self.unlock(priority=2.0)
 				
 		
-class e1411a(vxi_crate_device):
-	idn_head="HEWLETT-PACKARD,E1411B"
-
-	def __init__(self, slot=7):
-		vxi_crate_device.init(self, slot, "multimeter")
-
-class thermometers(e1411a, tagged_data.array_device):
+class scanning_voltmeter(vxi_crate_device, tagged_data.array_device):
+	initial_config_string=":conf:volt dc,10.0,(@100:107);"
 	scan_channels=8
-	debug_level=vxi_crate_device.debug_error
+	default_timeout=2000
+	consecutive_failures_limit=5
+	default_lock_timeout=2000
 	device_loop_sleep=1.0
 	recent_timeouts_warning_threshold=1
-	consecutive_failures_limit=5
 	max_message_wait=1.0
-	
-	def __init__(self, slot=7):
-		self.default_timeout=2000
-		self.default_lock_timeout=2000
-		vxi_crate_device.init(self, slot, "multimeter/thermometer")
+
+	def __init__(self, slot=7, name="multimeter"):
+		vxi_crate_device.init(self, slot, name)
 		tagged_data.array_device.init(self)
-		self.save_read_data(8*[0.0])
+		self.scan=array.array('f') #set default scan data type
+		self.save_read_data(self.scan_channels*[0.0])
+	
+	def save_read_data(self, data_list):
+		self.scan=array.array(self.scan.typecode, data_list)
 		
 	def setup_device(self):
 		self.lock()
@@ -394,7 +392,7 @@ class thermometers(e1411a, tagged_data.array_device):
 			except SCPI_Error: #clear any initial errors without bailing out
 				pass
 			self.write("*rst;*sre 0;")
-			self.write(":conf:temp fth,2252,(@100:107);:trig:sour imm;:res:nplc 1;:samp:timer 33.333e-3;:trig:count 1;")
+			self.write(self.initial_config_string)
 			self.check_scpi_errors()
 		finally:
 			self.unlock()
@@ -406,7 +404,7 @@ class thermometers(e1411a, tagged_data.array_device):
 			result, junk = handle_iee488_binary_block( data)
 			count=len(result)//4
 			if count==self.scan_channels:
-				self.save_read_data(array.array('f',list(struct.unpack(">%df"%count, result))))
+				self.save_read_data(list(struct.unpack(">%df"%count, result)))
 				self.consecutive_failures=0 #reset! got good data
 				self.last_good_data_time=time.time()
 				
@@ -441,7 +439,19 @@ class thermometers(e1411a, tagged_data.array_device):
 				
 		self.loop_count+=1
 
-		
+class thermometers(scanning_voltmeter):
+	idn_head="HEWLETT-PACKARD,E1411B"
+	scan_channels=8
+	device_loop_sleep=1.0
+	recent_timeouts_warning_threshold=1
+	max_message_wait=1.0
+	initial_config_string=":conf:temp fth,2252,(@100:107);:trig:sour imm;:res:nplc 1;:samp:timer 33.333e-3;:trig:count 1;"
+	default_timeout=2000
+	default_lock_timeout=2000
+	
+	def __init__(self, slot=7):
+		e1411a.__init__(self, slot, "multimeter/thermometer")
+
 
 class glue(vxi_crate_device, tagged_data.dio_device):
 	idn_head=None
