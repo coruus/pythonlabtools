@@ -1,5 +1,5 @@
 """cubic spline handling, in a manner compatible with the API in Numeric Recipes"""
-_rcsid="$Id: spline.py,v 1.9 2003-06-30 18:10:37 mendenhall Exp $"
+_rcsid="$Id: spline.py,v 1.10 2003-10-14 16:23:24 mendenhall Exp $"
 
 __all__=["spline","splint","cubeinterpolate","RangeError"]
 
@@ -7,6 +7,7 @@ class RangeError(IndexError):
 	"X out of input range in splint()"
 
 from Numeric import zeros, Float, searchsorted, array, asarray, take, clip
+import Numeric
 
 def spline(x, y, yp1=None, ypn=None):
 	"""spline(x_vals,y_vals, yp1=None, ypn=None) 
@@ -106,6 +107,46 @@ def cubeinterpolate(xlist, ylist, x3):
 	)+y1
 	return y3
 
+from analysis import fitting_toolkit
+
+def approximate_least_squares_spline(xvals, yvals, nodelist=None, nodecount=None):
+	"""Compute an approximation the the true least-squares-spline to the dataset.  If the <nodelist> is not None,
+	nodes will be placed near the x values indicated.  If <nodelist> is None,<nodecount> equally-spaced nodes will be placed"""
+	
+	assert nodelist or nodecount, "Must have either a list of nodes or a node count"
+		
+	fitter=fitting_toolkit.polynomial_fit(2) #will fit quadratic sections
+	
+	if not nodelist: #make equally-spaced nodelist
+		nodelist=Numeric.array(range(nodecount),Numeric.Float)*((xvals[-1]-xvals[0])/(nodecount-1))+xvals[0]
+		nodelist[-1]=xvals[-1] #make sure no roundoff error clips the last point!
+	else:
+		nodecount=len(nodelist)
+		
+	nodeindices=Numeric.searchsorted(xvals, nodelist)
+	boundindices=Numeric.searchsorted(xvals, (nodelist[1:]+nodelist[:-1])*0.5) #find halfway points
+	
+	ya=Numeric.zeros(nodecount,Numeric.Float)
+
+	#fit first  chunk un-centered to get slope at start
+	fitter.fit_data(xvals[:nodeindices[1]], yvals[:nodeindices[1]], xcenter=nodelist[0])
+	ya[0]=fitter.funcparams[0]
+	yp1=fitter.funcparams[1]
+
+	for i in range(1,nodecount-1):
+		chunkstart=boundindices[i-1]
+		chunkend=boundindices[i]
+		fitter.fit_data(xvals[chunkstart:chunkend], yvals[chunkstart:chunkend], xcenter=nodelist[i])
+		ya[i]=fitter.funcparams[0]
+	
+	#fit last  chunk un-centered to get slope at end
+	fitter.fit_data(xvals[nodeindices[-2]:], yvals[nodeindices[-2]:], xcenter=nodelist[-1])
+	ya[-1]=fitter.funcparams[0]
+	ypn=fitter.funcparams[1]
+			
+	y2a=spline(nodelist, ya, yp1=yp1, ypn=ypn)
+	return nodelist, ya, y2a
+	
 
 if __name__=="__main__":
 	import traceback
