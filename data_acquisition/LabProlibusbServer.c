@@ -1,6 +1,6 @@
 /* serve up USB data from a Vernier LabPro device attached via USB using libusb on MacOSX, Linux or *BSD */
 
-static char rcsid[]="RCSID $Id: LabProlibusbServer.c,v 1.3 2003-07-11 21:35:30 mendenhall Exp $";
+static char rcsid[]="RCSID $Id: LabProlibusbServer.c,v 1.4 2003-07-14 17:00:00 mendenhall Exp $";
 
 /* 
 requires libusb (from www.sourceforge.net) installed 
@@ -29,6 +29,8 @@ void handle_signal(int what)
 	int err;
 	keep_running=0;
 	if (global_intf) {
+		usb_reset(global_intf); /* terminate eternal read operation */
+		sleep(1);
 		usb_reset(global_intf); /* terminate eternal read operation */
 	}
 	fprintf(stderr,"Got signal\n");
@@ -114,6 +116,8 @@ void dealWithDevice(usb_dev_handle *udev)
 	
 	if(!err) {
 		err=pthread_join(input_thread, &thread_retval);
+		usb_reset(udev); /* terminate eternal read operation */
+		sleep(1);
 		usb_reset(udev); /* terminate eternal read operation */
 		err=pthread_join(output_thread, &thread_retval);
 	}
