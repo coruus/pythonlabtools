@@ -1,3 +1,4 @@
+#$Id: dstp_vxi_example.py,v 1.1 2003-04-11 17:21:14 mendenhall Exp $
 import sys
 import os
 def addpath(path_string):
