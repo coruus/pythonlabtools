@@ -1,6 +1,6 @@
 "MeasurementComputingUSB supports connections of  Measurement Computing, Inc.  USB devices"
 
-_rcsid="$Id: MeasurementComputingUSB.py,v 1.1 2003-11-13 22:49:23 mendenhall Exp $"
+_rcsid="$Id: MeasurementComputingUSB.py,v 1.2 2003-11-14 20:13:51 mendenhall Exp $"
 
 
 
@@ -17,6 +17,8 @@ import os
 import threading
 import traceback
 import struct
+
+from operator import isSequenceType
 
 try:
 	import fcntl #on platforms with fcntl, use it!
@@ -270,7 +272,29 @@ class MCC_Device(default_server_mixin):
 	GAIN10_DIFF=0x50
 	GAIN16_DIFF=0x60
 	GAIN20_DIFF=0x70
-			
+	
+	BASE_CLOCK_RATE=6000000 #correct for MiniLab1008
+	TIMER_STEPS=( #prescaler and setup times for rates between given entry and next entry
+			(100, 7, 0),
+			(200, 6, 0),
+			(400, 5, 0),
+			(800, 4, 1),
+			(1500, 3, 3),
+			(3000, 2, 6),
+			(6000, 1, 10),
+			(8000, 0, 0) #no operation beyond this speed
+	)
+	
+	DATA_SAMPLE_SIZE = 64
+	DATA_PACKET_SIZE=96
+	MAX_STORED_SAMPLES=4096
+	
+	AD_BURST_MODE=1
+	AD_CONT_MODE=2
+	AD_SINGLE_MODE=4
+	AD_NO_CAL=8
+	AD_EXTTRIGGER=16
+		
 	ad_gain_scale_dict = {
 			GAIN1_SE :  (20.0/4096.0, 10.0, 1.0),
 			GAIN1_DIFF: (40.0/4096.0, 20.0, 1.0),
@@ -282,8 +306,12 @@ class MCC_Device(default_server_mixin):
 			GAIN16_DIFF: (40.0/4096.0, 20.0, 16.0),
 			GAIN20_DIFF: (40.0/4096.0, 20.0, 20.0)
 	}
-	
+		
 	def counts_to_volts(self, gain, counts):
+		if gain==self.GAIN1_SE:
+			counts=counts*2
+		else:
+			counts = counts ^ 0x800 #sign bit is inverted, apparently, per MCC DLL
 		scale1, offset, scale2 = self.ad_gain_scale_dict[gain]
 		return ((counts*scale1)-offset)/scale2		
 			
@@ -308,27 +336,100 @@ class MCC_Device(default_server_mixin):
 		pair=ord(retdata[0]), ord(retdata[1])
 		if retdata:
 			retval=ord(retdata[0]) + ( ord(retdata[1]) << 4 )
-			if gain==self.GAIN1_SE:
-				retval=retval*2
-			else:
-				retval = retval ^ 0x800 #sign bit is inverted, apparently, per MCC DLL
 			return self.counts_to_volts(gain, retval)
 		else:
 			return None
+
+	def setup_gain_list(self, channels, gains):
+		changain=[c & 0x07 | g for c,g in zip(channels, gains)]
+		while len(channels) >=6:
+			self.write([7,6]+changain[:6])
+			changain=changain[6:]
+		if changain:
+			self.write([7,len(changain)]+changain)
+
+	def compute_timer_vals(self, Rate):
+		ts=self.TIMER_STEPS
+		if Rate < ts[0][0] or Rate > ts[-1][0]:
+			raise MeasurementComputingError, "sample rate not in range %d-%d" % (ts[0][0], ts[-1][0])
+		
+		#find appropriate range in list
+		lower=ts[0]
+		for entry in ts[1:]:
+			if entry[0] > Rate: break
+			lower=entry
+		
+		baserate, timerPre, setupTime=lower
+		timerMult= 1 << (timerPre+1)
+		timerVal= int((256 - (self.BASE_CLOCK_RATE/(Rate * timerMult))) + 0.5)
 	
-	def setup_analog_scan(self,  start_chan=0, end_chan=3, 
+		actRate = (float(self.BASE_CLOCK_RATE)/((256-timerVal) * timerMult))
+	
+		return timerPre, timerVal, setupTime, actRate
+		
+	def setup_analog_scan(self, channels=(0,2,4,6), sweeps=-1, rate=100, gains=GAIN2_DIFF, exttrig=0):
+	
+		if self.scanning:
+			raise MeasurementComputingError, "cannot start new scan without stopping old one"
+			
+		if not isSequenceType(channels):
+			channels=(channels,)
+		if not isSequenceType(gains):
+			gains=(gains,)*len(channels)
+			
+		if len(gains) != len(channels):
+			raise MeasurementComputingError, \
+				"gain list not compatible with channel list" +str(channels)+":"+str(gains)
+		
+		self.setup_gain_list(channels, gains)
+
+		timerPre, timerVal, setupTime, actRate=self.compute_timer_vals(rate*len(channels))
+		
+		if sweeps<=0: #continuous scan !
+			blocking = self.DATA_SAMPLE_SIZE//len(channels)
+			if len(channels)*blocking != self.DATA_SAMPLE_SIZE:
+				raise MeasurementComputingError, \
+					"continuous scan channel count must be submultiple of %d" % self.DATA_SAMPLE_SIZE
+			tCount=self.DATA_SAMPLE_SIZE #each block is filled in continuous mode
+			scanmode=self.AD_CONTINUOUS
+			
+		elif sweeps==1: #use AD_SINGLEEXEC mode for single sweep
+			tCount=len(channels)
+			scanmode=self.AD_SINGLE_MODE
+			
+		else:
+			#round block count up to next block above requested samples
+			blocks=(len(channels)*sweeps+self.DATA_SAMPLE_SIZE-1)//self.DATA_SAMPLE_SIZE
+			tCount=blocks*self.DATA_SAMPLE_SIZE
+			if tCount>self.MAX_STORED_SAMPLES:
+				raise MeasurementComputingError, \
+					"burst scan sample count must be <  %d" % self.MAX_STORED_SAMPLES
+			scanmode=self.AD_BURST_MODE
+				
+		print locals()
+		
+		tChigh=tCount>>8
+		tClow=tCount&255
+		self.write((14, tClow, tChigh, timerVal+setupTime, timerPre, scanmode | exttrig))
+	
+	
 if __name__=='__main__':
 	
 	mcc=MCC_Device()
+	time.sleep(0.5)
 	try:
 		mcc.blink_led()
-		for i in range(2):
-			mcc.analog_output(0, 4.5*(i & 1))
-			time.sleep(1)
 		
-		for i in range(200):
-			print mcc.analog_input(0, gain=mcc.GAIN5_DIFF)
-		
+		if 0:
+			for i in range(2):
+				mcc.analog_output(0, 4.5*(i & 1))
+				time.sleep(0.5)
+			
+			for i in range(200):
+				print mcc.analog_input(0, gain=mcc.GAIN5_DIFF)
+		elif 1:
+			mcc.setup_analog_scan()
+					
 	finally:
 		mcc.close()
 		
