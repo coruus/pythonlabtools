@@ -1,6 +1,6 @@
 """Compute Hermite-Gauss basis functions very quickly and efficiently using 
 Numerov's method to solve the underlying differential equations"""
-_rcsid="$Id: hermite_numerov.py,v 1.3 2003-05-30 13:31:55 mendenhall Exp $"
+_rcsid="$Id: hermite_numerov.py,v 1.4 2003-08-14 18:14:14 mendenhall Exp $"
 
 import math
 import Numeric
@@ -18,38 +18,33 @@ def generate_table(order, final_x=None, npoints=None):
 	if npoints is None:
 		npoints=hermite_n_points
 
-	psi=Numeric.zeros(npoints+1, Numeric.Float)
 	Y=Numeric.zeros(npoints+1, Numeric.Float)
 	dx=float(final_x)/npoints
 	dx2=dx*dx
 	e2=2*order+1
 	x=-final_x+Numeric.array(range(npoints+1),Numeric.Float)*dx
 	V=(x*x-e2)
-	ypsifact=1.0-(dx*dx/12.0)*V
 	
-	psi[0]=1.0
-	psi[1]=1.0+V[0]*dx*dx*0.5
-	
-	Y[0]=psi[0]*ypsifact[0]
-	Y[1]=psi[1]*ypsifact[1]
-	
+	ypsifact=1.0/(1.0-(dx*dx/12.0)*V)
+	coef=2.0+dx2*V*ypsifact
+
+	Y[0]=1.0/ypsifact[0]
+	Y[1]=(1.0+V[0]*dx*dx*0.5)/ypsifact[1]
+			
 	for i in range(1,npoints):
-		psi[i]=Y[i]/ypsifact[i]
-		yy=Y[i+1]=2*Y[i]-Y[i-1]+dx2*V[i]*psi[i]
+		yy=Y[i+1]=Y[i]*coef[i]-Y[i-1]
 		if abs(yy) > 1e20: #don't let exponential blow up
 			Y*=1e-20
-			psi*=1e-20
-		
-	psi[npoints]=Y[npoints]/ypsifact[npoints]
+
+	psi = Y*ypsifact
 
 	x=-final_x+Numeric.array(range(2*npoints+1),Numeric.Float)*dx
-	psi=psi[::-1] #just for easy use, with x=0 at beginning instead of end
 	
 	if order%2 == 0: #even function
-		y=Numeric.concatenate((psi[-1:0:-1], psi))
+		y=Numeric.concatenate((psi, psi[::-1][1:]))
 	else:
 		psi[0]=0 #enforce oddness exactly
-		y=Numeric.concatenate((psi[-1:0:-1], -psi))
+		y=Numeric.concatenate((psi, -psi[::-1][1:]))
 
 	y=y*math.sqrt(1.0/(Numeric.dot(y,y)*dx))
 	y2=spline.spline(x, y)
