@@ -1,5 +1,5 @@
 [Version]
-CVSVersion="$Id"
+CVSVersion="$Id: LabPro_176.inf,v 1.2 2003-10-29 21:12:37 mendenhall Exp $"
 Signature="$Chicago$"
 Class=USB
 ClassGUID={36FC9E60-C465-11CF-8056-444553540000}
