@@ -1,9 +1,9 @@
 "LabPro_USB supports connections of the Vernier LabPro system via USB"
 
-_rcsid="$Id: LabPro_USB.py,v 1.20 2003-11-06 18:22:16 mendenhall Exp $"
+_rcsid="$Id: LabPro_USB.py,v 1.21 2003-11-13 22:50:53 mendenhall Exp $"
 
 import LabPro
-from LabPro import RawLabPro, LabProError, _bigendian
+from LabPro import RawLabPro, LabProError, LabProTimeout, _bigendian
 
 import array
 import Numeric
