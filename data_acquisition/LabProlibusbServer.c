@@ -1,6 +1,6 @@
 /* serve up USB data from a Vernier LabPro device attached via USB using libusb on MacOSX, Linux or *BSD */
 
-static char rcsid[]="RCSID $Id: LabProlibusbServer.c,v 1.7 2003-10-09 16:47:08 mendenhall Exp $";
+static char rcsid[]="RCSID $Id: LabProlibusbServer.c,v 1.8 2003-10-16 13:50:45 mendenhall Exp $";
 
 /* 
 requires libusb (from www.sourceforge.net) installed 
@@ -107,7 +107,6 @@ void dealWithDevice(struct usb_device *dev, usb_dev_handle *udev)
 	pthread_t input_thread, output_thread;
 	void *thread_retval;
 	
-	/* this is what should be done, but the LabPro has no descriptors, so we will set the value to 1 */
 	err=usb_claim_interface(udev, 0);
     if (err)
     {
@@ -115,13 +114,12 @@ void dealWithDevice(struct usb_device *dev, usb_dev_handle *udev)
 	return;
     }
 	
-	
 	if (dev->config) {
+		/* this is what should be done, but the LabPro has no descriptors, so we will set the value to 1 if dev->config is NULL */
 		usb_set_configuration(udev, dev->config[0].bConfigurationValue); /* configure interface */
 	} else {
 		usb_set_configuration(udev, 1); /* configure interface */
 	} 
-	
 	
 	err=pthread_create(&input_thread, 0, (void *)pass_input, udev);
 	if(!err) err=pthread_create(&output_thread, 0, (void *)pass_output, udev);
@@ -190,6 +188,7 @@ int main (int argc, const char * argv[])
 			global_intf=udev;
 			usb_set_debug(0);
 			dealWithDevice(matchdev, udev);
+			global_intf=0; /* don't need resets any more */
 			usb_reset(udev);
 			usb_close(udev);
 		} else {
