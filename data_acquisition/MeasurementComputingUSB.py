@@ -1,6 +1,6 @@
 "MeasurementComputingUSB supports connections of  Measurement Computing, Inc.  USB devices"
 
-_rcsid="$Id: MeasurementComputingUSB.py,v 1.6 2003-11-20 03:52:49 mendenhall Exp $"
+_rcsid="$Id: MeasurementComputingUSB.py,v 1.7 2003-11-20 13:30:22 mendenhall Exp $"
 
 
 
@@ -90,9 +90,12 @@ try:
 			res=''
 			tries=0
 			
-			while len(res)<maxlen+16 and tries < 5:
+			actmax=maxlen+16
+			while len(res)<actmax and tries < 5:
 				try:
-					res+=self.usb_recv.read(maxlen+16-len(res)) #packet + header 
+					res+=self.usb_recv.read(actmax-len(res)) #packet + header 
+					if len(res) < actmax:
+						time.sleep(0.02)
 				except IOError:
 					err=sys.exc_info()[1].args
 					if err[0] in (11, 29, 35): #these errors are sometimes returned on a nonblocking empty read
@@ -399,6 +402,8 @@ class MCC_Device(default_server_mixin):
 
 		timerPre, timerVal, setupTime, actRate=self.compute_timer_vals(rate*len(channels))
 		
+		self.actRate=actRate
+		
 		if sweeps<=0: #continuous scan !
 			blocking = self.DATA_SAMPLE_SIZE//len(channels)
 			if len(channels)*blocking != self.DATA_SAMPLE_SIZE:
@@ -427,6 +432,8 @@ class MCC_Device(default_server_mixin):
 		self.write((14, tClow, tChigh, timerVal+setupTime, timerPre, scanmode | exttrig))
 		self.continuous_scan_packet_index=1
 		self.got_last_packet=1
+		self.last_packet_time=time.time()
+		self.packet_dt=self.DATA_SAMPLE_SIZE/actRate
 		
 	def get_burst_scan(self, max_trig_wait=None):
 		start=time.time()
@@ -454,11 +461,17 @@ class MCC_Device(default_server_mixin):
 		return self.unpack_scan(datalist)
 	
 	def get_continuous_scan_packet(self, resync=0):
+		
+		dt=self.packet_dt-(time.time()-self.last_packet_time)
+		if dt>0.1:
+			time.sleep(dt-0.09)
+			
 		res=self.read(feature=1, send_command=self.got_last_packet)
 		if not res: 
 			self.got_last_packet=0
 			return None, None
 		
+		self.last_packet_time=time.time()
 		self.got_last_packet=1
 		trailer=res[-8:]
 		err, readaddr, writeaddr, index, junk=struct.unpack('<BHHHB', trailer)
@@ -510,11 +523,13 @@ if __name__=='__main__':
 			print mcc.get_burst_scan()[:,0]
 									
 		if 1:
-			mcc.setup_analog_scan(sweeps=-1, channels=(0,), gains=mcc.GAIN2_DIFF, rate=3000)
+			mcc.setup_analog_scan(sweeps=-1, channels=(0,), gains=mcc.GAIN2_DIFF, rate=500)
+			print mcc.actRate
+			
 			try:
 				actcount=0
 				print time.asctime()
-				while actcount<10000:
+				while actcount<1000:
 					actcount, res=mcc.get_continuous_scan_packet()
 					if res:
 						#print Numeric.array_str(res[:,0], precision=3, suppress_small=1, max_line_width=10000)
