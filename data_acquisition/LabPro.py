@@ -1,7 +1,7 @@
 """LabPro supports communications with the Vernier Instruments (www.vernier.com) LabPro Module
 over a serial line"""
 
-_rcsid="$Id: LabPro.py,v 1.19 2003-07-09 16:10:35 mendenhall Exp $"
+_rcsid="$Id: LabPro.py,v 1.20 2003-07-09 18:06:47 mendenhall Exp $"
 
 import time
 import Numeric
@@ -436,12 +436,12 @@ try:
 			"override this as for write()"
 			if self.__allow_serial_seek: self.serial_read_port.seek(0) #try to clear EOF
 			try:
-                            if maxlen is None:
-                                    return self.serial_read_port.read()
-                            else:
-                                    return self.serial_read_port.read(maxlen)
-                        except IOError:
-                            return ''
+				if maxlen is None:
+					return self.serial_read_port.read()
+				else:
+					return self.serial_read_port.read(maxlen)
+			except IOError:
+				return ''
 
 	class LabPro(termios_mixin, RawLabPro):
 		"default LabPro uses system native serial, on MacOSX & Linux, this is termios"
