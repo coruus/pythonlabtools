@@ -1,6 +1,6 @@
 /* serve up USB data from a Vernier LabPro device attached via USB using libusb on MacOSX, Linux or *BSD */
 
-static char rcsid[]="RCSID $Id: LabProlibusbServer.c,v 1.15 2003-11-12 16:04:24 mendenhall Exp $";
+static char rcsid[]="RCSID $Id: LabProlibusbServer.c,v 1.16 2003-11-12 17:13:21 mendenhall Exp $";
 
 /* 
 requires libusb or libusb-win32 (from www.sourceforge.net) installed 
@@ -151,6 +151,21 @@ void dealWithDevice(usb_dev_handle *udev)
 	int err=1,i;
 	pthread_t input_thread, output_thread;
 	void *thread_retval;
+
+	/* sometime other processes may be probing the LabPro just when we try to claim it, so try a few times */
+	for(i=0, err=1; i<3 && err; i++) {	
+#ifdef DEBUG
+		fprintf(stderr, "trying to claim interface\n");
+		fflush(0);
+#endif
+		err=usb_claim_interface(udev, 0);
+		usleep(20000); /* wait 20 ms for safety */
+		if(err) sleep(1);
+	}
+	if (err) {
+		fprintf(stderr, "error claiming interface: %s\n", usb_strerror());
+		return;
+	}
 	
 #ifdef DEBUG
 		fprintf(stderr, "trying to configure interface\n");
@@ -172,7 +187,7 @@ void dealWithDevice(usb_dev_handle *udev)
 	}
 	usleep(20000); /* wait 20 ms for safety */
 #ifdef DEBUG
-		fprintf(stderr, "done configuring... trying to claim\n");
+		fprintf(stderr, "done configuring... trying to reclaim\n");
 		fflush(0);
 #endif
 
@@ -190,7 +205,7 @@ void dealWithDevice(usb_dev_handle *udev)
 		fprintf(stderr, "error claiming interface: %s\n", usb_strerror());
 		return;
 	}
-	
+
 #ifdef DEBUG
 	fprintf(stderr, "USB device apparently fully prepared to handle data\n");
 	fflush(0);
