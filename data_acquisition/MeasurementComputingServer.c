@@ -1,6 +1,6 @@
 /* serve up USB data from a Measurement Computing USB device using libusb on MacOSX, Linux or *BSD */
 
-static char rcsid[]="RCSID $Id: MeasurementComputingServer.c,v 1.2 2003-11-13 19:34:07 mendenhall Exp $";
+static char rcsid[]="RCSID $Id: MeasurementComputingServer.c,v 1.3 2003-11-19 18:12:26 mendenhall Exp $";
 
 /* 
 requires libusb or libusb-win32 (from www.sourceforge.net) installed 
@@ -30,7 +30,7 @@ to give the server setuid(0) privileges since libusb access to devices must be d
 #include <usb.h>
 extern int usb_error_errno;
 
-int keep_running=1, reader_running=0;
+int keep_running=1;
 usb_dev_handle *global_intf=0; /* global reference to device, for cleanup */
 int use_time_stamps=0;
 
@@ -39,18 +39,18 @@ void handle_signal(int what)
 	int err;
 	keep_running=0;
 	if (global_intf) {
-		while(reader_running) {
-			usb_resetep(global_intf, USB_ENDPOINT_IN | 1); /* terminate eternal read operation */
-			usb_clear_halt(global_intf, USB_ENDPOINT_IN | 1); /* terminate eternal read operation */
-			usb_resetep(global_intf, USB_ENDPOINT_OUT | 1); /* terminate eternal read operation */
-			usb_clear_halt(global_intf, USB_ENDPOINT_OUT | 1); /* terminate eternal read operation */
-			sleep(1);
-		}
-		global_intf=0; /* we've done our work, don't allow funny loops */
-		fprintf(stderr,"Got signal\n");
+		usb_resetep(global_intf, USB_ENDPOINT_IN | 1); /* terminate eternal read operation */
+		usb_clear_halt(global_intf, USB_ENDPOINT_IN | 1); /* terminate eternal read operation */
+		usb_resetep(global_intf, USB_ENDPOINT_OUT | 1); /* terminate eternal read operation */
+		usb_clear_halt(global_intf, USB_ENDPOINT_OUT | 1); /* terminate eternal read operation */
 	}
-	
+	global_intf=0; /* we've done our work, don't allow funny loops */
+	fprintf(stderr,"Got signal\n");	
 }
+
+int read_feature_report(usb_dev_handle *udev, int readlen,  int index);
+int pass_input(usb_dev_handle *udev);
+int pass_output(usb_dev_handle *udev, int readlen);
 
 int pass_input(usb_dev_handle *udev)
 {
@@ -91,14 +91,26 @@ int pass_input(usb_dev_handle *udev)
 #endif
 				
 				if (strstr(bpstart,"****QUIT****")!=0) break;
-				sscanf(bpstart, "%d %d %d %d %d %d %d %d", 
-					ireport, ireport+1, ireport+2, ireport+3, ireport+4, ireport+5, ireport+6, ireport+7);
-				for(i=0; i<8; i++) breport[i]=ireport[i]; /* copy to byes for send */
-				count = usb_interrupt_write(udev, USB_ENDPOINT_OUT | 1, breport, 8, 1000);
-				if (count < 0 || count != 8)
-				{
-					fprintf(stderr, "write error: count=%d,  %s\n", count, usb_strerror());
-					break;
+				else if(strncmp(bpstart,"READ ",5)==0) {
+					int readcount, readerr;
+					readerr=sscanf(bpstart,"READ %d", &readcount);
+					if (readerr==1) readerr=pass_output(udev, readcount);
+					if(readerr) break;
+				} 	else if(strncmp(bpstart,"FEAT ",5)==0) {
+					int readerr, index, readlen;
+					readerr=sscanf(bpstart,"FEAT %d %d", &readlen, &index);
+					readerr=read_feature_report(udev, readlen, index);
+					if(readerr) break;
+				} else {
+					sscanf(bpstart, "%d %d %d %d %d %d %d %d", 
+						ireport, ireport+1, ireport+2, ireport+3, ireport+4, ireport+5, ireport+6, ireport+7);
+					for(i=0; i<8; i++) breport[i]=ireport[i]; /* copy to byes for send */
+					count = usb_interrupt_write(udev, USB_ENDPOINT_OUT | 1, breport, 8, 1000);
+					if (count < 0 || count != 8)
+					{
+						fprintf(stderr, "write error: count=%d,  %s\n", count, usb_strerror());
+						break;
+					}
 				}
 			}
 		}
@@ -111,44 +123,143 @@ int pass_input(usb_dev_handle *udev)
 	return 0;
 }
 
+/* Note: the constant definitions are from the Darwin Project USBSpec.h file.  I hope that using a few constants in another
+open-source project does not violate either the spirit or letter of Apple's APSL */
+ 
+enum {
+    kHIDRtInputReport		= 1,
+    kHIDRtOutputReport		= 2,
+    kHIDRtFeatureReport		= 3
+};
 
-int pass_output(usb_dev_handle *udev)
+#define HIDMgr2USBReportType(x) (x + 1)
+
+enum {
+    kUSBRqDirnShift = 7,
+    kUSBRqDirnMask = 1,
+
+    kUSBRqTypeShift = 5,
+    kUSBRqTypeMask = 3,
+
+    kUSBRqRecipientMask = 0X1F
+};
+
+enum {
+	kUSBOut			= 0,
+	kUSBIn			= 1,
+	kUSBNone		= 2,
+	kUSBAnyDirn		= 3
+};
+
+/*USBDirection*/
+
+enum {
+	kUSBStandard		= 0,
+	kUSBClass		= 1,
+	kUSBVendor		= 2
+};
+
+/*USBRqType*/
+
+enum {
+	kUSBDevice		= 0,
+	kUSBInterface		= 1,
+	kUSBEndpoint		= 2,
+	kUSBOther		= 3
+};
+
+/*USBRqRecipient*/
+
+enum {
+    kHIDRqGetReport		= 1,
+    kHIDRqGetIdle		= 2,
+    kHIDRqGetProtocol		= 3,
+    kHIDRqSetReport		= 9,
+    kHIDRqSetIdle		= 10,
+    kHIDRqSetProtocol		= 11
+};
+
+
+#define USBmakebmRequestType(direction, type, recipient)		\
+    ((direction & kUSBRqDirnMask) << kUSBRqDirnShift) |			\
+    ((type & kUSBRqTypeMask) << kUSBRqTypeShift) |			\
+    (recipient & kUSBRqRecipientMask)
+
+int read_feature_report(usb_dev_handle *udev, int readlen, int index)
 {
 	int err, count;
-	const unsigned int retbufsize=8; /* MCC devices always transfer 8 bytes blocks */
-	struct { int blockflag; struct timeval tv; char inBuf[retbufsize];} datastruct;
+	const unsigned int retbufsize=256; /* the feature report for MCC devices is suppoed to be 105 bytes */
+	struct { int blockflag; struct timeval tv; int bytecount; char inBuf[retbufsize];} datastruct;
+	struct timezone tz;
+	time_t start_time, stop_time;
+
+	if (readlen > retbufsize) {
+		fprintf(stderr, "MCC report length limited to  %d bytes, %d requested", retbufsize, readlen);
+		return -1;
+	}
+	    
+	datastruct.blockflag=0x00ffffff; /* make it easy to find timestamps in data */
+
+	for(count=0; count<retbufsize;count++) datastruct.inBuf[count]=0;
+
+	count=0;
+	start_time=time(NULL);
+	err=usb_control_msg(udev, USBmakebmRequestType(kUSBIn, kUSBClass, kUSBInterface), kHIDRqGetReport,
+				HIDMgr2USBReportType(kHIDRtFeatureReport), index, datastruct.inBuf, readlen, 2000);
+
+#if DEBUG
+	fprintf(stderr, "get feature error code %08lx\n", err);
+	fflush(stderr);
+#endif
+
+	if(err) {
+		datastruct.bytecount=err;
+	} else {
+		datastruct.bytecount=readlen;
+	}
+	
+	if(use_time_stamps) {
+		gettimeofday(&datastruct.tv, &tz);
+		err=write(fileno(stdout), (void *)&datastruct, readlen+16);
+	} else {
+		err=write(fileno(stdout), &datastruct.inBuf, readlen);
+	}
+	fflush(stdout);
+	return 0;	
+}
+
+
+int pass_output(usb_dev_handle *udev, int readlen)
+{
+	int err, count;
+	const unsigned int retbufsize=256; /* MCC devices never transfer more than 256 bytes blocks */
+	struct { int blockflag; struct timeval tv; int bytecount; char inBuf[retbufsize];} datastruct;
 	struct timezone tz;
 	time_t start_time, stop_time;
 	
-	datastruct.blockflag=0x00ffffff; /* make it easy to find timestamps in data */
-	reader_running=1;
-	while(keep_running) {
-		count=0;
-		start_time=time(NULL);
-		count = usb_bulk_read(udev, USB_ENDPOINT_IN | 1 , datastruct.inBuf, retbufsize, 1000000);
-		if (keep_running && count != retbufsize) {
-			stop_time=time(NULL);
-			if(stop_time-start_time < 995) {
-				/* timeouts are 1000 seconds (1000000 milliseconds), so if we fail after this long, it's
-					probably a timeout */
-				fprintf(stderr, "read error: %s\n", usb_strerror());
-				break;
-			} else continue;
-		} 
-		if(keep_running) {
-			if(use_time_stamps) {
-				gettimeofday(&datastruct.tv, &tz);
-				err=write(fileno(stdout), (void *)&datastruct, sizeof(datastruct));
-			} else {
-				err=write(fileno(stdout), &datastruct.inBuf, retbufsize);
-			}
-			fflush(stdout);
-			if (err<0) break;
-		}
+	if (readlen > retbufsize) {
+		fprintf(stderr, "MCC devices never read more than %d bytes at a time, %d requested", retbufsize, readlen);
+		return -1;
 	}
-	keep_running=0;
-	reader_running=0;
 	
+	datastruct.blockflag=0x00ffffff; /* make it easy to find timestamps in data */
+	count=0;
+	start_time=time(NULL);
+	count = usb_bulk_read(udev, USB_ENDPOINT_IN | 1 , datastruct.inBuf, readlen, 1000);
+#if DEBUG
+	fprintf(stderr, "read %d bytes\n", count);
+	fflush(stderr);
+#endif
+
+	datastruct.bytecount=count;
+	
+	if(use_time_stamps) {
+		gettimeofday(&datastruct.tv, &tz);
+		err=write(fileno(stdout), (void *)&datastruct, readlen+16);
+	} else {
+		err=write(fileno(stdout), &datastruct.inBuf, readlen);
+	}
+	fflush(stdout);
 	return 0;	
 }
 
@@ -157,9 +268,6 @@ void dealWithDevice(usb_dev_handle *udev)
 	int err=1,i;
 	pthread_t input_thread, output_thread;
 	void *thread_retval;
-	static char aout[8]={8,0,0,0,0,0,0,0};
-	static char blinky[8]={11,0,0,0,0,0,0,0};
-	static char reset[8]={17,0,0,0,0,0,0,0};
 	int count;
 	
 #ifdef DEBUG
@@ -168,7 +276,9 @@ void dealWithDevice(usb_dev_handle *udev)
 #endif
 	err=usb_set_configuration(udev, usb_device(udev)->config[0].bConfigurationValue); /* configure interface */
 
-	if (err && 0) {
+	if (err) {
+		usb_reset(udev);
+		usb_release_interface(udev,0);
 		fprintf(stderr, "error configuring interface: %s\n", usb_strerror());
 		return;
 	}
@@ -189,6 +299,8 @@ void dealWithDevice(usb_dev_handle *udev)
 		if(err) sleep(1);
 	}
 	if (err) {
+		usb_reset(udev);
+		usb_release_interface(udev,0);
 		fprintf(stderr, "error claiming interface: %08lx\n", usb_error_errno);
 		return;
 	}
@@ -198,21 +310,7 @@ void dealWithDevice(usb_dev_handle *udev)
 	fflush(0);
 #endif
 	
-	err=pthread_create(&input_thread, 0, (void *)pass_input, udev);
-	if(!err) err=pthread_create(&output_thread, 0, (void *)pass_output, udev);
-	
-	if(!err) {
-		err=pthread_join(input_thread, &thread_retval);
-		while(reader_running) { 
-			usb_clear_halt(global_intf, USB_ENDPOINT_IN | 1); /* terminate eternal read operation */
-			usb_resetep(global_intf, USB_ENDPOINT_IN | 1); /* terminate eternal read operation */
-			usb_clear_halt(global_intf, USB_ENDPOINT_OUT | 1); /* terminate eternal read operation */
-			usb_resetep(global_intf, USB_ENDPOINT_OUT | 1); /* terminate eternal read operation */
-			sleep(1);
-		}
-		err=pthread_join(output_thread, &thread_retval);
-	}
-
+	pass_input(udev);
 	usb_reset(udev);
 	usb_release_interface(udev,0);
 	
