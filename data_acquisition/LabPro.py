@@ -1,7 +1,7 @@
 """LabPro supports communications with the Vernier Instruments (www.vernier.com) LabPro Module
 over a serial line"""
 
-_rcsid="$Id: LabPro.py,v 1.12 2003-05-30 19:53:13 mendenhall Exp $"
+_rcsid="$Id: LabPro.py,v 1.13 2003-05-30 21:24:25 mendenhall Exp $"
 
 import time
 import Numeric
@@ -433,15 +433,10 @@ try:
 	class e5810_serial_mixin:
 		"mixin class for RawLabPro to allow operation of LabPro via remote network connection over Agilent E5810 interface"
 		def setup_serial(self,port_name=None):
-			self.__host=vxi_11.vxi_11_connection(host=port_name, device="COM1", raise_on_err=1, timeout=5000, 
+			self.vxi11_host=vxi_11.vxi_11_connection(host=port_name, device="COM1", raise_on_err=1, timeout=5000, 
 					device_name="Serial port on E5810")
-			self.__host.lock() #we are exclusive owners by default!
+			self.vxi11_host.lock() #we are exclusive owners by default!
 		
-		def lock(self):
-			self.__host.lock()
-			
-		def unlock(self):
-			self.__host.unlock() 
 
 		def high_speed_serial(self):
 			"not implemented on vxi-11"
@@ -456,13 +451,13 @@ try:
 			return 
 	
 		def read(self, maxlen=None):
-			return self.__host.read(count=maxlen)[-1] #last element of read is actual data
+			return self.vxi11_host.read(count=maxlen)[-1] #last element of read is actual data
 	
 		def write(self, data):
-			self.__host.write(data)
+			self.vxi11_host.write(data)
 	
 		def close(self):
-			self.__host.disconnect()
+			self.vxi11_host.disconnect()
 
 	class LabPro_e5810(e5810_serial_mixin, RawLabPro):
 		pass
