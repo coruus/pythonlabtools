@@ -1,6 +1,6 @@
 /* serve up USB data from a Vernier LabPro device attached via USB using libusb on MacOSX, Linux or *BSD */
 
-static char rcsid[]="RCSID $Id: LabProlibusbServer.c,v 1.14 2003-11-12 15:44:53 mendenhall Exp $";
+static char rcsid[]="RCSID $Id: LabProlibusbServer.c,v 1.15 2003-11-12 16:04:24 mendenhall Exp $";
 
 /* 
 requires libusb or libusb-win32 (from www.sourceforge.net) installed 
@@ -83,11 +83,16 @@ int pass_input(usb_dev_handle *udev)
 				if (strstr(bpstart,"****QUIT****")!=0) break;
 				/* fprintf(stderr, "bp = %p,  bp-bpstart=%d, *bpstart=%s \n", bp, bp-bpstart, bpstart); */
 				bp[-1]='\r'; /* put on a carriage return for the LabPro */
-				count = usb_bulk_write(udev, USB_ENDPOINT_OUT | 2, bpstart, bp-bpstart, 10000);
-				if (count < 0 || count != bp-bpstart)
-				{
-					fprintf(stderr, "write error: count=%d,  %s\n", count, usb_strerror());
-					break;
+				while(bpstart<bp) {
+					int xcount;
+					xcount=(bp-bpstart > 64)?64:bp-bpstart;
+					count = usb_bulk_write(udev, USB_ENDPOINT_OUT | 2, bpstart, xcount, 10000);
+					if (count < 0 || count != xcount)
+					{
+						fprintf(stderr, "write error: count=%d,  %s\n", count, usb_strerror());
+						break;
+					}
+					bpstart+=count;
 				}
 			}
 		}
