@@ -1,6 +1,6 @@
 /* serve up USB data from a Vernier LabPro device attached via USB using libusb on MacOSX, Linux or *BSD */
 
-static char rcsid[]="RCSID $Id: LabProlibusbServer.c,v 1.13 2003-11-11 18:34:48 mendenhall Exp $";
+static char rcsid[]="RCSID $Id: LabProlibusbServer.c,v 1.14 2003-11-12 15:44:53 mendenhall Exp $";
 
 /* 
 requires libusb or libusb-win32 (from www.sourceforge.net) installed 
@@ -39,10 +39,10 @@ void handle_signal(int what)
 	keep_running=0;
 	if (global_intf) {
 		while(reader_running) {
-			usb_clear_halt(global_intf, USB_ENDPOINT_IN | 2); /* terminate eternal read operation */
 			usb_resetep(global_intf, USB_ENDPOINT_IN | 2); /* terminate eternal read operation */
-			usb_clear_halt(global_intf, USB_ENDPOINT_OUT | 2); /* terminate eternal read operation */
+			usb_clear_halt(global_intf, USB_ENDPOINT_IN | 2); /* terminate eternal read operation */
 			usb_resetep(global_intf, USB_ENDPOINT_OUT | 2); /* terminate eternal read operation */
+			usb_clear_halt(global_intf, USB_ENDPOINT_OUT | 2); /* terminate eternal read operation */
 			sleep(1);
 		}
 		global_intf=0; /* we've done our work, don't allow funny loops */
@@ -141,15 +141,44 @@ int pass_output(usb_dev_handle *udev)
 	return 0;	
 }
 
-void dealWithDevice(struct usb_device *dev, usb_dev_handle *udev)
+void dealWithDevice(usb_dev_handle *udev)
 {
 	int err=1,i;
 	pthread_t input_thread, output_thread;
 	void *thread_retval;
 	
+#ifdef DEBUG
+		fprintf(stderr, "trying to configure interface\n");
+		fflush(0);
+#endif
+	if (!usb_device(udev)->config) { /* sometimes the Labpro returns no descriptors, configure it anyway! */
+#ifdef DEBUG
+		fprintf(stderr, "no descriptors... doing default configure\n");
+		fflush(0);
+#endif
+			err=usb_set_configuration(udev, 1); /* configure interface */
+	} else {
+		err=usb_set_configuration(udev, usb_device(udev)->config[0].bConfigurationValue); /* configure interface */
+	}
+	
+	if (err) {
+		fprintf(stderr, "error configuring interface: %s\n", usb_strerror());
+		return;
+	}
+	usleep(20000); /* wait 20 ms for safety */
+#ifdef DEBUG
+		fprintf(stderr, "done configuring... trying to claim\n");
+		fflush(0);
+#endif
+
 	/* sometime other processes may be probing the LabPro just when we try to claim it, so try a few times */
-	for(i=0; i<3 && err; i++) {	
+	for(i=0, err=1; i<3 && err; i++) {	
+#ifdef DEBUG
+		fprintf(stderr, "trying to claim interface\n");
+		fflush(0);
+#endif
 		err=usb_claim_interface(udev, 0);
+		usleep(20000); /* wait 20 ms for safety */
 		if(err) sleep(1);
 	}
 	if (err) {
@@ -157,17 +186,11 @@ void dealWithDevice(struct usb_device *dev, usb_dev_handle *udev)
 		return;
 	}
 	
-	if (dev->config) {
-		/* this is what should be done, but the LabPro has no descriptors, so we will set the value to 1 if dev->config is NULL */
-		err=usb_set_configuration(udev, dev->config[0].bConfigurationValue); /* configure interface */
-	} else {
-		err=usb_set_configuration(udev, 1); /* configure interface */
-	} 
-	if (err) {
-		fprintf(stderr, "error configuring interface: %s\n", usb_strerror());
-		return;
-	}
-			
+#ifdef DEBUG
+	fprintf(stderr, "USB device apparently fully prepared to handle data\n");
+	fflush(0);
+#endif
+	
 	err=pthread_create(&input_thread, 0, (void *)pass_input, udev);
 	if(!err) err=pthread_create(&output_thread, 0, (void *)pass_output, udev);
 	
@@ -218,9 +241,30 @@ int main (int argc, const char * argv[])
 	setbuf(stderr,0);
 
 	usb_init();
+
+#ifdef DEBUG
+			usb_set_debug(DEBUG);
+#else
+			usb_set_debug(0);
+#endif
+
+	
+#ifdef DEBUG
+		fprintf(stderr, "inited libusb\n");
+		fflush(0);
+#endif
 	usb_find_busses();
+#ifdef DEBUG
+		fprintf(stderr, "found busses in libusb\n");
+		fflush(0);
+#endif
 	usb_find_devices();
     
+#ifdef DEBUG
+		fprintf(stderr, "found devices in libusb\n");
+		fflush(0);
+#endif
+
 	signal(SIGHUP, handle_signal);
 	signal(SIGINT, handle_signal);
 	signal(SIGQUIT, handle_signal);
@@ -244,8 +288,7 @@ int main (int argc, const char * argv[])
 			global_intf=udev;
 			usb_reset(udev);
 			usb_reset(udev); /* make sure it's OK at the start */
-			usb_set_debug(0);
-			dealWithDevice(matchdev, udev);
+			dealWithDevice(udev);
 			global_intf=0; /* don't need resets any more */
 			usb_reset(udev);
 			usb_close(udev);
