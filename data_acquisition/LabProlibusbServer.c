@@ -1,6 +1,6 @@
 /* serve up USB data from a Vernier LabPro device attached via USB using libusb on MacOSX, Linux or *BSD */
 
-static char rcsid[]="RCSID $Id: LabProlibusbServer.c,v 1.6 2003-07-18 16:26:35 mendenhall Exp $";
+static char rcsid[]="RCSID $Id: LabProlibusbServer.c,v 1.7 2003-10-09 16:47:08 mendenhall Exp $";
 
 /* 
 requires libusb (from www.sourceforge.net) installed 
@@ -101,18 +101,27 @@ int pass_output(usb_dev_handle *udev)
 	return 0;	
 }
 
-void dealWithDevice(usb_dev_handle *udev)
+void dealWithDevice(struct usb_device *dev, usb_dev_handle *udev)
 {
 	int err;
 	pthread_t input_thread, output_thread;
 	void *thread_retval;
 	
+	/* this is what should be done, but the LabPro has no descriptors, so we will set the value to 1 */
 	err=usb_claim_interface(udev, 0);
     if (err)
     {
 		fprintf(stderr, "error: %s\n", usb_strerror());
 	return;
     }
+	
+	
+	if (dev->config) {
+		usb_set_configuration(udev, dev->config[0].bConfigurationValue); /* configure interface */
+	} else {
+		usb_set_configuration(udev, 1); /* configure interface */
+	} 
+	
 	
 	err=pthread_create(&input_thread, 0, (void *)pass_input, udev);
 	if(!err) err=pthread_create(&output_thread, 0, (void *)pass_output, udev);
@@ -132,7 +141,6 @@ void dealWithDevice(usb_dev_handle *udev)
 
 int main (int argc, const char * argv[])
 {
-    kern_return_t		err;
     int			idVendor = 0x8f7;
     int			idProduct = 1;
     int USBIndex, matchcount;
@@ -181,7 +189,7 @@ int main (int argc, const char * argv[])
 			fflush(0);
 			global_intf=udev;
 			usb_set_debug(0);
-			dealWithDevice(udev);
+			dealWithDevice(matchdev, udev);
 			usb_reset(udev);
 			usb_close(udev);
 		} else {
