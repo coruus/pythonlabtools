@@ -1,5 +1,5 @@
 """cubic spline handling, in a manner compatible with the API in Numeric Recipes"""
-_rcsid="$Id: spline.py,v 1.13 2003-10-30 20:56:50 mendenhall Exp $"
+_rcsid="$Id: spline.py,v 1.14 2003-10-30 21:31:37 mendenhall Exp $"
 
 __all__=["spline","splint","cubeinterpolate","RangeError"]
 
@@ -10,7 +10,7 @@ from Numeric import zeros, Float, searchsorted, array, asarray, take, clip
 import Numeric
 
 def spline(x, y, yp1=None, ypn=None):
-	"""spline(x_vals,y_vals, yp1=None, ypn=None) 
+	"""y2 = spline(x_vals,y_vals, yp1=None, ypn=None) 
 	returns the y2 table for the spline as needed by splint()"""
 
 	n=len(x)
@@ -55,8 +55,9 @@ def spline(x, y, yp1=None, ypn=None):
 	return y2
 
 def spline_extrapolate(x, y, yp1=None, ypn=None, xmin=None, xmax=None):
-	"""spline_extrapolate(x_vals,y_vals, yp1=None, ypn=None, xmin=None, xmax=None) 
-	returns the x, y, y2 table for the spline as needed by splint() with adjustments to allow quadratic extrapolation outside the range"""
+	"""x, y, y2 = spline_extrapolate(x_vals,y_vals, yp1=None, ypn=None, xmin=None, xmax=None) 
+	returns the x, y, y2 table for the spline as needed by splint() with adjustments to allow quadratic extrapolation 
+	outside the range x[0]-x[-1], from xmin (or x[0] if xmin is None) to xmax (or x[-1] if xmax is None)"""
 
 	y2=spline(x,y,yp1,ypn) #first, get basic spline table
 
@@ -85,7 +86,7 @@ def spline_extrapolate(x, y, yp1=None, ypn=None, xmin=None, xmax=None):
 import types
 
 def splint(xa, ya, y2a, x):
-	"""splint(x_vals, y_vals, y2_vals, x, allow_extrapolation=0) returns the interpolated from from the spline
+	"""splint(x_vals, y_vals, y2_vals, x) returns the interpolated from from the spline
 	x can either be a scalar or a listable item, in which case a Numeric Float array will be
 	returned and the multiple interpolations will be done somewhat more efficiently."""
 	if type(x) is types.IntType or type(x) is types.FloatType: 
