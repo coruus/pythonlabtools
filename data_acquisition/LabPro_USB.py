@@ -1,6 +1,6 @@
 "LabPro_USB supports connections of the Vernier LabPro system via USB"
 
-_rcsid="$Id: LabPro_USB.py,v 1.4 2003-06-04 21:18:10 mendenhall Exp $"
+_rcsid="$Id: LabPro_USB.py,v 1.5 2003-06-11 20:43:48 mendenhall Exp $"
 
 import LabPro
 from LabPro import RawLabPro, LabProError, _bigendian
@@ -20,7 +20,7 @@ import struct
 class USB_data_mixin:
 	"mixin class for RawLabPro to process USB-blocked data from LabPro"
 				
-	def get_data_binary(self, chan=0, points=None, scaled_range=None):
+	def get_data_binary(self, chan=0, points=None, scaled_range=None, max_wait_time=1.0, loop_sleep_time=0.02):
 		"get specified channel data, either as raw integers if scaled_range=None, or as floats scaled to specified range in Numeric array"
 		#note... in USB mode, LabPro doesn't use checksums, so this is modified from the usual
 		if points is None:
@@ -30,9 +30,14 @@ class USB_data_mixin:
 		chunklen=(2*points+63) & (-64) #round up to next 64-byte block, since LabPro always returns 64-byte multiples in USB
 		s=''
 		empties=0
-		while(empties<5 and len(s)<chunklen):
-			time.sleep(0.02)
+		maxloops=int(max_wait_time/loop_sleep_time)
+		while(empties<maxloops and len(s)<chunklen):
+			time.sleep(loop_sleep_time)
 			newdata=self.read(chunklen-len(s), mode=1) #mode=1 stops stripping of nulls from end of 64 bytes packets
+
+			if not s and newdata:
+				self.data_transmission_start=time.time() #remember when transmission started
+
 			s+=newdata
 			if newdata:
 				empties=0

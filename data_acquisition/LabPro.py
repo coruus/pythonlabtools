@@ -1,7 +1,7 @@
 """LabPro supports communications with the Vernier Instruments (www.vernier.com) LabPro Module
 over a serial line"""
 
-_rcsid="$Id: LabPro.py,v 1.14 2003-06-05 19:03:04 mendenhall Exp $"
+_rcsid="$Id: LabPro.py,v 1.15 2003-06-11 20:43:47 mendenhall Exp $"
 
 import time
 import Numeric
@@ -261,7 +261,7 @@ class RawLabPro:
 		scaled_min, scaled_max=scaled_range	
 		return Numeric.array(idata,Numeric.Float)*((scaled_max-scaled_min)/65536.0)+scaled_min
 	
-	def get_data_binary(self, chan=0, points=None, scaled_range=None):
+	def get_data_binary(self, chan=0, points=None, scaled_range=None, max_wait_time=1.0, loop_sleep_time=0.1):
 		"get specified channel data, either as raw integers if scaled_range=None, or as floats scaled to specified range in Numeric array"
 		if points is None:
 			points=self.get_system_config()['dataend']
@@ -270,9 +270,12 @@ class RawLabPro:
 		chunklen=2*points+1
 		s=''
 		empties=0
-		while(empties<5 and len(s)<chunklen):
-			time.sleep(0.1)
+		maxloops=int(max_wait_time/loop_sleep_time)
+		while(empties<maxloops and len(s)<chunklen):
+			time.sleep(loop_sleep_time)
 			newdata=self.read(chunklen-len(s))
+			if not s and newdata:
+				self.data_transmission_start=time.time() #remember when transmission started, in case someone cares
 			s+=newdata
 			if newdata:
 				empties=0
