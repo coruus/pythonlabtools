@@ -1,6 +1,6 @@
 "LabPro_USB supports connections of the Vernier LabPro system via USB"
 
-_rcsid="$Id: LabPro_USB.py,v 1.9 2003-06-20 22:00:03 mendenhall Exp $"
+_rcsid="$Id: LabPro_USB.py,v 1.10 2003-07-11 19:32:47 mendenhall Exp $"
 
 import LabPro
 from LabPro import RawLabPro, LabProError, _bigendian
@@ -198,6 +198,16 @@ class LabPro_Mac_USB(USB_data_mixin, USB_Mac_mixin, RawLabPro):
 		self.device_index=device_index
 		RawLabPro.__init__(self,'')
 
+class USB_libusb_mixin(USB_Mac_mixin):
+	"mixin class for RawLabPro to allow operation of LabPro via USB port on machines supporting libusb using pipe server"
+	
+	server_executable_path=os.path.join(os.path.dirname(__file__),"LabProUSBServer")
+
+class LabPro_USB(USB_data_mixin, USB_libusb_mixin, RawLabPro):
+	def __init__(self, device_index=1):
+		self.device_index=device_index
+		RawLabPro.__init__(self,'')
+
 if __name__=='__main__':
 	
 	class LabProData(Exception):
@@ -206,7 +216,7 @@ if __name__=='__main__':
 	def monitor_humidity(filepath="/Users/marcus/Public/humidity.txt", sample_period=30.0):
 		
 		badloops=0
-		lp=LabPro_Mac_USB()
+		lp=LabPro_USB()
 		
 		try:	
 			lp.wake()
@@ -283,7 +293,7 @@ if __name__=='__main__':
 	
 	def rt_test():
 		badloops=0
-		lp=LabPro_Mac_USB(1)
+		lp=LabPro_USB(1)
 		
 		try:	
 			lp.wake()
