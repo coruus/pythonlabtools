@@ -1,3 +1,5 @@
+"Fit the derivative of a Gaussian to a data set.  Mostly an example of using fitting_toolkit.py"
+#$Id: gauss_deriv_fit.py,v 1.2 2003-04-11 18:06:16 mendenhall Exp $
 
 import fitting_toolkit
 import Numeric

@@ -1,4 +1,5 @@
-#cubic spline handling
+"""cubic spline handling, in a manner compatible with the API in Numeric Recipes"""
+#$Id: spline.py,v 1.2 2003-04-11 18:06:16 mendenhall Exp $
 
 import exceptions
 

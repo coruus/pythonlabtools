@@ -1,4 +1,5 @@
 """Miscellaneous utilities for python interaction with ImageJ"""
+#$Id: ImageJ_utilities.py,v 1.2 2003-04-11 18:06:14 mendenhall Exp $
 
 def read_ImageJ_measurement_file(file, maxlen=1000000):
 	"Read a measurements file from ImageJ, and return a dictionary mapping columns names to numbers, a list of column names, and a table of the data provided"

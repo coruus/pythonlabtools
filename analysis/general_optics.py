@@ -1,3 +1,11 @@
+"""Compute the properties of a diffracting TEM00 Gaussian beam as it passes through an optical system.
+This provides utilities to enable the user to lay out a complete optical bench, with mirrors, lenses,
+diffraction gratings, etc., and run a laser beam through it.  
+It correctly handles off-axis optics of most types (tilted lenses & mirrors, e.g.).
+It has been used to model a 10 Joule Nd:Glass CPA system at Vanderbilt University, for example
+"""
+#$Id: general_optics.py,v 1.2 2003-04-11 18:06:16 mendenhall Exp $
+
 from math import *
 import math
 import Numeric

@@ -1,3 +1,6 @@
+"""A shakedown application for the use of the dstp server.  Maybe out of date"
+#$Id: dstp_data_fit.py,v 1.2 2003-04-11 18:06:15 mendenhall Exp $
+
 import sys
 import os
 

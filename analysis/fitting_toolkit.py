@@ -1,5 +1,7 @@
 """Hessian and Levenberg-Marquardt Curve Fitting Package with resampling capability
 
+$Id: fitting_toolkit.py,v 1.2 2003-04-11 18:06:16 mendenhall Exp $
+
 Revised 6 December, 2002
 
 This is loosely derived from the information in 'Numerical Recipes' 2nd Ed. by Press, Flannery, Teukolsky and Vetterling.

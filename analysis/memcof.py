@@ -1,3 +1,8 @@
+"""Compute maximum entropy coefficients for data. Based loosely on the the
+concepts in "Numerical Recipes in C", 2nd ed., by Press, Flannery, Teukolsky and Vetterling (q.v.)
+but I don't think it is any copyright infringement"""
+#$Id: memcof.py,v 1.2 2003-04-11 18:06:16 mendenhall Exp $
+
 import Numeric
 import math
 
