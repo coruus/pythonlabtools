@@ -1,7 +1,7 @@
 """LabPro supports communications with the Vernier Instruments (www.vernier.com) LabPro Module
 over a serial line"""
 
-_rcsid="$Id: LabPro.py,v 1.8 2003-05-25 20:06:28 mendenhall Exp $"
+_rcsid="$Id: LabPro.py,v 1.9 2003-05-27 17:17:16 mendenhall Exp $"
 
 import time
 import Numeric
@@ -205,16 +205,19 @@ class LabPro:
 				self.flash_led('yellow', 0.25)
 			try:
 				state=self.get_system_config()
-				misses=0
-				if state['error']:
-					raise LabProError(state['error'])
-				syst=state['system state'] & 7
-				if syst==1:
-					raise LabProError('Waiting for data when none being collected')
-				if syst==4:
-					break #all done
 			except:
 				misses+=1
+				continue
+			
+			misses=0
+			if state['error']:
+				raise LabProError(state['error'])
+			syst=state['system state'] & 7
+			if syst==1:
+				raise LabProError('Waiting for data when none being collected')
+			if syst==4:
+				break #all done
+	
 		if misses:
 			raise LabProError("5 consecutives retry failures in wait_for_data_done()... bailing out")
 		
