@@ -1,7 +1,7 @@
 """LabPro supports communications with the Vernier Instruments (www.vernier.com) LabPro Module
 over a serial line"""
 
-rcsid="$Id: LabPro.py,v 1.3 2003-05-24 01:37:04 mendenhall Exp $"
+rcsid="$Id: LabPro.py,v 1.4 2003-05-24 14:39:03 mendenhall Exp $"
 
 import time
 import Numeric
@@ -18,8 +18,16 @@ class LabProError(Exception):
 	"general class for LabPro Errors"
 	pass
 
-class LabProTimeout(LabProError):
+class LabProTransientError(LabProError):
 	"class for LabPro transient errors, which might be recoverable"
+	pass
+		
+class LabProTimeout(LabProTransientError):
+	"class for timeouts"
+	pass
+
+class LabProDataError(LabProTransientError):
+	"class for badly formatted data, may be recoverable on a retry"
 	pass
 	
 def init_port_memory():
@@ -51,7 +59,6 @@ class LabPro:
 			'analog_output':401, 'led':1998}
 
 	def __init__(self, port_name, highspeed=0):
-		
 		init_port_memory()
 		self.setup_serial(port_name)
 		self.__saved_realtime_frag=''
@@ -62,7 +69,15 @@ class LabPro:
 			remember_highspeed_port(port_name)
 		self.wake()
 		self.wake()
-
+		for i in range(3): #try to wake up comunications by getting one good interchange
+			try:
+				config=self.get_system_config()
+			except:
+				if i==2: raise #last try failed, allow exception out
+			else:
+				print config
+				break #transfer worked, all done
+			
 	def close(self):
 		self.serial_read_port.close()
 		if self.serial_write_port != self.serial_read_port:
@@ -86,39 +101,54 @@ class LabPro:
 		self.set_port_params(baud=termios.B115200) #should work now, since it worked before
 		time.sleep(0.1)
 
+	def write(self, data):
+		"override this if communication is not over normal serial"
+		self.serial_write_port.write(data)
+	
+	def read(self, maxlen=None):
+		"override this as for write()"
+		if maxlen is None:
+			return self.serial_read_port.read()
+		else:
+			return self.serial_read_port.read(maxlen)
+			
 	def high_speed_setup(self):
 		"use this to command the LabPro up to high speed, then switch the serial up. Do not use if it has already been commanded!"
-		self.serial_write_port.write('s\rs\rs\rs\r')
+		self.write('s\rs\rs\rs\r')
 		self.command('baudrate',115)
 		self.command('baudrate',115)
 		self.command('baudrate',115)
 		time.sleep(0.5)
-		self.serial_read_port.read()
+		self.read()
 		self.high_speed_serial()
-		self.serial_write_port.write('s\rs\rs\rs\r')
+		self.write('s\rs\rs\rs\r')
 		self.command('baudrate',115)
 		self.command('baudrate',115)
 		self.command('baudrate',115)
-		self.serial_read_port.read()
+		self.read()
 		
-	def send_string(self, s='s'):
-		self.serial_write_port.write(s+'\r')
+	def send_string(self, s='s', delay=0.05):
+		self.write(s+'\r')
 		#termios.tcdrain(self.serial_write_port)
-		time.sleep(0.05)
+		time.sleep(delay)
 		
-	def command(self, name, *parms):	
+	def command(self, name, *parms, **kwargs):	
 		s='s{%d' %  self.commands[name]
 		for p in parms:
 			s=s+','+str(p)
 		s=s+'}'
-		self.send_string(s)
+		try:
+			delay=kwargs['delay']
+		except:
+			delay=0.05
+		self.send_string(s, delay)
 	
 	def read_ascii_response(self):
 		str=''
 		empties=0
 		while(empties < 5 and str[-3:]!='}\r\n'):
 			time.sleep(.1)
-			newdata=self.serial_read_port.read()
+			newdata=self.read()
 			str+=newdata
 			if newdata:
 				empties=0
@@ -127,18 +157,17 @@ class LabPro:
 		if empties: #last result must have gotten data, so empties should be zero
 			raise LabProTimeout('timeout getting ascii data, current result: '+repr(str))		
 		goodstart=str.find('{')
-		assert goodstart>=0, 'bad ascii data: '+repr(str)
+		if goodstart<0:
+			raise LabProDataError('bad ascii data: '+repr(str))
 		return map(float,str[goodstart+1:-3].split(','))
 
 
 	def reset(self):
 		self.send_string('s')
-		self.command('reset')
-		time.sleep(0.25) #extra-long sleep
-
+		self.command('reset', delay=0.25)
 
 	def wake(self):
-		self.send_string('s')
+		self.send_string('s', delay=0.01)
 
 	def get_system_config(self):
 		self.command('request_system_status')
@@ -164,8 +193,7 @@ class LabPro:
 		self.__saved_realtime_frag='' #just for safety
 		self.command('data_collection_setup', 
 				samptime, numpoints, trigtype, trigchan, trigthresh, prestore, 0, 
-				rectime, filter, fastmode)
-		time.sleep(0.1) #a little time to get started
+				rectime, filter, fastmode, delay=0.1)
 		
 	def setup_channel(self, chan=0, operation=1, postproc=0, equation=0):
 		self.command('channel_setup', chan, operation, postproc, equation)
@@ -193,7 +221,7 @@ class LabPro:
 		s=self.__saved_realtime_frag
 		while(s.find('}\r\n') < 0):
 			time.sleep(0.1)
-			s=s+self.serial_read_port.read()
+			s=s+self.read()
 			if not s:
 				return [] #no data if string is still blank
 		sl=s.split('}\r\n')
@@ -206,11 +234,11 @@ class LabPro:
 	def binary_mode(self):
 		self.command('conversion_equation_setup', 0,-1)
 
-
 	def parse_binary(self, data, channels, chunklen):
 		#print repr(data)
 		chk=reduce(lambda x,y: x^y, array.array('B',data))
-		assert chk ==0 or chk==0xff, "Bad checksum on string: "+('%02x '%chk)+repr(data)
+		if (chk!=0 and chk!=0xff):
+			raise LabProDataError("Bad checksum on string: "+('%02x '%chk)+repr(data))
 		format='>'+channels*'H'+'L' #data+time+check
 		l=[struct.unpack(format,data[i:i+chunklen-1]) for i in range(0,len(data), chunklen)]
 		return l
@@ -220,7 +248,7 @@ class LabPro:
 		chunklen=2*channels+5 #data+timestamp(4 bytes)+chkbyte
 		while(len(s)<chunklen):
 			time.sleep(0.2)
-			s=s+self.serial_read_port.read()
+			s=s+self.read()
 			if not s:
 				return [] #no data if string is still blank
 		leftovers=len(s) % chunklen
@@ -246,7 +274,7 @@ class LabPro:
 		empties=0
 		while(empties<5 and len(s)<chunklen):
 			time.sleep(0.1)
-			newdata=self.serial_read_port.read(chunklen-len(s))
+			newdata=self.read(chunklen-len(s))
 			s+=newdata
 			if newdata:
 				empties=0
@@ -258,7 +286,7 @@ class LabPro:
 			
 		chk=reduce(lambda x,y: x^y, array.array('B',s))
 		if not (chk ==0 or chk==0xff):
-			raise LabProError( "Bad checksum on string: "+('%02x '%chk)+repr(s[:100]))
+			raise LabProDataError( "Bad checksum on string: "+('%02x '%chk)+repr(s[:100]))
 		data=array.array('H')
 		data.fromstring(s[:-1])
 		if not _bigendian:
@@ -269,13 +297,12 @@ class LabPro:
 			return self.scale_binary_data(data, scaled_range) 
 	
 	def stop(self):
-		self.command('system_setup',0)
-		time.sleep(0.25)
+		self.command('system_setup',0, delay=0.25)
 		
 	def get_current_channel_data(self, channel=1):
 		self.command('request_channel_data', channel, 0)
 		self.send_string('g')
-		returnself.read_ascii_response()[0]
+		return self.read_ascii_response()[0]
 
 	def get_channel_setup(self, channel=1):
 		self.command('request_channel_setup', channel)
@@ -292,7 +319,10 @@ class LabPro:
 		return dict 
 
 	def analog_output(self, waveform='dc', center=0.0, amplitude=1.0, period_sec=1.0):
-		if waveform=='dc':
+		if waveform=='off':
+			self.command('analog_output',0,0,0,0)
+			return			
+		elif waveform=='dc':
 			mode=1
 			if center>=0.0:
 				offset=0
@@ -309,21 +339,29 @@ class LabPro:
 			ampl=int(0.5+amplitude/0.0012)
 			offset=int(0.5+(amplitude*0.5-center)/0.0006)
 	
-		self.command('analog_output', mode, ampl, offset, int(1000.0*period_sec))
+		self.command('analog_output', mode, ampl, offset, int(1000.0*period_sec), delay=0.1)
 
-	def analog_output_off():
+	def analog_output_off(self):
 		self.command('analog_output',0,0,0,0)
 
 	ledcolors={'red':1, 'yellow':2, 'green':3}
 	
 	def set_led(self, color='red', state=1):
 		led=self.ledcolors[color.lower()]
-		self.command('led', led, state)
+		self.command('led', led, state, delay=0.01)
 	
 	def flash_led(self, color='green', flashtime=0.5):
 		self.set_led(color,1)
 		time.sleep(flashtime)
 		self.set_led(color,0)
+	
+	def pattern_led(self,pattern, delay=0.0):
+		for ops in pattern:
+			self.set_led(ops[0],ops[1])
+			time.sleep(delay)
+			
+	red_green_ripple=(
+		('red',1),('yellow',1),('red',0),('green',1),('yellow',0),('green',0))
 		
 if __name__=='__main__':
 	if sys.platform=="darwin":
