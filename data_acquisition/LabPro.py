@@ -1,7 +1,7 @@
 """LabPro supports communications with the Vernier Instruments (www.vernier.com) LabPro Module
 over a serial line"""
 
-rcsid="$Id: LabPro.py,v 1.1 2003-05-23 17:40:28 mendenhall Exp $"
+rcsid="$Id: LabPro.py,v 1.2 2003-05-23 22:20:21 mendenhall Exp $"
 
 import time
 import Numeric
@@ -40,7 +40,8 @@ def unset_highspeed_port(port_name):
 def remember_highspeed_port(port_name):
 	"mark a  LabPro as already being set for high-speed operation"
 	init_port_memory()
-	_highspeedports.append(port_name)
+	if port_name not in _highspeedports:
+		_highspeedports.append(port_name)
 		
 class LabPro:
 	commands={'reset':0, 'channel_setup':1, 'data_collection_setup':3, 
@@ -62,6 +63,15 @@ class LabPro:
 			remember_highspeed_port(port_name)
 		self.wake()
 		self.wake()
+
+	def reset_highspeed_serial(self):
+		self.__highspeed=0
+
+	def close(self):
+		self.serial_read_port.close()
+		if self.serial_write_port != self.serial_read_port:
+			self.serial_write_port.close()
+		
 		
 	def set_port_params(self, baud=termios.B38400):
 		port=self.serial_read_port
@@ -72,8 +82,9 @@ class LabPro:
 		termios.tcsetattr(port, termios.TCSADRAIN, attrs)
 	
 	def setup_serial(self, port_name):
-		self.serial_write_port=port=open(port_name,"wb", 0)
-		self.serial_read_port=open(port_name,"rb", 16384)
+		self.serial_write_port=port=open(port_name,"r+" , 16384)
+		self.serial_read_port=self.serial_write_port
+		
 		self.set_port_params() #setup default port
 	
 	def high_speed_serial(self):
@@ -93,12 +104,12 @@ class LabPro:
 		self.wake()
 		self.command('baudrate',115)
 		time.sleep(0.5)
-		self.serial_read_port.read(10)
+		self.serial_read_port.read()
 		self.high_speed_serial()
 		
 	def send_string(self, s='s'):
 		self.serial_write_port.write(s+'\r')
-		termios.tcdrain(self.serial_write_port)
+		#termios.tcdrain(self.serial_write_port)
 		time.sleep(0.05)
 		
 	def command(self, name, *parms):	
@@ -113,7 +124,7 @@ class LabPro:
 		empties=0
 		while(empties < 5 and str[-3:]!='}\r\n'):
 			time.sleep(.1)
-			newdata=self.serial_read_port.read(1000)
+			newdata=self.serial_read_port.read()
 			str+=newdata
 			if newdata:
 				empties=0
@@ -132,13 +143,6 @@ class LabPro:
 		time.sleep(0.25) #extra-long sleep
 
 
-	def reset_highspeed_serial(self):
-		self.__highspeed=0
-
-	def close(self):
-		self.serial_read_port.close()
-		self.serial_write_port.close()
-		
 	def wake(self):
 		self.send_string('s')
 
@@ -163,10 +167,11 @@ class LabPro:
 
 	def setup_data_collection(self, samptime=0.1, numpoints=100, trigtype=0, trigchan=0,
 			trigthresh=0.0, prestore=0, rectime=0, filter=0, fastmode=0):
-		self.__save_realtime_frag='' #just for safety
+		self.__saved_realtime_frag='' #just for safety
 		self.command('data_collection_setup', 
 				samptime, numpoints, trigtype, trigchan, trigthresh, prestore, 0, 
 				rectime, filter, fastmode)
+		time.sleep(0.1) #a little time to get started
 		
 	def setup_channel(self, chan=0, operation=1, postproc=0, equation=0):
 		self.command('channel_setup', chan, operation, postproc, equation)
@@ -185,16 +190,16 @@ class LabPro:
 				break #all done
 		return state['sample count']
 
-	def labpro_get_data_ascii(self, chan=0):
-		labpro_command('data_control',chan,0,0,0,1)
-		labpro_send_string('g')
+	def get_data_ascii(self, chan=0):
+		self.command('data_control',chan,0,0,0,1)
+		self.send_string('g')
 		return self.read_ascii_response()
 
-	def labpro_get_data_ascii_realtime():
+	def get_data_ascii_realtime(self):
 		s=self.__saved_realtime_frag
 		while(s.find('}\r\n') < 0):
 			time.sleep(0.1)
-			s=s+serial_read_port.read()
+			s=s+self.serial_read_port.read()
 			if not s:
 				return [] #no data if string is still blank
 		sl=s.split('}\r\n')
@@ -220,7 +225,7 @@ class LabPro:
 		s=self.__saved_realtime_frag
 		chunklen=2*channels+5 #data+timestamp(4 bytes)+chkbyte
 		while(len(s)<chunklen):
-			time.sleep(0.1)
+			time.sleep(0.2)
 			s=s+self.serial_read_port.read()
 			if not s:
 				return [] #no data if string is still blank
@@ -271,7 +276,8 @@ class LabPro:
 	
 	def stop(self):
 		self.command('system_setup',0)
-
+		time.sleep(0.25)
+		
 	def get_current_channel_data(self, channel=1):
 		self.command('request_channel_data', channel, 0)
 		self.send_string('g')
