@@ -1,7 +1,7 @@
 """LabPro supports communications with the Vernier Instruments (www.vernier.com) LabPro Module
 over a serial line"""
 
-_rcsid="$Id: LabPro.py,v 1.20 2003-07-09 18:06:47 mendenhall Exp $"
+_rcsid="$Id: LabPro.py,v 1.21 2003-07-10 13:46:03 mendenhall Exp $"
 
 import time
 import Numeric
@@ -542,31 +542,6 @@ except: #apparently vxi-11 e5810 serial support can't be found, just ignore
 	pass
 
 if __name__=='__main__':
-	if sys.platform=="darwin":
-		if not "/sw/bin" in os.environ["PATH"]:
-			os.environ["PATH"]=os.environ["PATH"]+":/sw/bin/"
-		if not "DISPLAY" in os.environ:
-			os.environ["DISPLAY"]=":0.0" #in case we want to use X and haven't set it up.
-		
-	from pyx import *
-	class graphxy(graph.graphxy):
-		" a local pyx.graph.graphxy with some extra housekeeping and a spare copy of LaTeX"
-		def __init__(self, **kwargs):
-			graph.graphxy.__init__(self,**kwargs)
-			self.settexrunner(text.texrunner(mode='tex'))
-			self.latex=text.texrunner(mode='latex')
-			
-		def display(self, file):
-			self.writetofile(file)
-			os.system('rm %s.* %s.*' % (self.texrunner.texfilename, self.latex.texfilename) )
-					
-			if sys.platform=='darwin': #use pdf display with open on Mac
-				os.system("epstopdf %s.eps;rm %s.eps;open %s.pdf"% (3*(file,)))
-			else:
-				os.system("gv %s.eps &"%file)
-	
-		def latex_text(self, *args):
-			self.insert(self.latex.text(*args))
 	
 	def try_labpro(binary=1):
 		
