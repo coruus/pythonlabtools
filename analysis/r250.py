@@ -1,11 +1,10 @@
 """
-
-$Id: r250.py,v 1.2 2003-04-11 18:06:16 mendenhall Exp $
-
 r-250 random number generator... VERY fast, high quality random bit strings and floats
 implemented by Marcus Mendenhall, Vanderbilt University Free Electron Laser Center, nashville, TN USA
 Public Domain
 December, 2002
+
+$Id: r250.py,v 1.3 2003-04-11 18:39:41 mendenhall Exp $
 
 The code which follows is a pythonization of code derived from the following two sources:
 	
