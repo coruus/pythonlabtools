@@ -1,7 +1,8 @@
 """cubic spline handling, in a manner compatible with the API in Numeric Recipes"""
-_rcsid="$Id: spline.py,v 1.18 2003-11-04 15:24:25 mendenhall Exp $"
+_rcsid="$Id: spline.py,v 1.19 2003-11-04 19:03:18 mendenhall Exp $"
 
-__all__=["spline","splint","cubeinterpolate","RangeError"]
+__all__=["spline","splint","cubeinterpolate","RangeError",
+Ê"spline_extension", "spline_extrapolate", "approximate_least_squares_spline" ]
 
 class RangeError(IndexError):
 	"X out of input range in splint()"
