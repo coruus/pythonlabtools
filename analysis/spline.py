@@ -1,5 +1,5 @@
 """cubic spline handling, in a manner compatible with the API in Numeric Recipes"""
-_rcsid="$Id: spline.py,v 1.11 2003-10-14 16:26:00 mendenhall Exp $"
+_rcsid="$Id: spline.py,v 1.12 2003-10-20 21:16:27 mendenhall Exp $"
 
 __all__=["spline","splint","cubeinterpolate","RangeError"]
 
@@ -56,13 +56,12 @@ def spline(x, y, yp1=None, ypn=None):
 
 import types
 
-def splint(xa, ya, y2a, x):
-	"""splint(x_vals, y_vals, y2_vals, x) returns the interpolated from from the spline
+def splint(xa, ya, y2a, x, allow_extrapolation=0):
+	"""splint(x_vals, y_vals, y2_vals, x, allow_extrapolation=0) returns the interpolated from from the spline
 	x can either be a scalar or a listable item, in which case a Numeric Float array will be
-	returned and the multiple interpolations will be done somewhat more efficiently if the
-	array is in reasonable order"""
+	returned and the multiple interpolations will be done somewhat more efficiently."""
 	if type(x) is types.IntType or type(x) is types.FloatType: 
-		if x<xa[0] or x>xa[-1]:
+		if not allow_extrapolation and (x<xa[0] or x>xa[-1]):
 			raise RangeError, "%f not in range (%f, %f) in splint()" % (x, xa[0], xa[-1])
 			 
 		khi=max(searchsorted(xa,x),1)
@@ -72,7 +71,7 @@ def splint(xa, ya, y2a, x):
 		return a*ya[klo]+b*ya[khi]+((a*a*a-a)*y2a[klo]+(b*b*b-b)*y2a[khi])*(h*h)/6.0
 	else:
 		#if we got here, we are processing a list, and should do so more efficiently
-		if min(x)<xa[0] or max(x)>xa[-1]:
+		if not allow_extrapolation and (min(x)<xa[0] or max(x)>xa[-1]):
 			raise RangeError, "(%f, %f) not in range (%f, %f) in splint()" % (min(x), max(x), xa[0], xa[-1])
 	
 		npoints=len(x)
