@@ -1,6 +1,6 @@
 /* serve up USB data from a Measurement Computing USB device using libusb on MacOSX, Linux or *BSD */
 
-static char rcsid[]="RCSID $Id: MeasurementComputingServer.c,v 1.3 2003-11-19 18:12:26 mendenhall Exp $";
+static char rcsid[]="RCSID $Id: MeasurementComputingServer.c,v 1.4 2003-11-20 21:31:05 mendenhall Exp $";
 
 /* 
 requires libusb or libusb-win32 (from www.sourceforge.net) installed 
@@ -205,7 +205,7 @@ int read_feature_report(usb_dev_handle *udev, int readlen, int index)
 	count=0;
 	start_time=time(NULL);
 	err=usb_control_msg(udev, USBmakebmRequestType(kUSBIn, kUSBClass, kUSBInterface), kHIDRqGetReport,
-				HIDMgr2USBReportType(kHIDRtFeatureReport), index, datastruct.inBuf, readlen, 2000);
+				HIDMgr2USBReportType(kHIDRtFeatureReport), index, datastruct.inBuf, readlen, 200);
 
 #if DEBUG
 	fprintf(stderr, "get feature error code %08lx\n", err);
@@ -245,7 +245,7 @@ int pass_output(usb_dev_handle *udev, int readlen)
 	datastruct.blockflag=0x00ffffff; /* make it easy to find timestamps in data */
 	count=0;
 	start_time=time(NULL);
-	count = usb_bulk_read(udev, USB_ENDPOINT_IN | 1 , datastruct.inBuf, readlen, 1000);
+	count = usb_bulk_read(udev, USB_ENDPOINT_IN | 1 , datastruct.inBuf, readlen, 200);
 #if DEBUG
 	fprintf(stderr, "read %d bytes\n", count);
 	fflush(stderr);
