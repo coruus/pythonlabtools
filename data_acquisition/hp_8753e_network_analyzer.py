@@ -1,5 +1,5 @@
-"A basic wrapper for some of the more useful external fuctionality for the Hewlett-Packard / Agilent 8753E-class Network Analyzers"
-_rcsid="$Id: hp_8753e_network_analyzer.py,v 1.1 2003-08-06 18:22:29 mendenhall Exp $"
+"A basic wrapper for some of the more useful external functionality for the Hewlett-Packard / Agilent 8753E-class Network Analyzers"
+_rcsid="$Id: hp_8753e_network_analyzer.py,v 1.2 2003-08-06 22:30:39 mendenhall Exp $"
 
 from vxi_11 import vxi_11_connection
 import struct
@@ -60,7 +60,7 @@ class hp_8753e(vxi_11_connection):
 		self.write("TIMDTRAN OFF;")
 
 	def recall_setup(self, setup_reg):
-		self.write("RECAREG %d;" % setup_reg)
+		self.write("RECAREG%02d;" % setup_reg)
 		self.check_errors()
 	
 	def get_converted_data(self, command):
@@ -105,19 +105,28 @@ class hp_8753e(vxi_11_connection):
 		linf, logf, transform = [int(info[i]) for i in [3,4,5]] 
 		fpoints, start, stop = [float(info[i]) for i in [0, 1,2]]
 		points=int(fpoints)
-		
 		basearray=Numeric.array(range(points), Numeric.Float)*(1.0/(points-1)) #array on [0,1]
 		
 		if transform or linf:
 			return basearray*(stop-start)+start
-		else:
+		elif logf:
 			return Numeric.exp(basearray*Numeric.log(stop/start))*start
+		else:
+			raise HP8753_Error("Unknown x-axis mode... not linear, log, or time, and I don't handle segments yet")
+			
 							
 if __name__=='__main__':
 	from pyx import *
 	import os
 	import sys
+	import FFT
 	
+	def unitgauss(sigmac):	
+		convolver=Numeric.array(range(int(4*sigmac)), Numeric.Float)
+		convolver=Numeric.exp((convolver*convolver)*(-1.0/(2.0*sigmac*sigmac)))
+		convolver=Numeric.concatenate((convolver[-1:0:-1],convolver))
+		return convolver
+
 	class graphxy(graph.graphxy):
 		" a local pyx.graph.graphxy with some extra housekeeping and a spare copy of LaTeX"
 		def __init__(self, **kwargs):
@@ -143,21 +152,19 @@ if __name__=='__main__':
 	print analyzer.idn	
 	analyzer.lock()
 	try:
-		analyzer.setup_simple_sweep(min=1e6,max=6e9, sweeptype='lin', power=10.0)
+		analyzer.setup_simple_sweep(min=1e7,max=6e9, sweeptype='lin', power=10.0)
 		analyzer.write("S11;")
-		analyzer.enable_transform(tmin=-5e-9, tmax=15e-9, mode='impulse')
+		analyzer.enable_transform(tmin=-10e-9, tmax=300e-9, mode='impulse')
 		analyzer.check_errors()
-		cv=analyzer.get_real_display_data()
-		
+		timedata=analyzer.get_real_display_data()
 		xaxis=analyzer.generate_xaxis_data()*1e9
-		g=graphxy(width=30,x=graph.linaxis(title='time (ns)', min=-5, max=15), y=graph.linaxis())
-		g.plot(graph.data(data.data(zip(xaxis, cv)),x=0,y=1), graph.line())
-		g.texrunner.settex(lfs='foils17pt')
-		g.display('test')
 		
-		
+		analyzer.disable_transform()
+		spectrum=analyzer.get_complex_data()
+		freqaxis=analyzer.generate_xaxis_data()
 		
 	finally:
 		analyzer.unlock()
 		del analyzer
 	
+
