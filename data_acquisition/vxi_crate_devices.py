@@ -1,6 +1,6 @@
 """Setups for many of the devices used in the Vanderbilt University Free-Electron laser Center VXI crate.
 Useful to the public as drivers for some specific devices, plus lots of exemplary boilerplate"""
-#$Id: vxi_crate_devices.py,v 1.2 2003-04-11 17:51:04 mendenhall Exp $
+#$Id: vxi_crate_devices.py,v 1.3 2003-04-13 22:52:03 mendenhall Exp $
 
 import vxi_11 
 from vxi_11 import vxi_11_connection, device_thread
@@ -454,7 +454,7 @@ class thermometers(scanning_voltmeter):
 	default_lock_timeout=2000
 	
 	def __init__(self, slot=7):
-		e1411a.__init__(self, slot, "multimeter/thermometer")
+		scanning_voltmeter.__init__(self, slot, "multimeter/thermometer")
 
 
 class glue(vxi_crate_device, tagged_data.dio_device):
