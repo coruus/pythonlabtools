@@ -1,6 +1,6 @@
 /* serve up USB data from a Vernier LabPro device attached via USB using libusb on MacOSX, Linux or *BSD */
 
-static char rcsid[]="RCSID $Id: LabProlibusbServer.c,v 1.9 2003-10-16 18:55:04 mendenhall Exp $";
+static char rcsid[]="RCSID $Id: LabProlibusbServer.c,v 1.10 2003-11-06 19:56:47 mendenhall Exp $";
 
 /* 
 requires libusb (from www.sourceforge.net) installed 
@@ -84,16 +84,22 @@ int pass_output(usb_dev_handle *udev)
 	const unsigned int retbufsize=64; /* LabPro always transfers 64 bytes blocks */
 	struct { int blockflag; struct timeval tv; char inBuf[retbufsize];} datastruct;
 	struct timezone tz;
+	time_t start_time, stop_time;
 	
 	datastruct.blockflag=0x00ffffff; /* make it easy to find timestamps in data */
 	
 	while(keep_running) {
 		count=0;
-		count = usb_bulk_read(udev, USB_ENDPOINT_IN | 2 , datastruct.inBuf, retbufsize, 0);
-		
+		start_time=time(NULL);
+		count = usb_bulk_read(udev, USB_ENDPOINT_IN | 2 , datastruct.inBuf, retbufsize, 1000000);
 		if (keep_running && count != retbufsize) {
-			fprintf(stderr, "read error: %s\n", usb_strerror());
-			break;
+			stop_time=time(NULL);
+			if(stop_time-start_time < 1000) {
+				/* timeouts are 1000 seconds (1000000 milliseconds), so if we fail after this long, it's
+					probably a timeout */
+				fprintf(stderr, "read error: %s\n", usb_strerror());
+				break;
+			} else continue;
 		} 
 		if(keep_running) {
 			if(use_time_stamps) {
@@ -112,16 +118,19 @@ int pass_output(usb_dev_handle *udev)
 
 void dealWithDevice(struct usb_device *dev, usb_dev_handle *udev)
 {
-	int err;
+	int err=1,i;
 	pthread_t input_thread, output_thread;
 	void *thread_retval;
 	
-	err=usb_claim_interface(udev, 0);
-    if (err)
-    {
+	/* sometime other processes may be probing the LabPro just when we try to claim it, so try a few times */
+	for(i=0; i<3 || err; i++) {	
+		err=usb_claim_interface(udev, 0);
+		if(err) sleep(1);
+	}
+	if (err) {
 		fprintf(stderr, "error: %s\n", usb_strerror());
-	return;
-    }
+		return;
+	}
 	
 	if (dev->config) {
 		/* this is what should be done, but the LabPro has no descriptors, so we will set the value to 1 if dev->config is NULL */
