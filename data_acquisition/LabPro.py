@@ -1,7 +1,7 @@
 """LabPro supports communications with the Vernier Instruments (www.vernier.com) LabPro Module
 over a serial line"""
 
-_rcsid="$Id: LabPro.py,v 1.21 2003-07-10 13:46:03 mendenhall Exp $"
+_rcsid="$Id: LabPro.py,v 1.22 2003-07-16 16:22:46 mendenhall Exp $"
 
 import time
 import Numeric
@@ -237,7 +237,9 @@ class RawLabPro:
 		if (chk!=0 and chk!=0xff):
 			raise LabProDataError("Bad checksum on string: "+('%02x '%chk)+repr(data))
 		format='>'+channels*'H'+'L' #data+time+check
-		l=[struct.unpack(format,data[i:i+chunklen-1]) for i in range(0,len(data), chunklen)]
+		l=[list(struct.unpack(format,data[i:i+chunklen-1])) for i in range(0,len(data), chunklen)]
+		for i in l:
+			i[-1]*=0.0001 #convert time code to seconds
 		return l
 		
 	def get_data_binary_realtime(self, channels=1):
