@@ -1,12 +1,12 @@
 """cubic spline handling, in a manner compatible with the API in Numeric Recipes"""
-_rcsid="$Id: spline.py,v 1.3 2003-05-30 13:31:56 mendenhall Exp $"
+_rcsid="$Id: spline.py,v 1.4 2003-06-11 14:30:39 mendenhall Exp $"
 
 import exceptions
 
 class RangeError(exceptions.IndexError):
 	"X out of input range in splint()"
 
-from Numeric import zeros, Float, searchsorted, array
+from Numeric import zeros, Float, searchsorted, array, asarray
 
 def spline(x, y, yp1=None, ypn=None):
 	"""spline(x_vals,y_vals, yp1=None, ypn=None) 
@@ -16,25 +16,36 @@ def spline(x, y, yp1=None, ypn=None):
 	u=zeros(n,Float)
 	y2=zeros(n,Float)
 	
+	x=asarray(x, Float)
+	y=asarray(y, Float)
+	
+	dx=x[1:]-x[:-1]
+	dxi=1.0/dx
+	dx2i=1.0/(x[2:]-x[:-2])
+	dy=(y[1:]-y[:-1])
+	siga=dx[:-1]*dx2i
+	dydx=dy*dxi
+	
+	# u[i]=(y[i+1]-y[i])/float(x[i+1]-x[i]) - (y[i]-y[i-1])/float(x[i]-x[i-1])
+	u[1:-1]=dydx[1:]-dydx[:-1] #this is an incomplete rendering of u... the rest requires recursion in the loop
 	
 	if yp1 is None:
 		y2[0]=u[0]=0.0
 	else:
 		y2[0]= -0.5
-		u[0]=(3.0/(x[1]-x[0]))*( ((y[1]-y[0])/float(x[1]-x[0])) -yp1)
+		u[0]=(3.0*dxi[0])*(dy[0]*dxi[0] -yp1)
 
 	for i in range(1,n-1):
-		sig=(x[i]-x[i-1])/float(x[i+1]-x[i-1])
+		sig=siga[i-1]
 		p=sig*y2[i-1]+2.0
 		y2[i]=(sig-1.0)/p
-		u[i]=(y[i+1]-y[i])/float(x[i+1]-x[i]) - (y[i]-y[i-1])/float(x[i]-x[i-1])
-		u[i]=(6.0*u[i]/(x[i+1]-x[i-1]) - sig*u[i-1])/p
+		u[i]=(6.0*u[i]*dx2i[i-1] - sig*u[i-1])/p
 
 	if ypn is None:
 		qn=un=0.0
 	else:
 		qn= 0.5
-		un=(3.0/(x[-1]-x[-2]))*(ypn- ((y[-1]-y[-2])/float(x[-1]-x[-2])) )
+		un=(3.0*dxi[-1])*(ypn- dy[-1]*dxi[-1] )
 		
 	y2[-1]=(un-qn*u[-2])/(qn*y2[-2]+1.0)
 	for k in range(n-2,-1,-1):
@@ -88,7 +99,7 @@ if __name__=="__main__":
 	xlist=[i[0] for i in testlist]
 	ylist=[i[1] for i in testlist]
 	print "\n\nStarting splint tests...\n", testlist
-	y2=spline(xlist,ylist, yp1=10, ypn=0)
+	y2=spline(xlist,ylist, yp1=-5, ypn=10)
 	r=(0,1,2,3.5, 3.7, 4,6,7,2,8,9,10,11, 5, 12,13,14, 15)
 	v=splint(xlist, ylist, y2, r)	
 	print y2
