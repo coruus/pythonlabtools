@@ -1,6 +1,6 @@
 "LabPro_USB supports connections of the Vernier LabPro system via USB"
 
-_rcsid="$Id: LabPro_USB.py,v 1.12 2003-07-14 22:25:30 mendenhall Exp $"
+_rcsid="$Id: LabPro_USB.py,v 1.13 2003-07-15 17:03:15 mendenhall Exp $"
 
 import LabPro
 from LabPro import RawLabPro, LabProError, _bigendian
@@ -104,7 +104,7 @@ class USB_Mac_mixin:
 			firstmsg=''
 			badloops=0
 			while badloops<5  and not firstmsg:
-				time.sleep(0.1)
+				time.sleep(0.5) #some computers take along time to start the server
 				try:
 					firstmsg=self.usb_err.read()
 				except:
