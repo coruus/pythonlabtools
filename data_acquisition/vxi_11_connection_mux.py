@@ -1,6 +1,6 @@
 """connection_multiplexer allows dynamic opening and closing of vxi_11 connections to (probably low-priority) devices, 
 so a huge number of static connections isn't needed."""
-#$Id: vxi_11_connection_mux.py,v 1.3 2003-04-11 21:57:02 mendenhall Exp $
+#$Id: vxi_11_connection_mux.py,v 1.4 2003-04-16 20:39:09 mendenhall Exp $
 
 import vxi_11
 import time
@@ -99,7 +99,7 @@ class connection_mux:
 			lock.release()
 		
 	def release_all(self):
-		"really close all connections we are still holding"
+		"really close all connections we are still holding.  Why would we want to do this?"
 		for name in self.devices:
 			hostname, physical, params=self.devices[name]
 			host=self.hosts[hostname]
@@ -112,7 +112,7 @@ class connection_mux:
 					device.log_error("Attempt to release locked device from mux")
 				else:
 					try:
-						device.close()
+						device.disconnect()
 					except:
 						device.log_error("Cannot release device from mux!?")
 				del conns[physical]
