@@ -1,5 +1,5 @@
 "very useable National Instruments dstp protocol server"
-#$Id: dstp_async.py,v 1.2 2003-04-11 17:51:01 mendenhall Exp $
+#$Id: dstp_async.py,v 1.3 2003-04-14 14:22:23 mendenhall Exp $
 
 import socket
 import SocketServer
@@ -48,6 +48,7 @@ else:
 	DataServer=NATI_DSTP_DataServer		
 
 class DSTPServer(SocketServer.TCPServer, DataServer):
+	"DSTPServer is a class which creates a reasonably complete nati-dstp server"
 	connect_ip=''
 	connect_port=3015
 	allow_reuse_address=1
@@ -65,6 +66,9 @@ class DSTPServer(SocketServer.TCPServer, DataServer):
 		traceback.print_exc()
 
 	def verify_connection(self, request, client_address):
+		"""verify_connection() returns 1 if the client address as acceptable, otherwise returns 0. 
+		It is useful to limit connections to the server to only come from certain IPs or ranges.
+		Can be overridden to provide real service."""
 		return 1
 
 	def new_connection(self, sock):
