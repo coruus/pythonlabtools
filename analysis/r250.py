@@ -59,11 +59,19 @@ Heuer, Dunweg and Ferrenberg,
 by Marcus Mendenhall
                                                                 
 """
-_rcsid="$Id: r250.py,v 1.4 2003-05-30 13:31:55 mendenhall Exp $"
+_rcsid="$Id: r250.py,v 1.5 2003-11-04 17:58:16 mendenhall Exp $"
 
 import random
 import Numeric
 import math
+
+#test for NumPy array conversion bias where UnsignedInt32 -> Float is actually signed
+a=Numeric.array((-1,),Numeric.UnsignedInt32).astype(Numeric.Float)[0]
+if a<0.0:
+	_numpy_conversion_bias=1
+else:
+	_numpy_conversion_bias=0
+
 
 class ran_shift(random.Random):
 	"generate shift-register based high-quality randoms"	
@@ -73,13 +81,13 @@ class ran_shift(random.Random):
 		self.p=p
 		self.q=q
 		self.seed(seed)
-	
+			
 	def seed(self, seed=None):
 		"seed from the built in RNG python provides, and then scramble results a little"
 		random.Random.seed(self, seed)
-		self.ranbuf=Numeric.array([ 
-			(int(math.floor(random.random()*65536.0)) << 16) | int(math.floor(random.random()*65536.0)) for i in range(self.p)], 
-			Numeric.Int32)
+		seeds=[ 
+			int((long(math.floor(random.random()*65536.0)) << 16) | long(math.floor(random.random()*65536.0))) for i in range(self.p)]
+		self.ranbuf=Numeric.array(seeds, Numeric.UnsignedInt32)
 		for i in range(self.p): #scramble the dubious randoms from the default generator to start the system
 			self.regenerate()
 		
@@ -110,16 +118,16 @@ class ran_shift(random.Random):
 	def random(self):
 		"return a _really good_ double precision (52 bits significant) random on [0,1) (upper included bound = (1 - 2^-52) )"
 		q1, q2 = self.next(), self.next() #take 64 bits from the random pool
-		return float( ((long(q1)+2147483648L) << 32) | ( (long(q2)+2147483648L) & 0xfffff000L) ) *self.floatscale
+		return float( (long(q1) << 32) | ( long(q2) & 0xfffff000L) ) *self.floatscale
 
 	def single_float_random(self):
 		"return a good single-precision (32 bits significant) random on [0,1)  (upper included bound = (1 - 2^-32) )"
 		q1 = self.next() #take 32 bits from the random pool
-		return float(q1)*self.single_floatscale+0.5
+		return float(q1)*self.single_floatscale
 			
 	def fast_random_series(self, count):
 		"return a series of 32-bit ints. Most useful for count >> 250, since it wastes a lot of randoms, but is very fast"
-		results=Numeric.zeros(count, Numeric.Int32)
+		results=Numeric.zeros(count, Numeric.UnsignedInt32)
 		for i in range(count/self.p):
 			self.regenerate()
 			results[self.p*i:self.p*(i+1)]=self.ranbuf
@@ -133,14 +141,19 @@ class ran_shift(random.Random):
 	def single_float_random_series(self, count):
 		"return a series of good single-precision-quality (actually 32 bits embedded in double) randoms on [0,1).(upper included bound = (1 - 2^-32) )  \
 				Note: conversion of this number to Float32 could result in rounding to exactly 1.0"
-		q1 = self.fast_random_series(count) #take bits from the random pool
-		return q1*self.single_floatscale+0.5
+
+		#Warning! NumPy Unsigned-> Float is really signed!
+		q1 = Numeric.array(self.fast_random_series(count), Numeric.Float) #take bits from the random pool. 
+		q1*=self.single_floatscale
+		q1+=_numpy_conversion_bias*0.5
+		return q1
 
 	def double_float_random_series(self, count):
 		"return a series of 52-bit significance double-precision randoms on [0,1)."
 		q1 = self.fast_random_series(2*count) #take bits from the random pool
-		q1[count:] &= 0xfffff000 #mask off low bits to prevent rounding when combined to 52-bit mantissas
-		q1=q1*self.single_floatscale+0.5 #convert results to doubles scaled on [0,1)
+		q1[count:] &= ~0xfff#mask off low bits to prevent rounding when combined to 52-bit mantissas
+		q1=q1*self.single_floatscale #convert results to doubles scaled on [0,1)
+		q1+=_numpy_conversion_bias*0.5
 		#now, for any generator with two-point correlations, or unknown bit lengths, this would fail horribly, but this class is safe.
 		q1[count:]*=self.single_floatscale #rescale LSBs 
 		q1[:count]+=q1[count:] #and combine with MSBs
@@ -181,13 +194,22 @@ class r250_521(ran_shift):
 if __name__ == "__main__":
 	r=r250_521()
 	
-	for i in range(10):
+	for i in range(20):
 		print r.random(),
 	print
 	
+	print 10*"%08lx "%tuple(r.fast_random_series(10))
+	print
+
+	print r.single_float_random_series(10)
+	print
+	
+	print r.double_float_random_series(10)
+	print
+
 	if 1:
 		cycles=100
-		count=1000000
+		count=10000
 		sum=0.0
 		sum2=0.0
 		for i in range(cycles):
