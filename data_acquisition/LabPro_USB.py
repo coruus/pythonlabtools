@@ -1,6 +1,6 @@
 "LabPro_USB supports connections of the Vernier LabPro system via USB"
 
-_rcsid="$Id: LabPro_USB.py,v 1.16 2003-10-12 17:48:37 mendenhall Exp $"
+_rcsid="$Id: LabPro_USB.py,v 1.17 2003-10-14 13:46:21 mendenhall Exp $"
 
 import LabPro
 from LabPro import RawLabPro, LabProError, _bigendian
@@ -156,9 +156,11 @@ class USB_Mac_mixin:
 			return res
 			
 		except IOError:
-			if sys.exc_info()[1].args[0]==35: #this error is returned on a nonblocking empty read
+			err=sys.exc_info()[1].args
+			if err[0] in (29, 35): #these errors are sometimes returned on a nonblocking empty read
 				return '' #just return empty data
 			else:
+				print  "USB server disconnected unexpectedly", err
 				raise LabProError("USB server disconnected unexpectedly", sys.exc_info()[1].args)
 
 	def read_status(self):
@@ -169,7 +171,7 @@ class USB_Mac_mixin:
 				if res: print >> sys.stderr, "LabPro USB message: ", res
 				if res.find("****EXITED****") >= 0: break #if this thread dies, LabPro has gone away somehow
 			except IOError:
-				if sys.exc_value[0]==35: #this error is returned on a nonblocking empty read
+				if sys.exc_info()[1].args[0]==35: #this error is returned on a nonblocking empty read
 					time.sleep(1) #so just wait and try again
 				else:
 					raise
