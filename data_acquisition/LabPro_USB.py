@@ -1,6 +1,6 @@
 "LabPro_USB supports connections of the Vernier LabPro system via USB"
 
-_rcsid="$Id: LabPro_USB.py,v 1.7 2003-06-20 02:27:45 mendenhall Exp $"
+_rcsid="$Id: LabPro_USB.py,v 1.8 2003-06-20 13:36:07 mendenhall Exp $"
 
 import LabPro
 from LabPro import RawLabPro, LabProError, _bigendian
@@ -176,6 +176,10 @@ class USB_Mac_mixin:
 		
 	def close(self):
 		self.__keep_running=0
+		try:
+			self.stop()
+		except:
+			pass
 		try:
 			self.usb_send.write("****QUIT****\n")
 		except:
