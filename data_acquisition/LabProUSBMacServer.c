@@ -1,6 +1,6 @@
 /* serve up USB data from a Vernier LabPro device attached to a macintosh via USB */
 
-static char rcsid[]="RCSID $Id: LabProUSBMacServer.c,v 1.6 2003-06-20 16:34:29 mendenhall Exp $";
+static char rcsid[]="RCSID $Id: LabProUSBMacServer.c,v 1.7 2003-06-20 18:30:52 mendenhall Exp $";
 
 /* to compile on a Mac under OSX:
 cc -o LabProUSBMacServer -framework IOKit -framework CoreFoundation LabProUSBMacServer.c
@@ -29,12 +29,13 @@ void handle_signal(int what)
 {
 	int err;
 	keep_running=0;
+	if (global_intf) {
+		err = (*global_intf)->AbortPipe(global_intf, 1); /* terminate read operation */
+		err = (*global_intf)->ClearPipeStall(global_intf, 1); /* terminate read operation */
+		err = (*global_intf)->AbortPipe(global_intf, 2); /* terminate write operation */
+		err = (*global_intf)->ClearPipeStall(global_intf, 2); /* terminate write operation */
+	}
 	fprintf(stderr,"Got signal\n");
-	if (!global_intf) return;
-	err = (*global_intf)->AbortPipe(global_intf, 1); /* terminate read operation */
-	err = (*global_intf)->ClearPipeStall(global_intf, 1); /* terminate read operation */
-	err = (*global_intf)->AbortPipe(global_intf, 2); /* terminate write operation */
-	err = (*global_intf)->ClearPipeStall(global_intf, 2); /* terminate write operation */
 	
 }
 	
