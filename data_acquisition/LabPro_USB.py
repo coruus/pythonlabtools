@@ -1,6 +1,6 @@
 "LabPro_USB supports connections of the Vernier LabPro system via USB"
 
-_rcsid="$Id: LabPro_USB.py,v 1.8 2003-06-20 13:36:07 mendenhall Exp $"
+_rcsid="$Id: LabPro_USB.py,v 1.9 2003-06-20 22:00:03 mendenhall Exp $"
 
 import LabPro
 from LabPro import RawLabPro, LabProError, _bigendian
@@ -98,30 +98,34 @@ class USB_Mac_mixin:
 	
 	def setup_serial(self,port_name=None):
 		self.usb_send, self.usb_recv, self.usb_err=os.popen3(self.server_executable_path+( " %d" % self.device_index),'b',0)
-		
-		fcntl.fcntl(self.usb_recv, fcntl.F_SETFL, os.O_NONBLOCK) #pipes must be nonblocking
-		fcntl.fcntl(self.usb_err, fcntl.F_SETFL, os.O_NONBLOCK) #pipes must be nonblocking
-		firstmsg=''
-		badloops=0
-		while badloops<5  and not firstmsg:
-			time.sleep(0.1)
-			try:
-				firstmsg=self.usb_err.read()
-			except:
-				badloops+=1
+		try:
+			fcntl.fcntl(self.usb_recv, fcntl.F_SETFL, os.O_NONBLOCK) #pipes must be nonblocking
+			fcntl.fcntl(self.usb_err, fcntl.F_SETFL, os.O_NONBLOCK) #pipes must be nonblocking
+			firstmsg=''
+			badloops=0
+			while badloops<5  and not firstmsg:
+				time.sleep(0.1)
+				try:
+					firstmsg=self.usb_err.read()
+				except:
+					badloops+=1
+				
+			if badloops==5:
+				raise LabProError("cannot find or communicate with USB Server: "+str(self.server_executable_path))
+			if firstmsg.find("No LabPro Found") >=0:
+				raise LabProError("USB Server could not connect to a LabPro device at index %d" % self.device_index)  
+				
+			self.__keep_running=1
+			self.status_monitor=threading.Thread(target=self.read_status, name='USB LabPro status monitor')
+			self.status_monitor.start()
+			self.__saved_realtime_fragment=''
+		except:
+			self.__keep_running=0
+			self.close()
+			raise
 			
-		if badloops==5:
-			raise LabProError("cannot find or communicate with USB Server: "+str(self.server_executable_path))
-		if firstmsg.find("No LabPro Found") >=0:
-			raise LabProError("USB Server could not connect to a LabPro device at index %d" % self.device_index)  
-			
-		self.__keep_running=1
-		self.status_monitor=threading.Thread(target=self.read_status, name='USB LabPro status monitor')
-		self.status_monitor.start()
-		self.__saved_realtime_fragment=''
-		
 	def check_usb_status(self):
-		if not self.status_monitor.isAlive():
+		if not self.__keep_running or not self.status_monitor.isAlive():
 			raise LabProError("LabPro USB server has died...")
 			
 	def high_speed_serial(self):
