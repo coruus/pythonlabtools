@@ -1,5 +1,5 @@
 "The basic infrastructure for maintaining a vxi-11 protocol connection to a remote device"
-#$Id: vxi_11.py,v 1.3 2003-04-11 17:51:04 mendenhall Exp $
+#$Id: vxi_11.py,v 1.4 2003-04-16 20:38:21 mendenhall Exp $
 
 import rpc
 from rpc import TCPClient, RawTCPClient
@@ -33,8 +33,9 @@ def close_all_connections():
 		else:
 			del connection_dict[wobj] #how did this happen?
 
-class OneWayAbortClient(RawTCPClient):
-	"OneWayAbortClient allows one to handle the strange, one-way abort rpc from an Agilent E5810"
+class Junk_OneWayAbortClient(RawTCPClient):
+	"""OneWayAbortClient allows one to handle the strange, one-way abort rpc from an Agilent E5810.
+	Really, it doesn't even do a one-way transmission... it loses aborts, so this is history """
 	
 	def do_call(self):
 		call = self.packer.get_buf()
@@ -224,8 +225,11 @@ class vxi_11_connection:
 			self.log_exception("Initial connect failed... retry later")
 	
 	def setup_mux(self, mux, global_name):
-		self.mux=weakref.ref(mux)
-		self.global_mux_name=global_name
+		if mux is None: #un-setup mux this way
+			self.mux=None
+		else:
+			self.mux=weakref.ref(mux)
+			self.global_mux_name=global_name
 		
 	def command(self, id, pack, unpack, arglist, ignore_connect=0):
 		
@@ -446,11 +450,11 @@ class vxi_11_connection:
 		if self.locklevel==0:
 			flags, timeout, lock_timeout=self.do_timeouts(0, lock_timeout)
 			try:
-				if self.mux and self.mux(): self.mux().lock_connection(self.global_mux_name)
+				if self.mux: self.mux().lock_connection(self.global_mux_name)
 				try:
 					err, = self.command(18, "lock","error", (self.lid, flags, lock_timeout))
 				except:
-					if self.mux and self.mux(): self.mux().unlock_connection(self.global_mux_name)
+					if self.mux: self.mux().unlock_connection(self.global_mux_name)
 					raise					
 			except:
 				if threads:
