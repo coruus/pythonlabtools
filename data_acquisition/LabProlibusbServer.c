@@ -1,6 +1,6 @@
 /* serve up USB data from a Vernier LabPro device attached via USB using libusb on MacOSX, Linux or *BSD */
 
-static char rcsid[]="RCSID $Id: LabProlibusbServer.c,v 1.4 2003-07-14 17:00:00 mendenhall Exp $";
+static char rcsid[]="RCSID $Id: LabProlibusbServer.c,v 1.5 2003-07-14 22:06:48 mendenhall Exp $";
 
 /* 
 requires libusb (from www.sourceforge.net) installed 
@@ -173,13 +173,17 @@ int main (int argc, const char * argv[])
 
 	if(matchcount==USBIndex) {
 		udev = usb_open(matchdev);
-		fprintf(stderr, "Found device %p\n", (void*)udev);
-		fflush(0);
-		global_intf=udev;
-		usb_set_debug(0);
-		dealWithDevice(udev);
-		usb_reset(udev);
-		usb_close(udev);
+		if(udev) {
+			fprintf(stderr, "Found device %p\n", (void*)udev);
+			fflush(0);
+			global_intf=udev;
+			usb_set_debug(0);
+			dealWithDevice(udev);
+			usb_reset(udev);
+			usb_close(udev);
+		} else {
+			fprintf(stderr, "Found but couldn't open device %d... probably already open\n", USBIndex+1);
+		}
     } else fprintf(stderr,"No LabPro Found at index %d\n", USBIndex+1);
 	    
 	fprintf(stderr,"****EXITED****\n");
