@@ -1,7 +1,7 @@
 """earthmate.py supports communication with a DeLorme (www.delorme.com) Earthmate GPS unit, and with other Rockwell/Conexant/Navman/SiRF Zodiac
 and Jupiter type receivers"""
 
-_rcsid="$Id: earthmate.py,v 1.4 2003-07-09 18:06:02 mendenhall Exp $"
+_rcsid="$Id: earthmate.py,v 1.5 2003-07-13 02:31:58 mendenhall Exp $"
 
 import time
 import Numeric
@@ -53,7 +53,7 @@ class termios_serial:
 	
 	def read(self, maxlen=None):
 		"override this as for write()"
-		self.serial_read_port.seek(0) #try to clear EOF
+		if self.__allow_serial_seek: self.serial_read_port.seek(0) #try to clear EOF
 		if maxlen is None:
 			return self.serial_read_port.read()
 		else:
