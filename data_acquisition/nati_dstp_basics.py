@@ -1,8 +1,8 @@
 """The underlying support for the National Instruments DataSocket Transport Protocol (nati-dstp, port 3015)
 with lots of widgets to make it possible not only to act as a basic server, but for Python code
 to interact with the server by storing and retrieving data, which would then be reflected to any
-LabVIEW clients listening"
-#$Id: nati_dstp_basics.py,v 1.2 2003-04-11 17:51:03 mendenhall Exp $
+LabVIEW clients listening"""
+#$Id: nati_dstp_basics.py,v 1.3 2003-04-11 18:30:50 mendenhall Exp $
 
 import struct
 import array
