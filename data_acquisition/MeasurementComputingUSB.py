@@ -1,6 +1,6 @@
 "MeasurementComputingUSB supports connections of  Measurement Computing, Inc.  USB devices"
 
-_rcsid="$Id: MeasurementComputingUSB.py,v 1.11 2003-11-20 21:44:23 mendenhall Exp $"
+_rcsid="$Id: MeasurementComputingUSB.py,v 1.12 2003-11-20 21:47:05 mendenhall Exp $"
 
 
 
@@ -349,6 +349,12 @@ class MCC_Device(default_server_mixin):
 			GAIN16_DIFF: (40.0/4096.0, 20.0, 16.0),
 			GAIN20_DIFF: (40.0/4096.0, 20.0, 20.0)
 	}
+	
+	USER_MEMORY_BASE=0x1800
+	USER_MEMORY_SIZE=0x06ff
+	
+	CALIBRATION_MEMORY_BASE=0x1f00
+	CALIBRATION_MEMORY_SIZE=0x00ef
 		
 	def counts_to_volts(self, gain, counts):
 		if gain==self.GAIN1_SE:
@@ -539,7 +545,7 @@ class MCC_Device(default_server_mixin):
 		res=self.read()
 		return ord(res[0])
 
-	def read_memory(self, base=0x1800, count=8):
+	def read_memory(self, base=USER_MEMORY_BASE, count=8):
 		results=''
 		while(count):
 			actcount=min(count,8)
@@ -550,7 +556,7 @@ class MCC_Device(default_server_mixin):
 			count-=actcount
 		return results
 
-	def write_memory(self, base=0x1800, data=''):
+	def write_memory(self, base=USER_MEMORY_BASE, data=''):
 		tc=0
 		ld=len(data)
 		bd=map(ord,data) #convert string to list for concatenation onto other list
