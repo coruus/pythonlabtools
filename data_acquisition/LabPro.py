@@ -1,7 +1,7 @@
 """LabPro supports communications with the Vernier Instruments (www.vernier.com) LabPro Module
 over a serial line"""
 
-rcsid="$Id: LabPro.py,v 1.4 2003-05-24 14:39:03 mendenhall Exp $"
+_rcsid="$Id: LabPro.py,v 1.5 2003-05-24 14:41:59 mendenhall Exp $"
 
 import time
 import Numeric
@@ -75,7 +75,6 @@ class LabPro:
 			except:
 				if i==2: raise #last try failed, allow exception out
 			else:
-				print config
 				break #transfer worked, all done
 			
 	def close(self):
