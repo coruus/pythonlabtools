@@ -2,7 +2,7 @@
 with lots of widgets to make it possible not only to act as a basic server, but for Python code
 to interact with the server by storing and retrieving data, which would then be reflected to any
 LabVIEW clients listening"""
-#$Id: nati_dstp_basics.py,v 1.3 2003-04-11 18:30:50 mendenhall Exp $
+#$Id: nati_dstp_basics.py,v 1.4 2003-04-12 14:02:23 mendenhall Exp $
 
 import struct
 import array
@@ -113,7 +113,7 @@ arraytypecodemap={
 
 def pack_array(data):
 	"convert array to NI format"
-	if type(data) is Numeric.ArrayType:
+	if type(data) is numArrayType:
 		typecode=data.typecode()
 		if bigendian: #must swap bytes
 			d=array.array(data.typecode())
