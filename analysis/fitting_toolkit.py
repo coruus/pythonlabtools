@@ -110,7 +110,7 @@ If analytic derivatives are desired, do, e.g.
 
 """
 
-_rcsid="$Id: fitting_toolkit.py,v 1.7 2003-05-30 13:31:55 mendenhall Exp $"
+_rcsid="$Id: fitting_toolkit.py,v 1.8 2003-07-03 14:17:50 mendenhall Exp $"
 
 import Numeric
 import random
@@ -234,7 +234,8 @@ class fit:
 		n=self.pointcount
 		fxarray=Numeric.zeros((n, self.param_count), self.atype)
 		for i in range(self.param_count):
-			fxarray[:,i]=self.numeric_deriv(i, self.deriv_step[i])
+			if not self.frozen[i]:
+				fxarray[:,i]=self.numeric_deriv(i, self.deriv_step[i])
 		return fxarray
 	
 	def weight_func(self):
@@ -474,7 +475,7 @@ class linear_combination_fit(fit):
 		if self.firstpass: #first call from hessian_fit is meaningless, all coefficients zero, save time
 			return 0.0
 
-		sumarray=Numeric.zeros(self.pointcount, self.atype)
+		sumarray=Numeric.zeros(len(x), self.atype)
 		for i in range(self.param_count):
 			sumarray+=p[i]*self.basis[i](i, x)
 		return sumarray
