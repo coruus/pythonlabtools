@@ -1,7 +1,7 @@
 """earthmate.py supports communication with a DeLorme (www.delorme.com) Earthmate GPS unit, and with other Rockwell/Conexant/Navman/SiRF Zodiac
 and Jupiter type receivers"""
 
-_rcsid="$Id: earthmate.py,v 1.5 2003-07-13 02:31:58 mendenhall Exp $"
+_rcsid="$Id: earthmate.py,v 1.6 2003-08-21 16:41:58 mendenhall Exp $"
 
 import time
 import Numeric
@@ -28,23 +28,16 @@ class termios_serial:
 		
 	def set_port_params(self, baud=termios.B9600):
 		port=self.serial_read_port
-		tty.setraw(self.serial_read_port.fileno())
 		attrs=termios.tcgetattr(port)
 		attrs[4]=attrs[5]=baud #set 38.4kbaud
-		attrs[2] = attrs[2] | termios.CLOCAL #ignore connection indicators
+		attrs[2] = attrs[2] | termios.CLOCAL  #ignore connection indicators
 		cc=attrs[6]; cc[termios.VMIN]=0; cc[termios.VTIME]=0 #non-blocking reads
 		termios.tcsetattr(port, termios.TCSADRAIN, attrs)
-		fcntl.fcntl(self.serial_read_port, fcntl.F_SETFL, os.O_NONBLOCK) 
 	
 	def setup_serial(self, port_name):
 		self.serial_write_port=port=open(port_name,"rb+" , 1000)
 		self.serial_read_port=self.serial_write_port	
 		self.set_port_params() #setup default port
-		try:
-			self.serial_read_port.seek(0) #see if seeking clears EOF (works on MacOSX, not on Linux)
-			self.__allow_serial_seek=1
-		except:
-			self.__allow_serial_seek=0
 		
 	def write(self, data):
 		"override this if communication is not over normal serial"
@@ -53,7 +46,7 @@ class termios_serial:
 	
 	def read(self, maxlen=None):
 		"override this as for write()"
-		if self.__allow_serial_seek: self.serial_read_port.seek(0) #try to clear EOF
+		self.serial_read_port.seek(0) #try to clear EOF
 		if maxlen is None:
 			return self.serial_read_port.read()
 		else:
