@@ -1,7 +1,7 @@
 """LabPro supports communications with the Vernier Instruments (www.vernier.com) LabPro Module
 over a serial line"""
 
-_rcsid="$Id: LabPro.py,v 1.18 2003-07-08 20:42:15 mendenhall Exp $"
+_rcsid="$Id: LabPro.py,v 1.19 2003-07-09 16:10:35 mendenhall Exp $"
 
 import time
 import Numeric
@@ -191,8 +191,7 @@ class RawLabPro:
 			except:
 				misses+=1
 				continue
-			
-			misses=0
+      			misses=0
 			if state['error']:
 				raise LabProError(state['error'])
 			syst=state['system state'] & 7
@@ -392,6 +391,9 @@ _have_default_labpro=0
 
 try:
 	import termios
+	import fcntl
+	import tty
+	
 	class termios_mixin:
 		"mixin class for RawLabPro to support Unix, MacOSX and Linux termios serial control"
 					
@@ -402,17 +404,24 @@ try:
 			
 		def set_port_params(self, baud=termios.B38400):
 			port=self.serial_read_port
+			tty.setraw(self.serial_read_port.fileno())
 			attrs=termios.tcgetattr(port)
 			attrs[4]=attrs[5]=baud #set 38.4kbaud
 			attrs[2] = attrs[2] | termios.CLOCAL #ignore connection indicators
 			cc=attrs[6]; cc[termios.VMIN]=0; cc[termios.VTIME]=0 #non-blocking reads
 			termios.tcsetattr(port, termios.TCSADRAIN, attrs)
-		
+			fcntl.fcntl(self.serial_read_port, fcntl.F_SETFL, os.O_NONBLOCK) 
+	
 		def setup_serial(self, port_name):
-			self.serial_write_port=port=open(port_name,"r+" , 0)
+			self.serial_write_port=port=open(port_name,"r+" , 8192)
 			self.serial_read_port=self.serial_write_port	
 			self.set_port_params() #setup default port
-		
+			try:
+				self.serial_read_port.seek(0) #see if seeking clears EOF (works on MacOSX, not on Linux)
+				self.__allow_serial_seek=1
+			except:
+				self.__allow_serial_seek=0
+	
 		def high_speed_serial(self):
 			"use this if you know the LabPro is already running at high speed"
 			self.set_port_params(baud=termios.B115200) #should work now, since it worked before
@@ -421,14 +430,18 @@ try:
 		def write(self, data):
 			"override this if communication is not over normal serial"
 			self.serial_write_port.write(data)
+			self.serial_write_port.flush()
 		
 		def read(self, maxlen=None):
 			"override this as for write()"
-			self.serial_read_port.seek(0) #try to clear EOF
-			if maxlen is None:
-				return self.serial_read_port.read()
-			else:
-				return self.serial_read_port.read(maxlen)
+			if self.__allow_serial_seek: self.serial_read_port.seek(0) #try to clear EOF
+			try:
+                            if maxlen is None:
+                                    return self.serial_read_port.read()
+                            else:
+                                    return self.serial_read_port.read(maxlen)
+                        except IOError:
+                            return ''
 
 	class LabPro(termios_mixin, RawLabPro):
 		"default LabPro uses system native serial, on MacOSX & Linux, this is termios"
@@ -557,7 +570,7 @@ if __name__=='__main__':
 	
 	def try_labpro(binary=1):
 		
-		lp=LabPro(highspeed=1, port_name='/dev/cu.USA28X213P1.1')
+		lp=LabPro(highspeed=0, port_name='/dev/cu.USA28X213P1.1')
 		
 		try:
 			print lp.get_system_config()
@@ -604,6 +617,7 @@ if __name__=='__main__':
 				
 				deltat=0.0002; npoints=1000
 				lp.setup_data_collection(samptime=deltat, numpoints=npoints)
+				#BG time.sleep(2)
 				lp.wait_for_data_done()
 				if  binary:
 					current=lp.get_data_binary(chan=2, points=npoints, scaled_range=(-0.1, 0.1) )
