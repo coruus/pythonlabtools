@@ -1,5 +1,5 @@
 "a sample system using general_optics.py to model a 10 Joule Nd:Glass CPA laser system"
-#$Id: general_optics_example.py,v 1.2 2003-04-16 14:53:31 mendenhall Exp $
+_rcsid="$Id: general_optics_example.py,v 1.3 2003-05-30 13:31:55 mendenhall Exp $"
 
 from math import *
 import math

@@ -1,5 +1,5 @@
 "very useable National Instruments dstp protocol server"
-#$Id: dstp_async.py,v 1.4 2003-04-24 20:43:28 mendenhall Exp $
+_rcsid="$Id: dstp_async.py,v 1.5 2003-05-30 13:29:21 mendenhall Exp $"
 
 import socket
 import SocketServer

@@ -1,5 +1,5 @@
 "A concrete test sample of using a vxi-11-based oscilloscope. Probably not up-to-date with distro"
-#$Id: phase_digitizer_scope.py,v 1.2 2003-04-11 17:51:03 mendenhall Exp $
+_rcsid="$Id: phase_digitizer_scope.py,v 1.3 2003-05-30 13:29:22 mendenhall Exp $"
 
 import vxi_11
 import graphite

@@ -1,5 +1,5 @@
 "The basic infrastructure for maintaining a vxi-11 protocol connection to a remote device"
-#$Id: vxi_11.py,v 1.5 2003-04-16 20:45:35 mendenhall Exp $
+_rcsid="$Id: vxi_11.py,v 1.6 2003-05-30 13:29:23 mendenhall Exp $"
 
 import rpc
 from rpc import TCPClient, RawTCPClient

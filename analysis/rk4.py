@@ -1,5 +1,5 @@
 "simple 4th order Runge-Kutta integration"
-#$Id: rk4.py,v 1.2 2003-04-11 18:06:16 mendenhall Exp $
+_rcsid="$Id: rk4.py,v 1.3 2003-05-30 13:31:56 mendenhall Exp $"
 
 from Numeric import *
 

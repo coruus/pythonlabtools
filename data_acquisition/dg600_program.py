@@ -2,7 +2,7 @@
 This is very specific to the Vanderbilt University Free Electron Laser Center
 klystron drive system, and only useful as example code to the rest of the world."""
 
-#$Id: dg600_program.py,v 1.3 2003-04-11 21:44:31 mendenhall Exp $
+_rcsid="$Id: dg600_program.py,v 1.4 2003-05-30 13:29:21 mendenhall Exp $"
 
 import math
 

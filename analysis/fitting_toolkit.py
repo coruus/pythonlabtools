@@ -1,7 +1,5 @@
 """Hessian and Levenberg-Marquardt Curve Fitting Package with resampling capability
 
-$Id: fitting_toolkit.py,v 1.6 2003-05-13 17:19:35 mendenhall Exp $
-
 This is loosely derived from the information in 'Numerical Recipes' 2nd Ed. by Press, Flannery, Teukolsky and Vetterling.
 Implementation by Marcus H. Mendenhall, Vanderbilt University Free Electron Laser Center, Nashville, TN, USA
 Implemented around 3 December, 2002.
@@ -111,6 +109,8 @@ If analytic derivatives are desired, do, e.g.
 			return dd	
 
 """
+
+_rcsid="$Id: fitting_toolkit.py,v 1.7 2003-05-30 13:31:55 mendenhall Exp $"
 
 import Numeric
 import random

@@ -1,6 +1,6 @@
 """connection_multiplexer allows dynamic opening and closing of vxi_11 connections to (probably low-priority) devices, 
 so a huge number of static connections isn't needed."""
-#$Id: vxi_11_connection_mux.py,v 1.4 2003-04-16 20:39:09 mendenhall Exp $
+_rcsid="$Id: vxi_11_connection_mux.py,v 1.5 2003-05-30 13:29:23 mendenhall Exp $"
 
 import vxi_11
 import time

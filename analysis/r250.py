@@ -4,8 +4,6 @@ implemented by Marcus Mendenhall, Vanderbilt University Free Electron Laser Cent
 Public Domain
 December, 2002
 
-$Id: r250.py,v 1.3 2003-04-11 18:39:41 mendenhall Exp $
-
 The code which follows is a pythonization of code derived from the following two sources:
 	
 DESCRIPTION:
@@ -61,6 +59,7 @@ Heuer, Dunweg and Ferrenberg,
 by Marcus Mendenhall
                                                                 
 """
+_rcsid="$Id: r250.py,v 1.4 2003-05-30 13:31:55 mendenhall Exp $"
 
 import random
 import Numeric

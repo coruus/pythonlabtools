@@ -2,7 +2,7 @@
 with lots of widgets to make it possible not only to act as a basic server, but for Python code
 to interact with the server by storing and retrieving data, which would then be reflected to any
 LabVIEW clients listening"""
-#$Id: nati_dstp_basics.py,v 1.6 2003-04-22 18:34:45 mendenhall Exp $
+_rcsid="$Id: nati_dstp_basics.py,v 1.7 2003-05-30 13:29:22 mendenhall Exp $"
 
 import struct
 import array
