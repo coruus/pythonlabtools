@@ -1,5 +1,8 @@
-"Program an InterfaceTechnologies DG600 pattern generator"
-#$Id: dg600_program.py,v 1.2 2003-04-11 17:51:01 mendenhall Exp $
+"""Program an InterfaceTechnologies DG600 pattern generator.
+This is very specific to the Vanderbilt University Free Electron Laser Center
+klystron drive system, and only useful as example code to the rest of the world."""
+
+#$Id: dg600_program.py,v 1.3 2003-04-11 21:44:31 mendenhall Exp $
 
 import math
 
