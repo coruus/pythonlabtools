@@ -1,7 +1,7 @@
 """LabPro supports communications with the Vernier Instruments (www.vernier.com) LabPro Module
 over a serial line"""
 
-rcsid="$Id: LabPro.py,v 1.2 2003-05-23 22:20:21 mendenhall Exp $"
+rcsid="$Id: LabPro.py,v 1.3 2003-05-24 01:37:04 mendenhall Exp $"
 
 import time
 import Numeric
@@ -54,7 +54,6 @@ class LabPro:
 		
 		init_port_memory()
 		self.setup_serial(port_name)
-		self.__highspeed=0
 		self.__saved_realtime_frag=''
 		if port_name in _highspeedports:
 			self.high_speed_serial()
@@ -64,14 +63,10 @@ class LabPro:
 		self.wake()
 		self.wake()
 
-	def reset_highspeed_serial(self):
-		self.__highspeed=0
-
 	def close(self):
 		self.serial_read_port.close()
 		if self.serial_write_port != self.serial_read_port:
 			self.serial_write_port.close()
-		
 		
 	def set_port_params(self, baud=termios.B38400):
 		port=self.serial_read_port
@@ -82,30 +77,29 @@ class LabPro:
 		termios.tcsetattr(port, termios.TCSADRAIN, attrs)
 	
 	def setup_serial(self, port_name):
-		self.serial_write_port=port=open(port_name,"r+" , 16384)
-		self.serial_read_port=self.serial_write_port
-		
+		self.serial_write_port=port=open(port_name,"r+" , 0)
+		self.serial_read_port=self.serial_write_port	
 		self.set_port_params() #setup default port
 	
 	def high_speed_serial(self):
-		"use this if you now the LabPro is already running at high speed"
-		if self.__highspeed:	return  #already did this
-		try:
-			self.set_port_params(baud=termios.B115200) #see if this is allowed!
-		except:
-			return
-		#if this isn't an error, try to do it for real!	
+		"use this if you know the LabPro is already running at high speed"
 		self.set_port_params(baud=termios.B115200) #should work now, since it worked before
 		time.sleep(0.1)
-		self.__highspeed=1
 
 	def high_speed_setup(self):
 		"use this to command the LabPro up to high speed, then switch the serial up. Do not use if it has already been commanded!"
-		self.wake()
+		self.serial_write_port.write('s\rs\rs\rs\r')
+		self.command('baudrate',115)
+		self.command('baudrate',115)
 		self.command('baudrate',115)
 		time.sleep(0.5)
 		self.serial_read_port.read()
 		self.high_speed_serial()
+		self.serial_write_port.write('s\rs\rs\rs\r')
+		self.command('baudrate',115)
+		self.command('baudrate',115)
+		self.command('baudrate',115)
+		self.serial_read_port.read()
 		
 	def send_string(self, s='s'):
 		self.serial_write_port.write(s+'\r')
