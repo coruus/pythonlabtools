@@ -1,22 +1,22 @@
-/* serve up USB data from a Vernier LabPro device attached via USB using libusb on MacOSX, Linux or *BSD */
+/* serve up USB data from a Measurement Computing USB device using libusb on MacOSX, Linux or *BSD */
 
-static char rcsid[]="RCSID $Id: MeasurementComputingServer.c,v 1.1 2003-11-13 19:32:27 mendenhall Exp $";
+static char rcsid[]="RCSID $Id: MeasurementComputingServer.c,v 1.2 2003-11-13 19:34:07 mendenhall Exp $";
 
 /* 
 requires libusb or libusb-win32 (from www.sourceforge.net) installed 
 to compile on a Mac under OSX:
-cc -o LabProUSBServer -framework IOKit -framework CoreFoundation -lusb LabProlibusbServer.c
+cc -o MeasurementComputingServer -framework IOKit -framework CoreFoundation -lusb MeasurementComputingServer.c
 
 or to compile it using libusb statically, (so it can be installed on machines without libusb)
-cc -o LabProUSBServer -framework IOKit -framework CoreFoundation /usr/local/lib/libusb.a LabProlibusbServer.c
+cc -o MeasurementComputingServer -framework IOKit -framework CoreFoundation /usr/local/lib/libusb.a MeasurementComputingServer.c
 
 to compile under Linux or *BSD:
-cc -o LabProUSBServer -lpthread -lusb  LabProlibusbServer.c 
+cc -o MeasurementComputingServer -lpthread -lusb  MeasurementComputingServer.c 
 which should produce a working binary.
 
 Under linux, it is apparently necessary also to do (as root):
-chmod 4555 LabProUSBServer
-chown root:root LabProUSBServer
+chmod 4555 MeasurementComputingServer
+chown root:root MeasurementComputingServer
 to give the server setuid(0) privileges since libusb access to devices must be done as root 
 */
 
