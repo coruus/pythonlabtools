@@ -1,8 +1,17 @@
 "sunrpc_record_marking implements the Record Marking Standard such as used in SunRPC records sent via sockets per RFC-1831 section 10"
 
-_rcsid="$Id: sunrpc_record_marking.py,v 1.2 2003-08-21 16:42:50 mendenhall Exp $"
+_rcsid="$Id: sunrpc_record_marking.py,v 1.3 2003-08-22 21:20:11 mendenhall Exp $"
 
-import select as _select
+from select import select as _select
+
+class NoDataError(EOFError):
+	pass
+
+class BrokenFragmentError(EOFError):
+	pass
+
+class BlockedWriteError(EOFError):
+	pass
 
 
 def sendfrag_with_timeout(sock,  last, frag, timeout_seconds=None):
@@ -17,20 +26,18 @@ def sendfrag_with_timeout(sock,  last, frag, timeout_seconds=None):
 		if _select and timeout_seconds:
 			rlist, wlist, xlist=_select([],[sock],[], timeout_seconds)
 			if not wlist:
-				raise EOFError, "Blocked write in sendfrag()"		
+				raise BlockedWriteError		
 		nsent+=sock.send(block[nsent:])
 	
 def recvfrag_with_timeout(sock, timeout_seconds=None):
-	#print "receiving from ", sock
 	if _select and timeout_seconds:
-		#print "Selecting with timeout...", timeout_seconds
 		rlist, wlist, xlist=_select([sock],[],[], timeout_seconds)
 		if not rlist:
-			raise EOFError, "No header at all in recvfrag()"
+			raise NoDataError
 
 	header = sock.recv(4)
 	if len(header) < 4:
-		raise EOFError
+		raise BrokenFragmentError
 	x = long(ord(header[0]))<<24 | ord(header[1])<<16 | \
 	    ord(header[2])<<8 | ord(header[3])
 	last = ((x & 0x80000000L) != 0)
@@ -40,10 +47,10 @@ def recvfrag_with_timeout(sock, timeout_seconds=None):
 	
 	while(len(frag) < n):	
 		if _select and timeout_seconds:
-			#print "Selecting with timeout...", timeout_seconds
 			rlist, wlist, xlist=_select([sock],[],[], timeout_seconds)
 			if not rlist:
-				raise EOFError, "No data after header in recvfrag()"
+				raise BrokenFragmentError
+			
 		frag += sock.recv(n-len(frag))
 				
 	return last, frag
