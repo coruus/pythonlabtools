@@ -1,9 +1,9 @@
 "LabPro_USB supports connections of the Vernier LabPro system via USB"
 
-_rcsid="$Id: LabPro_USB.py,v 1.1 2003-06-04 17:26:50 mendenhall Exp $
+_rcsid="$Id: LabPro_USB.py,v 1.2 2003-06-04 17:50:51 mendenhall Exp $"
 
 import LabPro
-LabPro import LabPro, LabProError, _bigendian
+from LabPro import LabPro, LabProError, _bigendian
 
 import array
 import Numeric
@@ -90,7 +90,7 @@ class USB_Mac_mixin:
 	"mixin class for RawLabPro to allow operation of LabPro via USB port on Macintosh OSX using pipe server"
 		
 	def setup_serial(self,port_name=None):
-		self.usb_send, self.usb_recv, self.usb_err=os.popen3(os.path.join(os.path.dirname(__file__),"LabProUSB"),'b',0)
+		self.usb_send, self.usb_recv, self.usb_err=os.popen3(os.path.join(os.path.dirname(__file__),"LabProUSBMacServer"),'b',0)
 		
 		fcntl.fcntl(self.usb_recv, fcntl.F_SETFL, os.O_NONBLOCK) #pipes must be nonblocking
 		fcntl.fcntl(self.usb_err, fcntl.F_SETFL, os.O_NONBLOCK) #pipes must be nonblocking
