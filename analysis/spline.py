@@ -1,5 +1,5 @@
 """cubic spline handling, in a manner compatible with the API in Numeric Recipes"""
-_rcsid="$Id: spline.py,v 1.14 2003-10-30 21:31:37 mendenhall Exp $"
+_rcsid="$Id: spline.py,v 1.15 2003-10-30 21:46:37 mendenhall Exp $"
 
 __all__=["spline","splint","cubeinterpolate","RangeError"]
 
