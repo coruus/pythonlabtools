@@ -1,6 +1,6 @@
 "MeasurementComputingUSB supports connections of  Measurement Computing, Inc.  USB devices"
 
-_rcsid="$Id: MeasurementComputingUSB.py,v 1.2 2003-11-14 20:13:51 mendenhall Exp $"
+_rcsid="$Id: MeasurementComputingUSB.py,v 1.3 2003-11-19 18:11:57 mendenhall Exp $"
 
 
 
@@ -18,6 +18,8 @@ import threading
 import traceback
 import struct
 
+_bigendian=(struct.unpack('H','\00\01')[0] == 1)
+
 from operator import isSequenceType
 
 try:
@@ -26,7 +28,7 @@ try:
 	class USB_libusb_mixin:
 		"mixin class  to allow operation of MCC devices via USB port using libusb pipe server"
 		
-		server_executable_path=os.path.join(os.path.dirname(__file__),"MeasurementComputingServer")
+		server_executable_path=os.path.join(os.path.dirname(__file__),"/Users/marcus/Documents/python/pythonlabtools/data_acquisition/MeasurementComputingServer")
 		
 		def __init__(self):
 			self.usb_send, self.usb_recv, self.usb_err=os.popen3(self.server_executable_path+( " %d" % -self.device_index),'b',0)
@@ -76,39 +78,46 @@ try:
 			"not implemented on USB"
 			return 
 	
-		def read(self, maxlen=None):
+		def read(self, maxlen=8, feature=0):
 			"read data from USB"
 			self.check_usb_status()
+			
+			if feature:
+				maxlen=104
+				self.usb_send.write("FEAT %d %d\n" %(maxlen,0));
+			else:
+				self.usb_send.write("READ %d\n" % maxlen);
 			res=''
+			tries=0
 			
-			db=self.__usb_read_leftovers
+			while not res and tries < 5:
+				try:
+					res=self.usb_recv.read(maxlen+16) #packet + header 
+				except IOError:
+					err=sys.exc_info()[1].args
+					if err[0] in (11, 29, 35): #these errors are sometimes returned on a nonblocking empty read
+						time.sleep(0.01)
+						tries=tries+1
+						continue #just return empty data
+					else:
+						print  "USB server disconnected unexpectedly", err
+						raise MeasurementComputingError("USB server disconnected unexpectedly", sys.exc_info()[1].args)
+			
+			if not res:
+				return ''
 					
-			while(not maxlen or (maxlen and len(res) < maxlen)):
-				while len(db)<20: #8 bytes + 8 byte timestamp + 4 byte 0xffffffff flag		
-					try:
-						db+=self.usb_recv.read(20-len(db)) 
-					except IOError:
-						err=sys.exc_info()[1].args
-						if err[0] in (11, 29, 35): #these errors are sometimes returned on a nonblocking empty read
-							pass #just return empty data
-						else:
-							print  "USB server disconnected unexpectedly", err
-							raise MeasurementComputingError("USB server disconnected unexpectedly", sys.exc_info()[1].args)
-	
-					if not maxlen and not db: break #no data at all, just fall out of this inner loop
-	
-				if not maxlen and not db: break #doing uncounted read, just take data until it quits coming
-								
-				flag, tv_sec, tv_usec=struct.unpack('LLL', db[:12])
-				if flag != 0x00ffffff:
-					raise MeasurementComputingError("Bad packet header from MCC device: " + ("%04x %08x %08x"%(flag, tv_sec, tv_usec)))
-				self.data_timestamp=float(tv_sec)+float(tv_usec)*1e-6
-				res+=db[12:20]
-				db=db[20:]
-
-			self.__usb_read_leftovers=db		
-			
-			return res
+			flag, tv_sec, tv_usec, actbytecount=struct.unpack('LLLL', res[:16])
+			if actbytecount != maxlen:
+				print len(res), repr(res)
+				raise MeasurementComputingError("Bad data length from MCC device:  requested %d, got %d or error %08lx" 
+						% (maxlen, actbytecount, actbytecount) )
+				
+			#print len(res), locals()
+			if flag != 0x00ffffff:
+				raise MeasurementComputingError("Bad packet header from MCC device: " + ("%04x %08x %08x"%(flag, tv_sec, tv_usec)))
+			self.data_timestamp=float(tv_sec)+float(tv_usec)*1e-6
+				
+			return res[16:]
 				
 	
 		def read_status(self):
@@ -199,14 +208,14 @@ except ImportError:
 			"not implemented on USB"
 			return 
 	
-		def read(self, maxlen=None):
+		def read(self, maxlen=8):
 			"""read data from USB"""
 			self.check_usb_status()
 			res=''
-			db=self.__usb_read_leftovers
-					
-			while( not maxlen or len(res) < maxlen):
-				while len(db)<20: #8 bytes + 8 byte timestamp + 4 byte 0xffffffff flag
+			self.usb_send.write("READ %d\n", maxlen);
+			
+			while(len(res) < maxlen):
+				while len(db)<20: #8 bytes + 8 byte timestamp + + 4 byte count + 4 byte 0xffffffff flag
 	
 					#a pipe is a seek-and-tallable object, so we can see how much data is there this way			
 					self.usb_recv.seek(0,2)
@@ -226,7 +235,7 @@ except ImportError:
 				db=db[20:]
 				
 			self.__usb_read_leftovers=db		
-			return res
+			return res[16:]
 				
 	
 		def read_status(self):
@@ -289,12 +298,16 @@ class MCC_Device(default_server_mixin):
 	DATA_PACKET_SIZE=96
 	MAX_STORED_SAMPLES=4096
 	
-	AD_BURST_MODE=1
+	AD_BURST_MODE=4
 	AD_CONT_MODE=2
-	AD_SINGLE_MODE=4
-	AD_NO_CAL=8
-	AD_EXTTRIGGER=16
-		
+	AD_SINGLE_MODE=1
+	AD_EXTTRIGGER=8
+	
+	AD_DIRECT_MODE=0x80
+	
+	TRIGGER_FLAG=0xc3
+	DONE_FLAG=0xa5
+	
 	ad_gain_scale_dict = {
 			GAIN1_SE :  (20.0/4096.0, 10.0, 1.0),
 			GAIN1_DIFF: (40.0/4096.0, 20.0, 1.0),
@@ -333,7 +346,6 @@ class MCC_Device(default_server_mixin):
 	def analog_input(self, channel, gain=GAIN1_DIFF):
 		self.write((6,channel, gain))
 		retdata=self.read(8)
-		pair=ord(retdata[0]), ord(retdata[1])
 		if retdata:
 			retval=ord(retdata[0]) + ( ord(retdata[1]) << 4 )
 			return self.counts_to_volts(gain, retval)
@@ -341,10 +353,12 @@ class MCC_Device(default_server_mixin):
 			return None
 
 	def setup_gain_list(self, channels, gains):
-		changain=[c & 0x07 | g for c,g in zip(channels, gains)]
-		while len(channels) >=6:
+		self.channel_gain_list=zip(channels,gains)
+		changain=[(self.AD_DIRECT_MODE | c & 0x07 | g )for c,g in self.channel_gain_list]
+		while len(changain) >=6:
 			self.write([7,6]+changain[:6])
 			changain=changain[6:]
+		
 		if changain:
 			self.write([7,len(changain)]+changain)
 
@@ -367,7 +381,7 @@ class MCC_Device(default_server_mixin):
 	
 		return timerPre, timerVal, setupTime, actRate
 		
-	def setup_analog_scan(self, channels=(0,2,4,6), sweeps=-1, rate=100, gains=GAIN2_DIFF, exttrig=0):
+	def setup_analog_scan(self, channels=(0,1,2,3), sweeps=-1, rate=100, gains=GAIN2_DIFF, exttrig=0):
 	
 		if self.scanning:
 			raise MeasurementComputingError, "cannot start new scan without stopping old one"
@@ -391,7 +405,7 @@ class MCC_Device(default_server_mixin):
 				raise MeasurementComputingError, \
 					"continuous scan channel count must be submultiple of %d" % self.DATA_SAMPLE_SIZE
 			tCount=self.DATA_SAMPLE_SIZE #each block is filled in continuous mode
-			scanmode=self.AD_CONTINUOUS
+			scanmode=self.AD_CONT_MODE
 			
 		elif sweeps==1: #use AD_SINGLEEXEC mode for single sweep
 			tCount=len(channels)
@@ -405,14 +419,57 @@ class MCC_Device(default_server_mixin):
 				raise MeasurementComputingError, \
 					"burst scan sample count must be <  %d" % self.MAX_STORED_SAMPLES
 			scanmode=self.AD_BURST_MODE
-				
-		print locals()
-		
+			self.burst_scan_count=tCount
+			self.burst_scan_blocks=blocks
+			
 		tChigh=tCount>>8
 		tClow=tCount&255
 		self.write((14, tClow, tChigh, timerVal+setupTime, timerPre, scanmode | exttrig))
 	
+	def get_burst_scan(self, max_trig_wait=None):
+		start=time.time()
+		res=''
+		while(not res):
+			time.sleep(0.1)
+			res=self.read()
+			if res:
+				if res[0]==self.TRIGGER_FLAG: 
+					res=''
+					continue #got external trigger 	
+				if res[0]==self.DONE_FLAG:
+					break #got data
+		
+		datalist=''
+		for i in range(self.burst_scan_blocks):
+			res=self.read(feature=1)
+			trailer=res[-8:]
+			err, readaddr, writeaddr, index, junk=struct.unpack('<BHHHB', trailer)
+			#print err, readaddr, writeaddr, index
+			if index != i+1: #aack, packet out of sync
+				raise MeasurementComputingError("scan packet out of sync... expected %d, got %d" % (i+1, index))
+
+			datalist+=res[:-8]
+		return self.unpack_scan(datalist)
 	
+	def unpack_scan(self, data):
+		a=Numeric.array(data,Numeric.UnsignedInt8).astype(Numeric.Int32)
+		b=Numeric.zeros(2*len(a)//3, Numeric.Int) #3 bytes hold 2 samples
+		b[0::2]=a[0::3] + ( (a[1::3]  & 0xf0) << 4 )
+		b[1::2]=( (a[1::3] & 0x0f) << 8 ) + a[2::3] 
+		
+		cl=self.channel_gain_list
+		ncl=len(cl)
+		fv=Numeric.zeros((len(b)//ncl, ncl), Numeric.Float)
+		for i in range(ncl):
+			g=cl[i][1] #get gain value for this channel
+			fv[:,i]=self.counts_to_volts(g, b[i::ncl])
+				
+		return fv
+		
+	def stop_analog_scan(self):
+		self.write((16,))
+		self.scanning=0
+		
 if __name__=='__main__':
 	
 	mcc=MCC_Device()
@@ -420,16 +477,18 @@ if __name__=='__main__':
 	try:
 		mcc.blink_led()
 		
-		if 0:
+		if 1:
 			for i in range(2):
 				mcc.analog_output(0, 4.5*(i & 1))
 				time.sleep(0.5)
 			
-			for i in range(200):
+			for i in range(10):
 				print mcc.analog_input(0, gain=mcc.GAIN5_DIFF)
-		elif 1:
-			mcc.setup_analog_scan()
-					
+		if 1:
+			mcc.setup_analog_scan(sweeps=1000, channels=(0,), rate=1000)
+			time.sleep(2)
+			print mcc.get_burst_scan()[:,0]
+									
 	finally:
 		mcc.close()
 		
