@@ -1,7 +1,7 @@
 """LabPro supports communications with the Vernier Instruments (www.vernier.com) LabPro Module
 over a serial line"""
 
-_rcsid="$Id: LabPro.py,v 1.5 2003-05-24 14:41:59 mendenhall Exp $"
+_rcsid="$Id: LabPro.py,v 1.6 2003-05-24 15:07:41 mendenhall Exp $"
 
 import time
 import Numeric
@@ -343,10 +343,13 @@ class LabPro:
 	def analog_output_off(self):
 		self.command('analog_output',0,0,0,0)
 
-	ledcolors={'red':1, 'yellow':2, 'green':3}
+	#note an LED has a number of different names
+	ledcolors={'red':1, 'RED':1, 'r':1, 'R':1, 1:1,
+			'yellow':2, 'YELLOW':2,'y':2,'Y':2,2:2,
+			'green':3, 'GREEN':3,'g':3,'G':3,3:3 }
 	
 	def set_led(self, color='red', state=1):
-		led=self.ledcolors[color.lower()]
+		led=self.ledcolors[color]
 		self.command('led', led, state, delay=0.01)
 	
 	def flash_led(self, color='green', flashtime=0.5):
