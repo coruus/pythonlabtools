@@ -1,7 +1,7 @@
 """earthmate.py supports communication with a DeLorme (www.delorme.com) Earthmate GPS unit, and with other Rockwell/Conexant/Navman/SiRF Zodiac
 and Jupiter type receivers"""
 
-_rcsid="$Id: earthmate.py,v 1.2 2003-07-03 19:07:45 mendenhall Exp $"
+_rcsid="$Id: earthmate.py,v 1.3 2003-07-03 19:10:18 mendenhall Exp $"
 
 import time
 import Numeric
@@ -262,6 +262,10 @@ class raw_earthmate:
 	
 	def set_pinned_position(self, flags):
 		self.send_msg(1221, 0, [self.next_sequence(), flags & 0x0f,0,0,0,0,0,0,0])
+
+	def set_nav_configuration(self, pinning_disable=0, smoothing_disable=0, held_altitude_disable=0, filtering_disable=0):
+		flags= (bool(filtering_disable)<<3) | (bool(pinning_disable) << 2) | (bool(smoothing_disable) << 1) | bool(held_altitude_disable)
+		self.send_msg(1221, 0, [self.next_sequence(), flags,0,0,0,0,0,0,0])
 
 	platforms={ 'default':0, 0:0, 
 			'static':1, 1:1,
