@@ -1,8 +1,8 @@
 /* serve up USB data from a Vernier LabPro device attached to a macintosh via USB */
 
-static char _rcsid[]="$Id: LabProUSBMacServer.c,v 1.1 2003-06-04 17:32:35 mendenhall Exp $";
+static char _rcsid[]="$Id: LabProUSBMacServer.c,v 1.2 2003-06-04 17:37:29 mendenhall Exp $";
 
-/* to compile ona Mac under OSX:
+/* to compile on a Mac under OSX:
 cc -o LabProUSBMacServer -framework IOKit -framework CoreFoundation LabProUSBMacServer.c
 
 that should produce a working binary.
