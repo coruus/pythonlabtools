@@ -1,5 +1,5 @@
 "The basic infrastructure for maintaining a vxi-11 protocol connection to a remote device"
-#$Id: vxi_11.py,v 1.4 2003-04-16 20:38:21 mendenhall Exp $
+#$Id: vxi_11.py,v 1.5 2003-04-16 20:45:35 mendenhall Exp $
 
 import rpc
 from rpc import TCPClient, RawTCPClient
@@ -224,11 +224,8 @@ class vxi_11_connection:
 		except VXI_11_Transient_Error:
 			self.log_exception("Initial connect failed... retry later")
 	
-	def setup_mux(self, mux, global_name):
-		if mux is None: #un-setup mux this way
-			self.mux=None
-		else:
-			self.mux=weakref.ref(mux)
+	def setup_mux(self, mux=None, global_name=None):
+			self.mux=mux
 			self.global_mux_name=global_name
 		
 	def command(self, id, pack, unpack, arglist, ignore_connect=0):
@@ -450,11 +447,11 @@ class vxi_11_connection:
 		if self.locklevel==0:
 			flags, timeout, lock_timeout=self.do_timeouts(0, lock_timeout)
 			try:
-				if self.mux: self.mux().lock_connection(self.global_mux_name)
+				if self.mux: self.mux.lock_connection(self.global_mux_name)
 				try:
 					err, = self.command(18, "lock","error", (self.lid, flags, lock_timeout))
 				except:
-					if self.mux: self.mux().unlock_connection(self.global_mux_name)
+					if self.mux: self.mux.unlock_connection(self.global_mux_name)
 					raise					
 			except:
 				if threads:
@@ -489,11 +486,11 @@ class vxi_11_connection:
 				try:
 					err, = self.command(19, "id", "error", (self.lid,  ))	
 				finally:
-					if self.mux and self.mux(): 
-						self.mux().unlock_connection(self.global_mux_name, priority) #this cannot fail, no try needed (??)
-			elif priority and self.mux and self.mux():
+					if self.mux: 
+						self.mux.unlock_connection(self.global_mux_name, priority) #this cannot fail, no try needed (??)
+			elif priority and self.mux:
 				#even on a non-final unlock, a request for changed priority is always remembered
-				self.mux().adjust_priority(self.global_mux_name, priority)
+				self.mux.adjust_priority(self.global_mux_name, priority)
 		finally:			
 			if threads:
 				self.threadlock.release()
