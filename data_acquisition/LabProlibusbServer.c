@@ -1,6 +1,6 @@
 /* serve up USB data from a Vernier LabPro device attached via USB using libusb on MacOSX, Linux or *BSD */
 
-static char rcsid[]="RCSID $Id: LabProlibusbServer.c,v 1.8 2003-10-16 13:50:45 mendenhall Exp $";
+static char rcsid[]="RCSID $Id: LabProlibusbServer.c,v 1.9 2003-10-16 18:55:04 mendenhall Exp $";
 
 /* 
 requires libusb (from www.sourceforge.net) installed 
@@ -26,6 +26,7 @@ that should produce a working binary.
 
 int keep_running=1;
 usb_dev_handle *global_intf; /* global reference to device, for cleanup */
+int use_time_stamps=0;
 
 void handle_signal(int what)
 {
@@ -80,19 +81,27 @@ int pass_input(usb_dev_handle *udev)
 int pass_output(usb_dev_handle *udev)
 {
 	int err, count;
-	char inBuf[128];
-	unsigned int retbufsize=64; /* LabPro always transfers 64 bytes blocks */
-
+	const unsigned int retbufsize=64; /* LabPro always transfers 64 bytes blocks */
+	struct { int blockflag; struct timeval tv; char inBuf[retbufsize];} datastruct;
+	struct timezone tz;
+	
+	datastruct.blockflag=0x00ffffff; /* make it easy to find timestamps in data */
+	
 	while(keep_running) {
 		count=0;
-		count = usb_bulk_read(udev, USB_ENDPOINT_IN | 2 , inBuf, retbufsize, 0);
+		count = usb_bulk_read(udev, USB_ENDPOINT_IN | 2 , datastruct.inBuf, retbufsize, 0);
 		
 		if (keep_running && count != retbufsize) {
 			fprintf(stderr, "read error: %s\n", usb_strerror());
 			break;
 		} 
 		if(keep_running) {
-			err=write(fileno(stdout), inBuf, 64);
+			if(use_time_stamps) {
+				gettimeofday(&datastruct.tv, &tz);
+				err=write(fileno(stdout), (void *)&datastruct, sizeof(datastruct));
+			} else {
+				err=write(fileno(stdout), &datastruct.inBuf, retbufsize);
+			}
 			fflush(stdout);
 			if (err<0) break;
 		}
@@ -147,13 +156,18 @@ int main (int argc, const char * argv[])
 	struct usb_bus *bus;
 	struct usb_device *dev, *matchdev;
 	
-	/* if one argument is provided, it should be an index as to _which_ USB LabPro is to be opened */
+	/* if one argument is provided, it should be an index as to _which_ USB LabPro is to be opened 
+		providing a negative index enables time stamping as is used when this is run as a robot */
 	if (argc==2) {
 		USBIndex=atoi(argv[1]);
-		if (USBIndex < 1 || USBIndex > 255) {
-			fprintf(stderr,"Bad USB index argument provided... should be 1<=index<=255, got: %s\n", argv[1]);
+		if (abs(USBIndex) < 1 || abs(USBIndex) > 255) {
+			fprintf(stderr,"Bad USB index argument provided... should be 1<=index<=255 or negative to enable binary time stamps, got: %s\n", argv[1]);
 			fprintf(stderr,"****EXITED****\n");
 			return 1;
+		}
+		if (USBIndex < 0) {
+			USBIndex=-USBIndex;
+			use_time_stamps=1;
 		}
 		USBIndex -=1;
 	} else USBIndex=0;

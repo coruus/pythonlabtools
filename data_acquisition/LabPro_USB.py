@@ -1,6 +1,6 @@
 "LabPro_USB supports connections of the Vernier LabPro system via USB"
 
-_rcsid="$Id: LabPro_USB.py,v 1.17 2003-10-14 13:46:21 mendenhall Exp $"
+_rcsid="$Id: LabPro_USB.py,v 1.18 2003-10-16 18:55:04 mendenhall Exp $"
 
 import LabPro
 from LabPro import RawLabPro, LabProError, _bigendian
@@ -36,7 +36,7 @@ class USB_data_mixin:
 			newdata=self.read(chunklen-len(s), mode=1) #mode=1 stops stripping of nulls from end of 64 bytes packets
 
 			if not s and newdata:
-				self.data_transmission_start=time.time() #remember when transmission started, in case someone cares
+				self.data_transmission_start=self.data_timestamp #remember when transmission started, in case someone cares
 
 			s+=newdata
 			if newdata:
@@ -75,12 +75,12 @@ class USB_data_mixin:
 				l[-1][-1]*=0.0001 #convert time code to seconds
 		return l
 		
-	def get_data_binary_realtime(self, channels=1):
+	def get_data_binary_realtime_old(self, channels=1):
 		"read the most recently collected realtime data from the LabPro and return as a list, using binary transfers and no scaling"
 		s=self.__saved_realtime_fragment
 		while(len(s)<64):
 			time.sleep(0.005)
-			s=s+self.read(maxlen=None, mode=1) #binary, don't chop zeros
+			s=s+self.read(maxlen=64-len(s), mode=1) #binary, don't chop zeros
 			if not s:
 				return [] #no data if string is still blank
 		leftovers=len(s) % 64
@@ -92,13 +92,23 @@ class USB_data_mixin:
 	
 		return self.parse_binary(s, channels)
 
+	def get_data_binary_realtime(self, channels=1):
+		"read the most recently collected realtime data from the LabPro and return as a list, using binary transfers and no scaling"
+		s=self.read(mode=1) #binary, don't chop zeros, and new read routine always returns multiples of 64
+		if not s:
+			return [] #no data if string is still blank
+
+		return self.parse_binary(s, channels)
+
 class USB_Mac_mixin:
 	"mixin class for RawLabPro to allow operation of LabPro via USB port on Macintosh OSX using pipe server"
 	
 	server_executable_path=os.path.join(os.path.dirname(__file__),"LabProUSBMacServer")
 	
 	def setup_serial(self,port_name=None):
-		self.usb_send, self.usb_recv, self.usb_err=os.popen3(self.server_executable_path+( " %d" % self.device_index),'b',0)
+		self.usb_send, self.usb_recv, self.usb_err=os.popen3(self.server_executable_path+( " %d" % -self.device_index),'b',0)
+		self.usb_timestamp=0
+		self.__usb_read_leftovers=''
 		try:
 			fcntl.fcntl(self.usb_recv, fcntl.F_SETFL, os.O_NONBLOCK) #pipes must be nonblocking
 			fcntl.fcntl(self.usb_err, fcntl.F_SETFL, os.O_NONBLOCK) #pipes must be nonblocking
@@ -144,24 +154,42 @@ class USB_Mac_mixin:
 	def read(self, maxlen=None, mode=None):
 		"read data from USB.  If mode is None or 0, strip trailing nulls for ASCII, otherwise leave alone"
 		self.check_usb_status()
-		try:
-			if maxlen is None:
-				res=self.usb_recv.read() 
-			else:
-				res=self.usb_recv.read(maxlen)
-			if not mode:
-				zp=res.find('\0')
-				if zp>=0:
-					res=res[:zp] #trim any nulls
-			return res
+		res=''
+		
+		db=self.__usb_read_leftovers
+				
+		while(not maxlen or (maxlen and len(res) < maxlen)):
+			while len(db)<76: #64 bytes + 8 byte timestamp + 4 byte 0xffffffff flag		
+				try:
+					db+=self.usb_recv.read() 
+				except IOError:
+					err=sys.exc_info()[1].args
+					if err[0] in (29, 35): #these errors are sometimes returned on a nonblocking empty read
+						pass #just return empty data
+					else:
+						print  "USB server disconnected unexpectedly", err
+						raise LabProError("USB server disconnected unexpectedly", sys.exc_info()[1].args)
+
+				if not db: break #no data at all, just fall out of this inner loop
+
+			if not db: break #doing uncounted read, just take data until it quits coming
+							
+			flag, tv_sec, tv_usec=struct.unpack('LLL', db[:12])
+			if flag != 0x00ffffff:
+				raise LabProError("Bad packet header from LabPro: " + ("%04x %08x %08x"%(flag, tv_sec, tv_usec)))
+			self.data_timestamp=float(tv_sec)+float(tv_usec)*1e-6
+			res+=db[12:76]
+			db=db[76:]
+
+		if not mode:
+			zp=res.find('\0')
+			if zp>=0:
+				res=res[:zp] #trim any nulls
+		
+		self.__usb_read_leftovers=db		
+		
+		return res
 			
-		except IOError:
-			err=sys.exc_info()[1].args
-			if err[0] in (29, 35): #these errors are sometimes returned on a nonblocking empty read
-				return '' #just return empty data
-			else:
-				print  "USB server disconnected unexpectedly", err
-				raise LabProError("USB server disconnected unexpectedly", sys.exc_info()[1].args)
 
 	def read_status(self):
 		"monitor the pipe server's stderr in a thread"
@@ -178,6 +206,7 @@ class USB_Mac_mixin:
 		
 	def write(self, data):
 		self.check_usb_status()
+		#print "writing...", data
 		self.usb_send.write(data)
 		time.sleep(0.1) #give a little extra time for message passing
 		
@@ -191,7 +220,7 @@ class USB_Mac_mixin:
 			self.usb_send.write("****QUIT****\n")
 		except:
 			pass
-		time.sleep(1)
+		time.sleep(2)
 		self.usb_recv.close()
 		self.usb_send.close()
 		self.usb_err.close()	
@@ -305,25 +334,31 @@ if __name__=='__main__':
 			lp.setup_channel(chan=1, operation=1) #set up -10-10 volts readback
 			lp.binary_mode(blocking_factor=4)
 			 
-			lp.setup_data_collection(samptime=0.0167, numpoints=-1, rectime=0)
+			lp.setup_data_collection(samptime=0.003, numpoints=-1, rectime=0)
 			rtdata=[]
+			timestamps=[]
+			
 			starttime=time.time()
-			for i in range(500):
-				time.sleep(0.04)
+			while len(rtdata) < 200:
+				time.sleep(0.01)
 				rtdata+=lp.get_data_binary_realtime()
+				timestamps.append(lp.data_timestamp)
+				
 			lp.stop()
 			rtdata+=lp.get_data_binary_realtime()
 			
 			stoptime=time.time()
 			
+			print map(lambda t: time.asctime(time.localtime(t)), timestamps[:10])
+			
 			rtdata=Numeric.array(rtdata,Numeric.Float)
 			volts=lp.scale_binary_data(rtdata[:,0],(-10.,10.))
-			timevals=Numeric.add.accumulate(rtdata[:,1]*0.0001)
+			timevals=Numeric.add.accumulate(rtdata[:,1])
 			print stoptime-starttime, len(rtdata), Numeric.array_str(volts[:20],precision=4, suppress_small=1)
 			print timevals[-1], Numeric.array_str(timevals[:20],precision=4, suppress_small=1)
 	
 			g =graphxy(width=20, y=graph.linaxis(title='volts (V) \\& current (mA)'), x=graph.linaxis(title='time (sec)', min=0) )
-			g.texrunner.settex(lfs='foils17pt')
+			g.texrunner.lfs='foils17pt'
 						
 			g.plot(
 				graph.data(data.data(zip(timevals,volts)), x=0, y=1),
