@@ -1,6 +1,6 @@
 """Setups for many of the devices used in the Vanderbilt University Free-Electron laser Center VXI crate.
 Useful to the public as drivers for some specific devices, plus lots of exemplary boilerplate"""
-_rcsid="$Id: vxi_crate_devices.py,v 1.4 2003-05-30 13:29:23 mendenhall Exp $"
+_rcsid="$Id: vxi_crate_devices.py,v 1.5 2003-07-09 18:05:34 mendenhall Exp $"
 
 import vxi_11 
 from vxi_11 import vxi_11_connection, device_thread
@@ -117,7 +117,7 @@ class e1413b(vxi_crate_device, tagged_data.array_device):
 					time.sleep(60)
 					try:
 						err,done=self.read_status_byte() 
-					except IOError, VXI_11_Error:
+					except (IOError, VXI_11_Error):
 						pass
 					self.log_error("tapping fingers on desk while a/d recalibrates... status = %02x" % done, self.debug_info)
 				err, reason, result=self.read()				
@@ -178,7 +178,7 @@ class e1413b(vxi_crate_device, tagged_data.array_device):
 				self.log_error("Wrong length data on loop %d, len= %d"%(self.loop_count, count))
 				self.clear()
 				
-		except IOError, Timeout_Error:
+		except (IOError, Timeout_Error):
 			#self.log_error("Timeout on loop %d"%self.loop_count)
 			self.clear()
 			self.write("*cls")
@@ -320,7 +320,7 @@ class e1458a(vxi_crate_device, tagged_data.dio_device):
 				self.log_error("Wrong length data on loop %d, len= %d"%(self.loop_count, count))
 				self.clear()
 				
-		except IOError, Timeout_Error:
+		except (IOError, Timeout_Error):
 			#self.log_error("Timeout on loop %d"%self.loop_count)
 			self.clear()
 			self.write("*cls")
@@ -416,7 +416,7 @@ class scanning_voltmeter(vxi_crate_device, tagged_data.array_device):
 				self.log_error("Wrong length data on loop %d, len= %d"%(self.loop_count, count))
 				self.clear()
 				
-		except IOError, Timeout_Error:
+		except (IOError, Timeout_Error):
 			#self.log_error("Timeout on loop %d"%self.loop_count)
 			self.clear()
 			self.write("*cls")
@@ -503,7 +503,7 @@ class glue(vxi_crate_device, tagged_data.dio_device):
 				d+=256
 			self.save_read_data(d)
 			self.consecutive_failures=0
-		except IOError, Timeout_Error:
+		except (IOError, Timeout_Error):
 			self.log_error("Timeout on loop %d"%self.loop_count)
 			self.clear()
 			self.write("*cls")
