@@ -1,5 +1,5 @@
 """cubic spline handling, in a manner compatible with the API in Numeric Recipes"""
-_rcsid="$Id: spline.py,v 1.8 2003-06-26 18:19:06 mendenhall Exp $"
+_rcsid="$Id: spline.py,v 1.9 2003-06-30 18:10:37 mendenhall Exp $"
 
 __all__=["spline","splint","cubeinterpolate","RangeError"]
 
@@ -75,8 +75,8 @@ def splint(xa, ya, y2a, x):
 			raise RangeError, "(%f, %f) not in range (%f, %f) in splint()" % (min(x), max(x), xa[0], xa[-1])
 	
 		npoints=len(x)
-
-		khi=clip(searchsorted(xa,x),1,npoints) 
+		khi=clip(searchsorted(xa,x),1,len(xa)) 
+		
 		klo=khi-1
 		xhi=take(xa, khi)
 		xlo=take(xa, klo)
