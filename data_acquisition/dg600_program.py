@@ -1,3 +1,6 @@
+"Program an InterfaceTechnologies DG600 pattern generator"
+#$Id: dg600_program.py,v 1.2 2003-04-11 17:51:01 mendenhall Exp $
+
 import math
 
 KICK_MASK=(0xf00000f0L) # mask for all bits attached to kicker

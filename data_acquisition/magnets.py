@@ -1,4 +1,5 @@
-"FEL magnet handler"
+"A group of ,agnets, with lots of error checking"
+#$Id: magnets.py,v 1.2 2003-04-11 17:51:03 mendenhall Exp $
 
 #use the global data cache
 from tagged_data import system_data

@@ -1,3 +1,5 @@
+"A sample of multi-threaded vxi-11 code... probably not up-to-date"
+#$Id: threaded_scope_test.py,v 1.2 2003-04-11 17:51:04 mendenhall Exp $
 
 import vxi_11
 import graphite

@@ -1,3 +1,6 @@
+"Sample code to  stress an vxi_11_connection_multiplexer"
+#$Id: test_mux.py,v 1.2 2003-04-11 17:51:04 mendenhall Exp $
+
 import vxi_11 
 import vxi_11_connection_mux
 import dg600_program

@@ -1,4 +1,5 @@
 "Basic power supply types"
+#$Id: power_supplies.py,v 1.2 2003-04-11 17:51:03 mendenhall Exp $
 
 import tagged_data
 

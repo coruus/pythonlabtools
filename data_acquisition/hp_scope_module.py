@@ -1,3 +1,6 @@
+"module importing a scope for global access"
+#$Id: hp_scope_module.py,v 1.2 2003-04-11 17:51:02 mendenhall Exp $
+
 from vxi_11_scopes import hp54542
 
 class my_hp54542(hp54542):

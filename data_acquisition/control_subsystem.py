@@ -1,3 +1,7 @@
+"""A set of specific subclasses intended for the Vanderbilt University Free-Electron laser Center,
+but very probably useful to many installations"""
+#$Id: control_subsystem.py,v 1.2 2003-04-11 17:51:01 mendenhall Exp $
+
 import time
 import exceptions
 import traceback

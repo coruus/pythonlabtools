@@ -1,3 +1,6 @@
+"The basic infrastructure for maintaining a vxi-11 protocol connection to a remote device"
+#$Id: vxi_11.py,v 1.3 2003-04-11 17:51:04 mendenhall Exp $
+
 import rpc
 from rpc import TCPClient, RawTCPClient
 import exceptions

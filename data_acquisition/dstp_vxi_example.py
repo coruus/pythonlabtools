@@ -1,4 +1,5 @@
-#$Id: dstp_vxi_example.py,v 1.1 2003-04-11 17:21:14 mendenhall Exp $
+"Sample VXI-11 interface with National Instruments DSTP protocol server"
+#$Id: dstp_vxi_example.py,v 1.2 2003-04-11 17:51:02 mendenhall Exp $
 import sys
 import os
 def addpath(path_string):

@@ -1,4 +1,5 @@
-"very basic National Instruments dstp protocol server"
+"very useable National Instruments dstp protocol server"
+#$Id: dstp_async.py,v 1.2 2003-04-11 17:51:01 mendenhall Exp $
 
 import socket
 import SocketServer

@@ -1,4 +1,5 @@
-"Lots of miscellaneous device configuration information"
+"Lots of miscellaneous device configuration information to be imported globally in a typical installation"
+#$Id: device_addresses.py,v 1.2 2003-04-11 17:51:01 mendenhall Exp $
 
 if 0:
 	proxy="127.0.0.1"

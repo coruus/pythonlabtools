@@ -1,3 +1,6 @@
+"A an RPC module, with optimizations for National Instruments DSTP protocol RPCs"
+#$Id: rpc.py,v 1.2 2003-04-11 17:51:03 mendenhall Exp $
+
 # Sun RPC version 2 -- RFC1057.
 
 # XXX There should be separate exceptions for the various reasons why

@@ -1,3 +1,6 @@
+"Some protocol for Agilent 548xx scopes"
+#$Id: infinium_module.py,v 1.2 2003-04-11 17:51:02 mendenhall Exp $
+
 from vxi_11_scopes import agilentscope
 
 class infinium_54825a(agilentscope):

@@ -1,3 +1,6 @@
+"Some simple oscilloscope drivers built around an abstract oscilloscope"
+#$Id: vxi_11_scopes.py,v 1.2 2003-04-11 17:51:04 mendenhall Exp $
+
 from vxi_11 import vxi_11_connection
 import struct
 import Numeric

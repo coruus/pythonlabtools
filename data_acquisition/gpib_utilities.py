@@ -1,4 +1,6 @@
 "handle some scpi and gpib protocols"
+#$Id: gpib_utilities.py,v 1.2 2003-04-11 17:51:02 mendenhall Exp $
+
 import time
 
 class SCPI_Error(Exception): #:syst:err? returned something

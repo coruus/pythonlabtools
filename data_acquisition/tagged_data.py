@@ -1,4 +1,6 @@
 "mix-in classes for handling tagged data fields"
+#$Id: tagged_data.py,v 1.2 2003-04-11 17:51:03 mendenhall Exp $
+
 import threading as _threading
 
 class dio_device: #handle named data fields and lazy/immediate writing with this mix-in

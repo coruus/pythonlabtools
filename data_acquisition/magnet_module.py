@@ -1,3 +1,6 @@
+"Prototype application of the magnets.py module"
+#$Id: magnet_module.py,v 1.2 2003-04-11 17:51:02 mendenhall Exp $
+
 from power_supplies import current_supply, scpi_power_supply, analog_power_supply
 from tagged_data import system_data as data
 from magnets import magnet_channel, magnet_system

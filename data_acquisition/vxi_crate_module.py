@@ -1,3 +1,6 @@
+"Import all the devices in our crate at once"
+#$Id: vxi_crate_module.py,v 1.2 2003-04-11 17:51:04 mendenhall Exp $
+
 import vxi_crate_devices as v
 
 
