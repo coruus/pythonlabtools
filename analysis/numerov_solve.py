@@ -1,5 +1,5 @@
 """Compute Schrodinger equation eigenfunctions very quickly and efficiently using Numerov's method to solve the underlying differential equations"""
-_rcsid="$Id: numerov_solve.py,v 1.2 2003-09-29 14:27:42 mendenhall Exp $"
+_rcsid="$Id: numerov_solve.py,v 1.3 2003-10-03 14:37:38 mendenhall Exp $"
 
 import math
 import Numeric
@@ -20,7 +20,7 @@ except:
 	
 def bare_numerov(V, dx):
 	"""generate a solution to Schrodinger's eqn for a potential V=(2m/hbar**2)(V-E) using the Numerov method.
-	Always integrate in from forbidden region to center of potential from both ends, and solve to match boundary conditions"""
+	Always integrate in from forbidden region to center of potential from both ends, and solve to match boundary conditions.  The initial conditions will fail if started in an allowed (V-E < 0) region"""
 	npoints=len(V)
 	Y=Numeric.zeros(npoints,Numeric.Float)
 	dx2=dx*dx
