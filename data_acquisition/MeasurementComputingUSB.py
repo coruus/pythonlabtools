@@ -1,6 +1,6 @@
 "MeasurementComputingUSB supports connections of  Measurement Computing, Inc.  USB devices"
 
-_rcsid="$Id: MeasurementComputingUSB.py,v 1.16 2003-11-21 18:23:07 mendenhall Exp $"
+_rcsid="$Id: MeasurementComputingUSB.py,v 1.17 2003-11-24 16:56:56 mendenhall Exp $"
 
 
 
@@ -101,7 +101,7 @@ try:
 						raise MeasurementComputingError("USB server disconnected unexpectedly", sys.exc_info()[1].args)
 			
 			if not res:
-				raise MeasurementComputingError("Lost data from Server")
+				return None
 					
 			flag, tv_sec, tv_usec, actbytecount=struct.unpack('LLLL', res[:16])
 			if actbytecount < 0:
@@ -561,7 +561,7 @@ class MCC_Analog_Support:
 	
 	def get_continuous_scan_packet(self, resync=0):
 		
-		dt=self.packet_dt*0.5-(time.time()-self.last_packet_time)
+		dt=self.packet_dt*0.8-(time.time()-self.last_packet_time)
 		if dt>0.1:
 			time.sleep(dt-0.09)
 			
@@ -659,7 +659,7 @@ if __name__=='__main__':
 			print Numeric.array_str(mcc.get_burst_scan()[:100,0], precision=3, suppress_small=1, max_line_width=10000)
 									
 		if 1:
-			mcc.setup_analog_scan(sweeps=-1, channels=(0,), gains=mcc.GAIN2_DIFF, rate=2000)
+			mcc.setup_analog_scan(sweeps=-1, channels=(0,), gains=mcc.GAIN2_DIFF, rate=1000)
 			print mcc.actRate
 			
 			try:
