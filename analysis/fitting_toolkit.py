@@ -110,7 +110,7 @@ If analytic derivatives are desired, do, e.g.
 
 """
 
-_rcsid="$Id: fitting_toolkit.py,v 1.8 2003-07-03 14:17:50 mendenhall Exp $"
+_rcsid="$Id: fitting_toolkit.py,v 1.9 2003-10-03 17:45:40 mendenhall Exp $"
 
 import Numeric
 import random
@@ -469,7 +469,6 @@ class linear_combination_fit(fit):
 		fit.__init__(self, pointhint)
 		self.basis=funclist
 		self.param_count=len(funclist)
-		self.funcparams=Numeric.zeros(self.param_count, self.atype)
 		
 	def function(self, p, x):
 		if self.firstpass: #first call from hessian_fit is meaningless, all coefficients zero, save time
@@ -483,6 +482,7 @@ class linear_combination_fit(fit):
 	def derivs(self):
 		if self.firstpass: #may get used more than once if weights are not constant, but no need to recompute
 			n=self.pointcount
+			self.funcparams=Numeric.zeros(self.param_count, self.atype)
 			dd = Numeric.zeros((n, self.param_count), self.atype)
 			if self.arg_count==1:
 				x=self.xarray[0,:n]
@@ -507,7 +507,6 @@ class polynomial_fit(fit):
 		fit.__init__(self, pointhint)
 		self.xcenter=xcenter
 		self.param_count=degree+1
-		self.funcparams=Numeric.zeros(self.param_count, self.atype)
 		
 	def function(self, coefs, xlist):
 		if self.firstpass: #first call from hessian_fit is meaningless, all coefficients zero, save time
@@ -521,6 +520,7 @@ class polynomial_fit(fit):
 
 	def derivs(self):
 		if self.firstpass: #may get used more than once if weights are not constant, but no need to recompute
+			self.funcparams=Numeric.zeros(self.param_count, self.atype)
 			n=self.pointcount
 			dd = Numeric.zeros((n, self.param_count), self.atype)
 			dd[:,0]=1.0
