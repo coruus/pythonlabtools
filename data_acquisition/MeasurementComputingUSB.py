@@ -1,6 +1,6 @@
 "MeasurementComputingUSB supports connections of  Measurement Computing, Inc.  USB devices"
 
-_rcsid="$Id: MeasurementComputingUSB.py,v 1.8 2003-11-20 16:36:15 mendenhall Exp $"
+_rcsid="$Id: MeasurementComputingUSB.py,v 1.9 2003-11-20 17:24:43 mendenhall Exp $"
 
 
 
@@ -322,6 +322,15 @@ class MCC_Device(default_server_mixin):
 	CBGETERROR=19
 	CBSETTRIG=20
 	
+	DIO_DIR_IN=1
+	DIO_DIR_OUT=0
+
+	DIO_PORTA=1
+	DIO_PORTCH=2
+	DIO_PORTB=4
+	DIO_PORTCL =8
+	DIO_AUXPORT=16
+	
 	ad_gain_scale_dict = {
 			GAIN1_SE :  (20.0/4096.0, 10.0, 1.0),
 			GAIN1_DIFF: (40.0/4096.0, 20.0, 1.0),
@@ -523,6 +532,46 @@ class MCC_Device(default_server_mixin):
 		res=self.read()
 		return ord(res[0])
 
+	def read_memory(self, base=0x1800, count=8):
+		results=''
+		while(count):
+			actcount=min(count,8)
+			self.write((self.CBMEMREAD, base & 0xff, (base >> 8) & 0xff, actcount))
+			res=self.read()
+			results+=res[:actcount]
+			base+=actcount
+			count-=actcount
+		return results
+
+	def write_memory(self, base=0x1800, data=''):
+		tc=0
+		ld=len(data)
+		bd=map(ord,data) #convert string to list for concatenation onto other list
+		while(tc<ld):
+			actcount=min(ld-tc,4)
+			self.write([self.CBMEMWRITE, base & 0xff, (base >> 8) & 0xff, actcount]+bd[tc:tc+actcount])
+			base+=actcount
+			tc+=actcount
+	
+	def clear_counter(self):
+		self.write((CBCINIT,))
+	
+	def read_counter(self):
+		self.write((CBCIN32,))
+		res=self.read()
+		return struct.unpack('<L',res[:4])[0]
+	
+	def configure_digital_port(self, port=DIO_PORTA, dir=DIO_DIR_IN):
+		self.write((CBDCONFIG, port, dir))
+	
+	def digital_out(self, port=DIO_PORTA, data=0):
+		self.write((CBDOUT, port, data))
+
+	def digital_in(self, port=DIO_PORTA):
+		self.write((CBDIN,port))
+		res=self.read()
+		return ord(res[0])
+	
 if __name__=='__main__':
 	
 	mcc=MCC_Device()
@@ -530,11 +579,15 @@ if __name__=='__main__':
 	try:
 		mcc.blink_led()
 		
+		print mcc.read_memory(count=16)
+			
 		oldid=mcc.get_id()
 		mcc.set_id( (oldid+1) & 255 )
 		
 		newid=mcc.get_id()
 		print oldid, newid
+		
+		mcc.write_memory(data='hello '+str(newid)+'     ')
 		
 		if 1:
 			for i in range(2):
