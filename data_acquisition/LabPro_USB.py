@@ -1,6 +1,6 @@
 "LabPro_USB supports connections of the Vernier LabPro system via USB"
 
-_rcsid="$Id: LabPro_USB.py,v 1.10 2003-07-11 19:32:47 mendenhall Exp $"
+_rcsid="$Id: LabPro_USB.py,v 1.11 2003-07-11 22:03:06 mendenhall Exp $"
 
 import LabPro
 from LabPro import RawLabPro, LabProError, _bigendian
@@ -201,7 +201,7 @@ class LabPro_Mac_USB(USB_data_mixin, USB_Mac_mixin, RawLabPro):
 class USB_libusb_mixin(USB_Mac_mixin):
 	"mixin class for RawLabPro to allow operation of LabPro via USB port on machines supporting libusb using pipe server"
 	
-	server_executable_path=os.path.join(os.path.dirname(__file__),"LabProUSBServer")
+	server_executable_path=os.path.realpath(os.path.join(os.path.dirname(__file__),"LabProUSBServer"))
 
 class LabPro_USB(USB_data_mixin, USB_libusb_mixin, RawLabPro):
 	def __init__(self, device_index=1):
