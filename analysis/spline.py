@@ -1,5 +1,5 @@
 """cubic spline handling, in a manner compatible with the API in Numeric Recipes"""
-_rcsid="$Id: spline.py,v 1.5 2003-06-11 15:03:31 mendenhall Exp $"
+_rcsid="$Id: spline.py,v 1.6 2003-06-20 15:18:39 mendenhall Exp $"
 
 import exceptions
 
@@ -91,6 +91,22 @@ def splint(xa, ya, y2a, x):
 			a=(xa[khi]-xv)/h; b=1.0-a
 			results[i]=a*ya[klo]+b*ya[khi]+((a*a*a-a)*y2a[klo]+(b*b*b-b)*y2a[khi])*(h*h)/6.0
 		return results
+
+def cubeinterpolate(xlist, ylist, x3):
+	"find point at x3 given 4 points in given lists using exact cubic interpolation, not splining"
+	x1,x2,x4,x5=xlist
+	x2,x3,x4,x5=float(x2-x1),float(x3-x1),float(x4-x1),float(x5-x1)
+	y1,y2,y4,y5=ylist
+	y2,y4, y5=float(y2-y1),float(y4-y1),float(y5-y1)
+	
+	y3=(
+			(x3*(x2**2*x5**2*(-x2 + x5)*y4 + x4**3*(x5**2*y2 - x2**2*y5) + x4**2*(-(x5**3*y2) + x2**3*y5) + 
+		           x3**2*(x2*x5*(-x2 + x5)*y4 + x4**2*(x5*y2 - x2*y5) + x4*(-(x5**2*y2) + x2**2*y5)) + 
+		           x3*(x2*x5*(x2**2 - x5**2)*y4 + x4**3*(-(x5*y2) + x2*y5) + x4*(x5**3*y2 - x2**3*y5))))/
+		      	 (x2*(x2 - x4)*x4*(x2 - x5)*(x4 - x5)*x5)
+	)+y1
+	return y3
+
 
 if __name__=="__main__":
 	import traceback
