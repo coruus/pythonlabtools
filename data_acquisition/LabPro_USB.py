@@ -1,6 +1,6 @@
 "LabPro_USB supports connections of the Vernier LabPro system via USB"
 
-_rcsid="$Id: LabPro_USB.py,v 1.19 2003-10-29 21:09:21 mendenhall Exp $"
+_rcsid="$Id: LabPro_USB.py,v 1.20 2003-11-06 18:22:16 mendenhall Exp $"
 
 import LabPro
 from LabPro import RawLabPro, LabProError, _bigendian
@@ -167,7 +167,7 @@ try:
 						db+=self.usb_recv.read() 
 					except IOError:
 						err=sys.exc_info()[1].args
-						if err[0] in (29, 35): #these errors are sometimes returned on a nonblocking empty read
+						if err[0] in (11, 29, 35): #these errors are sometimes returned on a nonblocking empty read
 							pass #just return empty data
 						else:
 							print  "USB server disconnected unexpectedly", err
@@ -202,7 +202,7 @@ try:
 					if res: print >> sys.stderr, "LabPro USB message: ", res
 					if res.find("****EXITED****") >= 0: break #if this thread dies, LabPro has gone away somehow
 				except IOError:
-					if sys.exc_info()[1].args[0]==35: #this error is returned on a nonblocking empty read
+					if sys.exc_info()[1].args[0] in (11,29, 35): #this error is returned on a nonblocking empty read
 						time.sleep(1) #so just wait and try again
 					else:
 						raise
