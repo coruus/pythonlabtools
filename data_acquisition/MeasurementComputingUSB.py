@@ -1,12 +1,18 @@
 "MeasurementComputingUSB supports connections of  Measurement Computing, Inc.  USB devices"
 
-_rcsid="$Id: MeasurementComputingUSB.py,v 1.9 2003-11-20 17:24:43 mendenhall Exp $"
+_rcsid="$Id: MeasurementComputingUSB.py,v 1.10 2003-11-20 21:38:25 mendenhall Exp $"
 
 
 
 class MeasurementComputingError(Exception):
 	pass
 
+class MeasurementComputingTransientError(MeasurementComputingError):
+	pass
+
+class MeasurementComputingTimeout(MeasurementComputingTransientError):
+	pass
+	
 import array
 import Numeric
 
@@ -83,7 +89,7 @@ try:
 				try:
 					res+=self.usb_recv.read(actmax-len(res)) #packet + header 
 					if len(res) < actmax:
-						time.sleep(0.02)
+						time.sleep(0.05)
 				except IOError:
 					err=sys.exc_info()[1].args
 					if err[0] in (11, 29, 35): #these errors are sometimes returned on a nonblocking empty read
@@ -91,17 +97,17 @@ try:
 						tries=tries+1
 						continue #just return empty data
 					else:
-						print  "USB server disconnected unexpectedly", err
 						raise MeasurementComputingError("USB server disconnected unexpectedly", sys.exc_info()[1].args)
 			
 			if not res:
-				return ''
+				raise MeasurementComputingError("Lost data from Server")
 					
 			flag, tv_sec, tv_usec, actbytecount=struct.unpack('LLLL', res[:16])
-			if actbytecount != maxlen:
-				print len(res), repr(res)
-				raise MeasurementComputingError("Bad data length from MCC device:  requested %d, got %d or error %08lx" 
-						% (maxlen, actbytecount, actbytecount) )
+			if actbytecount < 0:
+				raise MeasurementComputingTimeout("Probably USB Timeout, error %08lx" % actbytecount )
+			elif actbytecount != maxlen:
+				raise MeasurementComputingError("Bad data length from MCC device:  requested %d, got %d" 
+						% (maxlen, actbytecount) )
 				
 			#print len(res), locals()
 			if flag != 0x00ffffff:
@@ -596,10 +602,10 @@ if __name__=='__main__':
 			
 			for i in range(10):
 				print mcc.analog_input(0, gain=mcc.GAIN2_DIFF)
-		if 0:
+		if 1:
 			mcc.setup_analog_scan(sweeps=1000, channels=(0,1), gains=mcc.GAIN2_DIFF, rate=500)
 			time.sleep(2)
-			print mcc.get_burst_scan()[:,0]
+			print Numeric.array_str(mcc.get_burst_scan()[:100,0], precision=3, suppress_small=1, max_line_width=10000)
 									
 		if 1:
 			mcc.setup_analog_scan(sweeps=-1, channels=(0,), gains=mcc.GAIN2_DIFF, rate=2000)
