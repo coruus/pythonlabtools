@@ -2,7 +2,7 @@
 with lots of widgets to make it possible not only to act as a basic server, but for Python code
 to interact with the server by storing and retrieving data, which would then be reflected to any
 LabVIEW clients listening"""
-#$Id: nati_dstp_basics.py,v 1.5 2003-04-13 19:58:44 mendenhall Exp $
+#$Id: nati_dstp_basics.py,v 1.6 2003-04-22 18:34:45 mendenhall Exp $
 
 import struct
 import array
@@ -278,6 +278,8 @@ class NATI_DSTP_StreamHandler:
 
 	def listen(self, string, req, payload):
 		result=self.server.listen(req[1], self.respond)
+		fullrequest=parse_composite_object(string)[0]
+		self.respond(pack_object_completely([6, fullrequest[1], fullrequest[2]])) #first send usual connect string
 		self.respond(result) #and send whatever data we already have...
 		
 	def store(self, string, req, payload):		
