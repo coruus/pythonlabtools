@@ -1,6 +1,6 @@
 /* serve up USB data from a Vernier LabPro device attached to a macintosh via USB */
 
-static char rcsid[]="RCSID $Id: LabProUSBMacServer.c,v 1.5 2003-06-12 14:18:31 mendenhall Exp $";
+static char rcsid[]="RCSID $Id: LabProUSBMacServer.c,v 1.6 2003-06-20 16:34:29 mendenhall Exp $";
 
 /* to compile on a Mac under OSX:
 cc -o LabProUSBMacServer -framework IOKit -framework CoreFoundation LabProUSBMacServer.c
@@ -18,11 +18,26 @@ that should produce a working binary.
 #include <unistd.h>
 #include <stdio.h>
 #include <pthread.h>
+#include <signal.h>
 
 mach_port_t 	masterPort = 0;				// requires <mach/mach.h>
 
 int keep_running=1;
+IOUSBInterfaceInterface182 **global_intf=0; /* put interface where signal can access it */
 
+void handle_signal(int what)
+{
+	int err;
+	keep_running=0;
+	fprintf(stderr,"Got signal\n");
+	if (!global_intf) return;
+	err = (*global_intf)->AbortPipe(global_intf, 1); /* terminate read operation */
+	err = (*global_intf)->ClearPipeStall(global_intf, 1); /* terminate read operation */
+	err = (*global_intf)->AbortPipe(global_intf, 2); /* terminate write operation */
+	err = (*global_intf)->ClearPipeStall(global_intf, 2); /* terminate write operation */
+	
+}
+	
 int pass_input(IOUSBInterfaceInterface182 **intf)
 {
 	fd_set inpipeinfo;
@@ -138,8 +153,12 @@ void dealWithInterface(io_service_t usbInterfaceRef)
 		fprintf(stderr, "dealWithInterface: unable to open interface. ret = %08x\n", err);
 	return;
     }
+	
+	global_intf=intf; /* post global value for signal handler */
+	
 	transferData(intf);
-		
+	
+	global_intf=(void *)0;
     err = (*intf)->USBInterfaceClose(intf);
     if (err)
     {
@@ -248,6 +267,12 @@ int main (int argc, const char * argv[])
     err = IOServiceGetMatchingServices(masterPort, matchingDictionary, &iterator);
     matchingDictionary = 0;			// this was consumed by the above call
     
+	signal(SIGHUP, handle_signal);
+	signal(SIGINT, handle_signal);
+	signal(SIGQUIT, handle_signal);
+	signal(SIGTERM, handle_signal);
+	signal(SIGPIPE, handle_signal);
+	
 	usbDeviceRef=(io_service_t)(-1); /* a bogus value just to let the for loop run */
 	for(i=0; i<=USBIndex && usbDeviceRef; i++) usbDeviceRef = IOIteratorNext(iterator); /* get first instance */
 	if(usbDeviceRef) {
