@@ -1,6 +1,6 @@
 "sunrpc_record_marking implements the Record Marking Standard such as used in SunRPC records sent via sockets per RFC-1831 section 10"
 
-_rcsid="$Id: sunrpc_record_marking.py,v 1.3 2003-08-22 21:20:11 mendenhall Exp $"
+_rcsid="$Id: sunrpc_record_marking.py,v 1.4 2003-08-25 20:00:06 mendenhall Exp $"
 
 from select import select as _select
 
@@ -36,6 +36,9 @@ def recvfrag_with_timeout(sock, timeout_seconds=None):
 			raise NoDataError
 
 	header = sock.recv(4)
+	if not header:
+		raise NoDataError #somehow, we got a _select response but still no data
+		
 	if len(header) < 4:
 		raise BrokenFragmentError
 	x = long(ord(header[0]))<<24 | ord(header[1])<<16 | \
