@@ -1,6 +1,6 @@
 /* serve up USB data from a Vernier LabPro device attached to a macintosh via USB */
 
-static char rcsid[]="RCSID $Id: LabProUSBMacServer.c,v 1.4 2003-06-04 18:25:41 mendenhall Exp $";
+static char rcsid[]="RCSID $Id: LabProUSBMacServer.c,v 1.5 2003-06-12 14:18:31 mendenhall Exp $";
 
 /* to compile on a Mac under OSX:
 cc -o LabProUSBMacServer -framework IOKit -framework CoreFoundation LabProUSBMacServer.c
@@ -217,7 +217,20 @@ int main (int argc, const char * argv[])
     CFNumberRef			numberRef;
     io_iterator_t 		iterator = 0;
     io_service_t		usbDeviceRef;
-    
+    int USBIndex;
+	int i;
+	
+	/* if one argument is provided, it should be an index as to _which_ USB LabPro is to be opened */
+	if (argc==2) {
+		USBIndex=atoi(argv[1]);
+		if (USBIndex < 1 || USBIndex > 255) {
+			fprintf(stderr,"Bad USB index argument provided... should be 1<=index<=255, got: %s\n", argv[1]);
+			fprintf(stderr,"****EXITED****\n");
+			return 1;
+		}
+		USBIndex -=1;
+	} else USBIndex=0;
+	
 	setbuf(stdout, 0);
 	setbuf(stderr,0);
 	
@@ -235,13 +248,14 @@ int main (int argc, const char * argv[])
     err = IOServiceGetMatchingServices(masterPort, matchingDictionary, &iterator);
     matchingDictionary = 0;			// this was consumed by the above call
     
-	usbDeviceRef = IOIteratorNext(iterator); /* get first instance */
+	usbDeviceRef=(io_service_t)(-1); /* a bogus value just to let the for loop run */
+	for(i=0; i<=USBIndex && usbDeviceRef; i++) usbDeviceRef = IOIteratorNext(iterator); /* get first instance */
 	if(usbDeviceRef) {
 		fprintf(stderr, "Found device %p\n", (void*)usbDeviceRef);
 		fflush(0);
 		dealWithDevice(usbDeviceRef);
 		IOObjectRelease(usbDeviceRef);			// no longer need this reference
-    } else fprintf(stderr,"No LabPro Found\n");
+    } else fprintf(stderr,"No LabPro Found at index %d\n", USBIndex+1);
 	
     IOObjectRelease(iterator);
     iterator = 0;
