@@ -1,6 +1,6 @@
 "MeasurementComputingUSB supports connections of  Measurement Computing, Inc.  USB devices"
 
-_rcsid="$Id: MeasurementComputingUSB.py,v 1.4 2003-11-19 22:18:16 mendenhall Exp $"
+_rcsid="$Id: MeasurementComputingUSB.py,v 1.5 2003-11-19 22:32:58 mendenhall Exp $"
 
 
 
@@ -452,19 +452,19 @@ class MCC_Device(default_server_mixin):
 			datalist+=res[:-8]
 		return self.unpack_scan(datalist)
 	
-	def get_continuous_scan_packet(self):
+	def get_continuous_scan_packet(self, resync=0):
 		res=self.read(feature=1)
-		if not res: return []
+		if not res: return None, None
 		
 		trailer=res[-8:]
 		err, readaddr, writeaddr, index, junk=struct.unpack('<BHHHB', trailer)
 
 		#print err, readaddr, writeaddr, index
-		if index != self.continuous_scan_packet_index: #aack, packet out of sync
+		if not resync and index != self.continuous_scan_packet_index: #aack, packet out of sync
 			raise MeasurementComputingError("scan packet out of sync... expected %d, got %d" % (self.continuous_scan_packet_index, index))
-		self.continuous_scan_packet_index+=1
-		
-		return self.unpack_scan(res[:-8])
+
+		self.continuous_scan_packet_index=index+1		
+		return index, self.unpack_scan(res[:-8])
 
 
 	def unpack_scan(self, data):
@@ -509,8 +509,8 @@ if __name__=='__main__':
 			mcc.setup_analog_scan(sweeps=-1, channels=(0,), gains=mcc.GAIN1_DIFF, rate=500)
 			actcount=0
 			try:
-				while actcount<10:
-					res=mcc.get_continuous_scan_packet()
+				while actcount<100:
+					index, res=mcc.get_continuous_scan_packet()
 					if res:
 						print Numeric.array_str(res[:,0], precision=3, suppress_small=1, max_line_width=10000)
 						actcount+=1
