@@ -1,9 +1,9 @@
 /* serve up USB data from a Vernier LabPro device attached via USB using libusb on MacOSX, Linux or *BSD */
 
-static char rcsid[]="RCSID $Id: LabProlibusbServer.c,v 1.11 2003-11-06 20:01:14 mendenhall Exp $";
+static char rcsid[]="RCSID $Id: LabProlibusbServer.c,v 1.12 2003-11-06 21:37:55 mendenhall Exp $";
 
 /* 
-requires libusb (from www.sourceforge.net) installed 
+requires libusb or libusb-win32 (from www.sourceforge.net) installed 
 to compile on a Mac under OSX:
 cc -o LabProUSBServer -framework IOKit -framework CoreFoundation -lusb LabProlibusbServer.c
 
@@ -11,9 +11,13 @@ or to compile it using libusb statically, (so it can be installed on machines wi
 cc -o LabProUSBServer -framework IOKit -framework CoreFoundation /usr/local/lib/libusb.a LabProlibusbServer.c
 
 to compile under Linux or *BSD:
-cc -o LabProUSBServer -lusb LabProlibusbServer.c
+cc -o LabProUSBServer -lpthread -lusb  LabProlibusbServer.c 
+which should produce a working binary.
 
-that should produce a working binary.
+Under linux, it is apparently necessary also to do (as root):
+chmod 4555 LabProUSBServer
+chown root:root LabProUSBServer
+to give the server setuid(0) privileges since libusb access to devices must be done as root 
 */
 
 #include <sys/time.h>
