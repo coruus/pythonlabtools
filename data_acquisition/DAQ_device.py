@@ -1,6 +1,6 @@
 "abstract general data acquisition device class, implementing single-sample reads, triggered single block reads, queued block reads, and queued streaming reads"
 
-_rcsid="$Id: DAQ_device.py,v 1.2 2003-11-07 17:56:00 mendenhall Exp $"
+_rcsid="$Id: DAQ_device.py,v 1.3 2003-11-21 15:51:05 mendenhall Exp $"
 
 import threading
 import time
@@ -21,16 +21,20 @@ class DAQ_device:
 	
 	def __init__(self ):
 		pass
-			
+	
+	def reset_device(self):
+		"clear all channel info and return device to default state, all channels off typically"
+		pass
+		
 	def set_input_channel_properties(self, chan, range, offset=0, **keywords):
 		"set the full-scale range of a channel, assumed +-range if offset=0"
 		pass
 	
-	def set_sample_properties(self, npoints=1, sampletime_seconds=1.0, averages=None, **keywords):
+	def set_sample_properties(self, npoints=1, sampletime_seconds=1.0, averages=None, prestore_seconds=0.0):
 		"set the block length, inter-sample time, and averageing for an acquisition"
 		pass
 	
-	def set_trigger_properties(self, channel=1, level=0.0, **keywords):
+	def set_trigger_properties(self, trig_channel=1, trig_level=0.0, trig_slope=1, trig_mode='immediate', **keywords):
 		"set the trigger level for the device, using whatever units are likely to be obvious (!)"
 		pass
 	
