@@ -1,6 +1,6 @@
 /* serve up USB data from a Vernier LabPro device attached via USB using libusb on MacOSX, Linux or *BSD */
 
-static char rcsid[]="RCSID $Id: LabProlibusbServer.c,v 1.10 2003-11-06 19:56:47 mendenhall Exp $";
+static char rcsid[]="RCSID $Id: LabProlibusbServer.c,v 1.11 2003-11-06 20:01:14 mendenhall Exp $";
 
 /* 
 requires libusb (from www.sourceforge.net) installed 
@@ -94,7 +94,7 @@ int pass_output(usb_dev_handle *udev)
 		count = usb_bulk_read(udev, USB_ENDPOINT_IN | 2 , datastruct.inBuf, retbufsize, 1000000);
 		if (keep_running && count != retbufsize) {
 			stop_time=time(NULL);
-			if(stop_time-start_time < 1000) {
+			if(stop_time-start_time < 995) {
 				/* timeouts are 1000 seconds (1000000 milliseconds), so if we fail after this long, it's
 					probably a timeout */
 				fprintf(stderr, "read error: %s\n", usb_strerror());
