@@ -1,6 +1,6 @@
 "LabPro_USB supports connections of the Vernier LabPro system via USB"
 
-_rcsid="$Id: LabPro_USB.py,v 1.15 2003-10-12 17:44:56 mendenhall Exp $"
+_rcsid="$Id: LabPro_USB.py,v 1.16 2003-10-12 17:48:37 mendenhall Exp $"
 
 import LabPro
 from LabPro import RawLabPro, LabProError, _bigendian
@@ -156,7 +156,7 @@ class USB_Mac_mixin:
 			return res
 			
 		except IOError:
-			if sys.exc_info()[1].args==(35,): #this error is returned on a nonblocking empty read
+			if sys.exc_info()[1].args[0]==35: #this error is returned on a nonblocking empty read
 				return '' #just return empty data
 			else:
 				raise LabProError("USB server disconnected unexpectedly", sys.exc_info()[1].args)
