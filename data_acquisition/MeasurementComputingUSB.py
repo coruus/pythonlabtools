@@ -1,6 +1,6 @@
 "MeasurementComputingUSB supports connections of  Measurement Computing, Inc.  USB devices"
 
-_rcsid="$Id: MeasurementComputingUSB.py,v 1.12 2003-11-20 21:47:05 mendenhall Exp $"
+_rcsid="$Id: MeasurementComputingUSB.py,v 1.13 2003-11-20 22:10:50 mendenhall Exp $"
 
 
 
@@ -566,6 +566,16 @@ class MCC_Device(default_server_mixin):
 			base+=actcount
 			tc+=actcount
 	
+	def write_user_memory(self, data):
+		assert len(data) < self.USER_MEMORY_SIZE-2, "Too much data for user memory"
+		lencode=struct.pack(">H",len(data))
+		self.write_memory(base=self.USER_MEMORY_BASE, data=lencode+data)
+	
+	def read_user_memory(self):
+		lendata=self.read_memory(base=self.USER_MEMORY_BASE, count=2)
+		bytes=min(struct.unpack(">H", lendata)[0], self.USER_MEMORY_SIZE-2) #protect against junk if reading uninited memory
+		return self.read_memory(base=self.USER_MEMORY_BASE+2, count=bytes)
+	
 	def clear_counter(self):
 		self.write((CBCINIT,))
 	
@@ -592,7 +602,7 @@ if __name__=='__main__':
 	try:
 		mcc.blink_led()
 		
-		print mcc.read_memory(count=16)
+		print mcc.read_user_memory()
 			
 		oldid=mcc.get_id()
 		mcc.set_id( (oldid+1) & 255 )
@@ -600,7 +610,8 @@ if __name__=='__main__':
 		newid=mcc.get_id()
 		print oldid, newid
 		
-		mcc.write_memory(data='hello '+str(newid)+'     ')
+		mcc.write_user_memory(data='hello '+str(newid))
+		
 		
 		if 1:
 			for i in range(2):
