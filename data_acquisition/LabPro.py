@@ -1,7 +1,7 @@
 """LabPro supports communications with the Vernier Instruments (www.vernier.com) LabPro Module
 over a serial line"""
 
-_rcsid="$Id: LabPro.py,v 1.17 2003-06-24 16:20:06 mendenhall Exp $"
+_rcsid="$Id: LabPro.py,v 1.18 2003-07-08 20:42:15 mendenhall Exp $"
 
 import time
 import Numeric
@@ -424,6 +424,7 @@ try:
 		
 		def read(self, maxlen=None):
 			"override this as for write()"
+			self.serial_read_port.seek(0) #try to clear EOF
 			if maxlen is None:
 				return self.serial_read_port.read()
 			else:
