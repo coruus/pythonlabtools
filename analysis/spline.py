@@ -1,12 +1,12 @@
 """cubic spline handling, in a manner compatible with the API in Numeric Recipes"""
-_rcsid="$Id: spline.py,v 1.6 2003-06-20 15:18:39 mendenhall Exp $"
+_rcsid="$Id: spline.py,v 1.7 2003-06-26 18:05:30 mendenhall Exp $"
 
-import exceptions
+__all__=["spline","splint","cubeinterpolate"]
 
-class RangeError(exceptions.IndexError):
+class RangeError(IndexError):
 	"X out of input range in splint()"
 
-from Numeric import zeros, Float, searchsorted, array, asarray
+from Numeric import zeros, Float, searchsorted, array, asarray, take, clip
 
 def spline(x, y, yp1=None, ypn=None):
 	"""spline(x_vals,y_vals, yp1=None, ypn=None) 
@@ -75,23 +75,22 @@ def splint(xa, ya, y2a, x):
 			raise RangeError, "(%f, %f) not in range (%f, %f) in splint()" % (min(x), max(x), xa[0], xa[-1])
 	
 		npoints=len(x)
-		results=zeros(npoints, Float)
-		n=len(xa)
-		klo=0
-		khi=1
-		for i in range(len(x)):
-			xv=x[i]
-			if not (xa[klo] <= xv < xa[klo+1]): #number is not currently in range
-				bound=min(klo+5, n)		
-		 		khi=klo+searchsorted(xa[klo:bound], xv) #first try local search for efficiency
-				if khi==bound or khi==klo:
-					khi=max(searchsorted(xa, xv),1) #local didn't work, try whole array so big jumps / out of order works
-				klo=khi-1
-			h=float(xa[khi]-xa[klo])
-			a=(xa[khi]-xv)/h; b=1.0-a
-			results[i]=a*ya[klo]+b*ya[khi]+((a*a*a-a)*y2a[klo]+(b*b*b-b)*y2a[khi])*(h*h)/6.0
-		return results
 
+		khi=clip(searchsorted(xa,x),1,npoints) 
+		klo=khi-1
+		xhi=take(xa, khi)
+		xlo=take(xa, klo)
+		yhi=take(ya, khi)
+		ylo=take(ya, klo)
+		y2hi=take(y2a, khi)
+		y2lo=take(y2a, klo)
+		
+		h=(xhi-xlo).astype(Float)
+		a=(xhi-x)/h
+		b=1.0-a
+		
+		return a*ylo+b*yhi+((a*a*a-a)*y2lo +(b*b*b-b)*y2hi)*(h*h)/6.0
+		
 def cubeinterpolate(xlist, ylist, x3):
 	"find point at x3 given 4 points in given lists using exact cubic interpolation, not splining"
 	x1,x2,x4,x5=xlist
