@@ -1,6 +1,6 @@
 """Hessian and Levenberg-Marquardt Curve Fitting Package with resampling capability
 
-$Id: fitting_toolkit.py,v 1.3 2003-04-11 18:40:08 mendenhall Exp $
+$Id: fitting_toolkit.py,v 1.4 2003-04-16 15:37:05 mendenhall Exp $
 
 This is loosely derived from the information in 'Numerical Recipes' 2nd Ed. by Press, Flannery, Teukolsky and Vetterling.
 Implementation by Marcus H. Mendenhall, Vanderbilt University Free Electron Laser Center, Nashville, TN, USA
@@ -10,7 +10,7 @@ Check with them before using this in commercial software.
 
 To use it, subclass the fit class and, at minimum, define function(self, params, x) as below
 
-	from levenberg_marquardt_fit import fit
+	from fitting_toolkit import fit
 	class myfit(fit):
 		"a really terrible way to fit a polynomial to data!"
 		def function(self, params, x):
