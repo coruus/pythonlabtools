@@ -2,7 +2,7 @@
 with lots of widgets to make it possible not only to act as a basic server, but for Python code
 to interact with the server by storing and retrieving data, which would then be reflected to any
 LabVIEW clients listening"""
-#$Id: nati_dstp_basics.py,v 1.4 2003-04-12 14:02:23 mendenhall Exp $
+#$Id: nati_dstp_basics.py,v 1.5 2003-04-13 19:58:44 mendenhall Exp $
 
 import struct
 import array
@@ -252,7 +252,7 @@ def recvfrag_with_timeout(sock, timeout_seconds=1.0):
 	return frag.tostring()
 
 def sendfrag_with_timeout(sock, block, timeout_seconds=1.0):
-	"send a packet with timeoiut handling"
+	"send a packet with timeout handling"
 	n=len(block)
 	nsent=0
 	while(nsent<n):
