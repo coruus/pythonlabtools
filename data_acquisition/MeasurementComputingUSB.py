@@ -1,6 +1,6 @@
 "MeasurementComputingUSB supports connections of  Measurement Computing, Inc.  USB devices"
 
-_rcsid="$Id: MeasurementComputingUSB.py,v 1.3 2003-11-19 18:11:57 mendenhall Exp $"
+_rcsid="$Id: MeasurementComputingUSB.py,v 1.4 2003-11-19 22:18:16 mendenhall Exp $"
 
 
 
@@ -425,7 +425,8 @@ class MCC_Device(default_server_mixin):
 		tChigh=tCount>>8
 		tClow=tCount&255
 		self.write((14, tClow, tChigh, timerVal+setupTime, timerPre, scanmode | exttrig))
-	
+		self.continuous_scan_packet_index=1
+		
 	def get_burst_scan(self, max_trig_wait=None):
 		start=time.time()
 		res=''
@@ -451,6 +452,21 @@ class MCC_Device(default_server_mixin):
 			datalist+=res[:-8]
 		return self.unpack_scan(datalist)
 	
+	def get_continuous_scan_packet(self):
+		res=self.read(feature=1)
+		if not res: return []
+		
+		trailer=res[-8:]
+		err, readaddr, writeaddr, index, junk=struct.unpack('<BHHHB', trailer)
+
+		#print err, readaddr, writeaddr, index
+		if index != self.continuous_scan_packet_index: #aack, packet out of sync
+			raise MeasurementComputingError("scan packet out of sync... expected %d, got %d" % (self.continuous_scan_packet_index, index))
+		self.continuous_scan_packet_index+=1
+		
+		return self.unpack_scan(res[:-8])
+
+
 	def unpack_scan(self, data):
 		a=Numeric.array(data,Numeric.UnsignedInt8).astype(Numeric.Int32)
 		b=Numeric.zeros(2*len(a)//3, Numeric.Int) #3 bytes hold 2 samples
@@ -484,11 +500,24 @@ if __name__=='__main__':
 			
 			for i in range(10):
 				print mcc.analog_input(0, gain=mcc.GAIN5_DIFF)
-		if 1:
-			mcc.setup_analog_scan(sweeps=1000, channels=(0,), rate=1000)
+		if 0:
+			mcc.setup_analog_scan(sweeps=1000, channels=(0,1), gains=mcc.GAIN2_DIFF, rate=500)
 			time.sleep(2)
 			print mcc.get_burst_scan()[:,0]
 									
+		if 1:
+			mcc.setup_analog_scan(sweeps=-1, channels=(0,), gains=mcc.GAIN1_DIFF, rate=500)
+			actcount=0
+			try:
+				while actcount<10:
+					res=mcc.get_continuous_scan_packet()
+					if res:
+						print Numeric.array_str(res[:,0], precision=3, suppress_small=1, max_line_width=10000)
+						actcount+=1
+				
+			finally:
+				mcc.stop_analog_scan()
+			
 	finally:
 		mcc.close()
 		
