@@ -1,7 +1,7 @@
 """LabPro supports communications with the Vernier Instruments (www.vernier.com) LabPro Module
 over a serial line"""
 
-_rcsid="$Id: LabPro.py,v 1.6 2003-05-24 15:07:41 mendenhall Exp $"
+_rcsid="$Id: LabPro.py,v 1.7 2003-05-24 22:24:55 mendenhall Exp $"
 
 import time
 import Numeric
@@ -56,7 +56,7 @@ class LabPro:
 			'conversion_equation_setup':4, 'data_control':5, 'system_setup':6, 
 			'request_system_status':7, 'request_channel_status':8, 'request_channel_data':9,
 			'digital_data_capture':12, 'baudrate':105 , 'request_channel_setup':115,
-			'analog_output':401, 'led':1998}
+			'analog_output':401, 'led':1998, 'sound': 1999, 'dig_out':2001}
 
 	def __init__(self, port_name, highspeed=0):
 		init_port_memory()
@@ -169,7 +169,7 @@ class LabPro:
 		self.send_string('s', delay=0.01)
 
 	def get_system_config(self):
-		self.command('request_system_status')
+		self.command('request_system_status', delay=0.1)
 		l=self.read_ascii_response()
 		if  l[3]!=8888:
 			raise LabProError("Bad system status from LabPro: "+str(l))
@@ -198,17 +198,25 @@ class LabPro:
 		self.command('channel_setup', chan, operation, postproc, equation)
 
 	def wait_for_data_done(self, flasher=0):
-		while(1):
+		misses=0
+		while(misses<5):
 			if flasher:
 				self.flash_led('yellow', 0.25)
-			state=self.get_system_config()
-			if state['error']:
-				raise LabProError(state['error'])
-			syst=state['system state'] & 7
-			if syst==1:
-				raise LabProError('Waiting for data when none being collected')
-			if syst==4:
-				break #all done
+			try:
+				state=self.get_system_config()
+				misses=0
+				if state['error']:
+					raise LabProError(state['error'])
+				syst=state['system state'] & 7
+				if syst==1:
+					raise LabProError('Waiting for data when none being collected')
+				if syst==4:
+					break #all done
+			except:
+				misses+=1
+		if misses:
+			raise LabProError("5 consecutives retry failures in wait_for_data_done()... bailing out")
+		
 		return state['sample count']
 
 	def get_data_ascii(self, chan=0):
@@ -364,6 +372,12 @@ class LabPro:
 			
 	red_green_ripple=(
 		('red',1),('yellow',1),('red',0),('green',1),('yellow',0),('green',0))
+	
+	def sound(self, frequency=500.0, duration=0.1):
+		self.command('sound', int(0.5+duration*1e4), int(0.5+4e4/frequency))
+
+	def dig_out(self, *points):
+		self.command('dig_out',*points)
 		
 if __name__=='__main__':
 	if sys.platform=="darwin":
