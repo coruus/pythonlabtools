@@ -9,7 +9,7 @@ from vxi_crate_devices import vxi_crate_device
 import threading
 
 class system_device(vxi_crate_device):
-	"a device for logging top-level error messages"
+	"a subsystem for logging top-level error messages"
 	idn="Main Control System"
 	
 	def reconnect(self):
