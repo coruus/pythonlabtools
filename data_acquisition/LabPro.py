@@ -1,7 +1,7 @@
 """LabPro supports communications with the Vernier Instruments (www.vernier.com) LabPro Module
 over a serial line"""
 
-_rcsid="$Id: LabPro.py,v 1.15 2003-06-11 20:43:47 mendenhall Exp $"
+_rcsid="$Id: LabPro.py,v 1.16 2003-06-13 19:48:31 mendenhall Exp $"
 
 import time
 import Numeric
@@ -172,7 +172,10 @@ class RawLabPro:
 		self.command('data_collection_setup', 
 				samptime, numpoints, trigtype, trigchan, trigthresh, prestore, 0, 
 				rectime, filter, fastmode, delay=0.1)
-		
+	
+	def collect_data_again(self):
+		self.command('data_collection_setup', -1)
+			
 	def setup_channel(self, chan=0, operation=1, postproc=0, equation=0):
 		"configure a LabPro channel"
 		self.command('channel_setup', chan, operation, postproc, equation)
