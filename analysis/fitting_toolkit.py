@@ -1,6 +1,6 @@
 """Hessian and Levenberg-Marquardt Curve Fitting Package with resampling capability
 
-$Id: fitting_toolkit.py,v 1.5 2003-04-18 18:02:29 mendenhall Exp $
+$Id: fitting_toolkit.py,v 1.6 2003-05-13 17:19:35 mendenhall Exp $
 
 This is loosely derived from the information in 'Numerical Recipes' 2nd Ed. by Press, Flannery, Teukolsky and Vetterling.
 Implementation by Marcus H. Mendenhall, Vanderbilt University Free Electron Laser Center, Nashville, TN, USA
@@ -205,7 +205,7 @@ class fit:
 		self.yarray[n:n+n1]=yval
 		self.pointcount=self.pointcount+n1
 		
-	def compute_funcvals(self, params=None, xvals=None, x_transpose=0):
+	def compute_funcvals(self, xvals=None, params=None, x_transpose=0):
 		"evaluate the fitter's function, providing some convenient glue for passing in data arrays of various shapes"
 		if params is None:
 			params=self.funcparams
@@ -225,8 +225,8 @@ class fit:
 		"numerically differentiate the fitter's function with respect to the indexed parameter, using the specified step size"
 		delta=Numeric.zeros(self.param_count, self.atype)
 		delta[param_index]=delta_x/2.0
-		newrow=((self.compute_funcvals(self.funcparams+delta)-
-				self.compute_funcvals(self.funcparams-delta))/delta_x)
+		newrow=((self.compute_funcvals(params=self.funcparams+delta)-
+				self.compute_funcvals(params=self.funcparams-delta))/delta_x)
 		return newrow
 	
 	def derivs(self): 
