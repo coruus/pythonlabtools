@@ -1,5 +1,5 @@
 "a sample system using general_optics.py to model a 10 Joule Nd:Glass CPA laser system"
-#$Id: general_optics_example.py,v 1.1 2003-04-16 14:48:05 mendenhall Exp $
+#$Id: general_optics_example.py,v 1.2 2003-04-16 14:53:31 mendenhall Exp $
 
 from math import *
 import math
@@ -37,8 +37,8 @@ inch = 0.0254
 
 import graphite
 
-show_qd=1
-show_pdf=0
+show_qd=0 #quickdraw graphics works on Macintosh only
+show_pdf=1 #output nice pdf from graphite
 
 def draw_layout(graph, optics):
 	if optics is None:
