@@ -1,6 +1,6 @@
 /* serve up USB data from a Measurement Computing USB device using libusb on MacOSX, Linux or *BSD */
 
-static char rcsid[]="RCSID $Id: MeasurementComputingServer.c,v 1.4 2003-11-20 21:31:05 mendenhall Exp $";
+static char rcsid[]="RCSID $Id: MeasurementComputingServer.c,v 1.5 2003-11-21 15:13:14 mendenhall Exp $";
 
 /* 
 requires libusb or libusb-win32 (from www.sourceforge.net) installed 
@@ -319,7 +319,7 @@ void dealWithDevice(usb_dev_handle *udev)
 
 int main (int argc, const char * argv[])
 {
-    int			idVendor = 0x09db;
+    int			idVendor = 0x09db, idProduct;
     int USBIndex, matchcount;
 	int i;
 	usb_dev_handle *udev=0;
@@ -328,8 +328,8 @@ int main (int argc, const char * argv[])
 	
 	/* if one argument is provided, it should be an index as to _which_ MCC device is to be opened 
 		providing a negative index enables time stamping as is used when this is run as a robot */
-	if (argc==2) {
-		USBIndex=atoi(argv[1]);
+	if (argc==3) {
+		USBIndex=atoi(argv[2]);
 		if (abs(USBIndex) < 1 || abs(USBIndex) > 255) {
 			fprintf(stderr,"Bad USB index argument provided... should be 1<=index<=255 or negative to enable binary time stamps, got: %s\n", argv[1]);
 			fprintf(stderr,"****EXITED****\n");
@@ -340,7 +340,11 @@ int main (int argc, const char * argv[])
 			use_time_stamps=1;
 		}
 		USBIndex -=1;
-	} else USBIndex=0;
+		idProduct=atoi(argv[1]);
+	} else {
+		fprintf(stderr, "usage: %s <idProduct> <device index>\n", argv[0]);
+		return -1;
+	}
 	
 	setbuf(stdout, 0);
 	setbuf(stderr,0);
@@ -379,7 +383,7 @@ int main (int argc, const char * argv[])
 	matchcount=-1;
 	for (bus = usb_busses; bus && matchcount<USBIndex; bus = bus->next) {
 		for (dev = bus->devices; dev && matchcount<USBIndex; dev = dev->next) {			
-			if(dev->descriptor.idVendor==idVendor) {
+			if(dev->descriptor.idVendor==idVendor && dev->descriptor.idProduct==idProduct) {
 				matchcount++; matchdev=dev; }
 		}
 	}
