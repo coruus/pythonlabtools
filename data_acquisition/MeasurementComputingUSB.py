@@ -1,6 +1,6 @@
 "MeasurementComputingUSB supports connections of  Measurement Computing, Inc.  USB devices"
 
-_rcsid="$Id: MeasurementComputingUSB.py,v 1.15 2003-11-21 15:14:11 mendenhall Exp $"
+_rcsid="$Id: MeasurementComputingUSB.py,v 1.16 2003-11-21 18:23:07 mendenhall Exp $"
 
 
 
@@ -33,7 +33,7 @@ try:
 	class USB_libusb_mixin:
 		"mixin class  to allow operation of MCC devices via USB port using libusb pipe server"
 		
-		server_executable_path=os.path.join(os.path.dirname(__file__),"/Users/marcus/Documents/python/pythonlabtools/data_acquisition/MeasurementComputingServer")
+		server_executable_path=os.path.join(os.path.dirname(__file__),"MeasurementComputingServer")
 		
 		def __init__(self, idProduct, device_index):
 			self.usb_send, self.usb_recv, self.usb_err=os.popen3(self.server_executable_path+( " %d %d" % (idProduct, -device_index) ),'b',0)
