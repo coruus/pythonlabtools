@@ -1,7 +1,7 @@
 """LabPro supports communications with the Vernier Instruments (www.vernier.com) LabPro Module
 over a serial line"""
 
-_rcsid="$Id: LabPro.py,v 1.7 2003-05-24 22:24:55 mendenhall Exp $"
+_rcsid="$Id: LabPro.py,v 1.8 2003-05-25 20:06:28 mendenhall Exp $"
 
 import time
 import Numeric
@@ -56,7 +56,8 @@ class LabPro:
 			'conversion_equation_setup':4, 'data_control':5, 'system_setup':6, 
 			'request_system_status':7, 'request_channel_status':8, 'request_channel_data':9,
 			'digital_data_capture':12, 'baudrate':105 , 'request_channel_setup':115,
-			'analog_output':401, 'led':1998, 'sound': 1999, 'dig_out':2001}
+			'analog_output':401, 'led':1998, 'sound': 1999, 'dig_out':2001,
+			'power_control':102}
 
 	def __init__(self, port_name, highspeed=0):
 		init_port_memory()
@@ -344,7 +345,7 @@ class LabPro:
 		else:
 			mode={'rampup':2, 'rampdown':3, 'triangle':4, 'square':5}[waveform] 
 			ampl=int(0.5+amplitude/0.0012)
-			offset=int(0.5+(amplitude*0.5-center)/0.0006)
+			offset=int(0.5+(amplitude-center)/0.0012)
 	
 		self.command('analog_output', mode, ampl, offset, int(1000.0*period_sec), delay=0.1)
 
