@@ -65,7 +65,8 @@ class array_device: #handle named data fields and lazy/immediate writing with th
 	
 	def init(self): 
 		self.__device_lock=_threading.Lock()
-		self.scan=[]
+		if not hasattr(self,"scan"):
+			self.scan=[] #don't trample on it if someone else set it up already
 		self.lazy_items=[]
 		
 	def save_read_data(self, data):
