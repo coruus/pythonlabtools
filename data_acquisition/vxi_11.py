@@ -330,19 +330,20 @@ class vxi_11_connection:
 		return err
 
 	def disconnect(self):
-		try:
-			err, =self.command(23,  "id", "error", (self.lid,)) #execute destroy_link
-		except:
-			self.log_traceback() #if we can't close nicely, we'll close anyway
-		
-		self.connected=0
-		del connection_dict[self.lid]
-		self.lid=None
-		self.core.close()
-		self.abort_channel.close()
-		del self.core, self.abort_channel
-		self.core=None
-		self.abortChannel=None
+		if self.connected:
+			try:
+				err, =self.command(23,  "id", "error", (self.lid,)) #execute destroy_link
+			except:
+				self.log_traceback() #if we can't close nicely, we'll close anyway
+			
+			self.connected=0
+			del connection_dict[self.lid]
+			self.lid=None
+			self.core.close()
+			self.abort_channel.close()
+			del self.core, self.abort_channel
+			self.core=None
+			self.abortChannel=None
 		
 	def __del__(self):
 		if self.lid is not None:
@@ -603,7 +604,7 @@ class device_thread:
 				connection.log_exception('failed to clear connection after error')				
 			self.run=0
 
-		connection.unlock_completely()
+		connection.unlock()
 					
 	def monitor(self):
 		self.connection().log_info("Monitor loop entered")
