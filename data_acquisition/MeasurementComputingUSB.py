@@ -1,6 +1,6 @@
 "MeasurementComputingUSB supports connections of  Measurement Computing, Inc.  USB devices"
 
-_rcsid="$Id: MeasurementComputingUSB.py,v 1.10 2003-11-20 21:38:25 mendenhall Exp $"
+_rcsid="$Id: MeasurementComputingUSB.py,v 1.11 2003-11-20 21:44:23 mendenhall Exp $"
 
 
 
@@ -85,16 +85,17 @@ try:
 			tries=0
 			
 			actmax=maxlen+16
-			while len(res)<actmax and tries < 5:
+			while len(res)<actmax and tries < 20:
 				try:
 					res+=self.usb_recv.read(actmax-len(res)) #packet + header 
 					if len(res) < actmax:
 						time.sleep(0.05)
+						tries+=1
 				except IOError:
 					err=sys.exc_info()[1].args
 					if err[0] in (11, 29, 35): #these errors are sometimes returned on a nonblocking empty read
 						time.sleep(0.01)
-						tries=tries+1
+						tries+=1
 						continue #just return empty data
 					else:
 						raise MeasurementComputingError("USB server disconnected unexpectedly", sys.exc_info()[1].args)
