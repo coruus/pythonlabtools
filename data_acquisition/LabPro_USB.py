@@ -1,6 +1,6 @@
 "LabPro_USB supports connections of the Vernier LabPro system via USB"
 
-_rcsid="$Id: LabPro_USB.py,v 1.2 2003-06-04 17:50:51 mendenhall Exp $"
+_rcsid="$Id: LabPro_USB.py,v 1.3 2003-06-04 18:15:07 mendenhall Exp $"
 
 import LabPro
 from LabPro import LabPro, LabProError, _bigendian
@@ -88,12 +88,28 @@ class USB_data_mixin:
 
 class USB_Mac_mixin:
 	"mixin class for RawLabPro to allow operation of LabPro via USB port on Macintosh OSX using pipe server"
-		
+	
+	server_executable_path=os.path.join(os.path.dirname(__file__),"LabProUSBMacServer")
+	
 	def setup_serial(self,port_name=None):
-		self.usb_send, self.usb_recv, self.usb_err=os.popen3(os.path.join(os.path.dirname(__file__),"LabProUSBMacServer"),'b',0)
+		self.usb_send, self.usb_recv, self.usb_err=os.popen3(self.server_executable_path,'b',0)
 		
 		fcntl.fcntl(self.usb_recv, fcntl.F_SETFL, os.O_NONBLOCK) #pipes must be nonblocking
 		fcntl.fcntl(self.usb_err, fcntl.F_SETFL, os.O_NONBLOCK) #pipes must be nonblocking
+		firstmsg=''
+		badloops=0
+		while badloops<5  and not firstmsg:
+			time.sleep(0.1)
+			try:
+				firstmsg=self.usb_err.read()
+			except:
+				badloops+=1
+			
+		if badloops==5:
+			raise LabProError("cannot find or communicate with USB Server: "+str(self.server_executable_path))
+		if firstmsg.find("No LabPro Found") >=0:
+			raise LabProError("USB Server could not connect to a LabPro device")  
+			
 		self.__keep_running=1
 		self.status_monitor=threading.Thread(target=self.read_status, name='USB LabPro status monitor')
 		self.status_monitor.start()
