@@ -1,5 +1,5 @@
 """cubic spline handling, in a manner compatible with the API in Numeric Recipes"""
-_rcsid="$Id: spline.py,v 1.4 2003-06-11 14:30:39 mendenhall Exp $"
+_rcsid="$Id: spline.py,v 1.5 2003-06-11 15:03:31 mendenhall Exp $"
 
 import exceptions
 
@@ -145,7 +145,9 @@ if __name__=="__main__":
 		try:
 			graphite.genOutput(g,'QD', size=(800,500))
 		except:
-			graphite.genOutput(q,'PDF', size=(800,500))
+			graphite.genOutput(g,'PDF', size=(800,500))
 	except:
+		import traceback
+		traceback.print_exc()
 		print "Graphite not available... plotted results not shown"
 		
