@@ -1,6 +1,6 @@
 """Compute Hermite-Gauss basis functions very quickly and efficiently using 
 Numerov's method to solve the underlying differential equations"""
-_rcsid="$Id: hermite_numerov.py,v 1.5 2003-08-20 18:01:59 mendenhall Exp $"
+_rcsid="$Id: hermite_numerov.py,v 1.6 2003-09-26 18:19:13 mendenhall Exp $"
 
 import math
 import Numeric
@@ -29,7 +29,7 @@ def generate_table(order, final_x=None, npoints=None):
 	coef=2.0+dx2*V*ypsifact
 
 	Y[0]=1.0/ypsifact[0]
-	Y[1]=(1.0+V[0]*dx*dx*0.5)/ypsifact[1]
+	Y[1]=(1.0+math.sqrt(V[0])*dx)/ypsifact[1]
 			
 	for i in range(1,npoints):
 		yy=Y[i+1]=Y[i]*coef[i]-Y[i-1]
