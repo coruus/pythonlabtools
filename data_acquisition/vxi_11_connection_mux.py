@@ -1,6 +1,6 @@
 """connection_multiplexer allows dynamic opening and closing of vxi_11 connections to (probably low-priority) devices, 
 so a huge number of static connections isn't needed."""
-#$Id: vxi_11_connection_mux.py,v 1.2 2003-04-11 17:51:04 mendenhall Exp $
+#$Id: vxi_11_connection_mux.py,v 1.3 2003-04-11 21:57:02 mendenhall Exp $
 
 import vxi_11
 import time
@@ -178,29 +178,3 @@ class connection_mux:
 		finally:
 			lock.release()
 
-		
-	def start_babysitter(self):
-		"the babysitter loops through all the devices and monitors them"
-		self.run_babysitter=1
-		self.babysitter=threading.thread("Babysitter", self.babysit)
-		self.babysitter.start()
-		self.babysitter_running=1
-		
-	def stop_babysitter(self):
-		self.run_babysitter=0
-	
-	def babysit(self):
-		try:
-			while(self.run_babysitter):
-				keylist=self.devices.keys()
-				for key in keylist:
-					hostname, physical, params=self.devices[name]
-					device=self.hosts[physical]
-					self.lock_connection(name)
-					try:
-						device.monitor(params)
-					finally:
-						self.unlock_connection(name, low_priority=1) #babysitter is non-competing
-		finally:
-			self.babysitter_running=0
-	
