@@ -1,6 +1,6 @@
 /* serve up USB data from a Vernier LabPro device attached to a macintosh via USB */
 
-static char rcsid[]="RCSID $Id: LabProUSBMacServer.c,v 1.3 2003-06-04 17:40:58 mendenhall Exp $";
+static char rcsid[]="RCSID $Id: LabProUSBMacServer.c,v 1.4 2003-06-04 18:25:41 mendenhall Exp $";
 
 /* to compile on a Mac under OSX:
 cc -o LabProUSBMacServer -framework IOKit -framework CoreFoundation LabProUSBMacServer.c
@@ -66,7 +66,7 @@ int pass_output(IOUSBInterfaceInterface182 **intf)
 	UInt32 retbufsize=64; /* LabPro always transfers 64 bytes blocks */
 
 	while(keep_running) {
-		err = (*intf)->ReadPipeTO(intf, 1, inBuf, &retbufsize, 1000, 2000);
+		err = (*intf)->ReadPipe(intf, 1, inBuf, &retbufsize);
 		
 		if (err==kIOReturnTimeout || err==(int)0xe0004051) continue; /* no data, just go on */
 		else if (err) {
@@ -104,6 +104,8 @@ void transferData(IOUSBInterfaceInterface182 **intf)
 	
 	if(!err) {
 		err=pthread_join(input_thread, &thread_retval);
+		err = (*intf)->AbortPipe(intf, 1); /* terminate eternal read operation */
+		
 		err=pthread_join(output_thread, &thread_retval);
 	}
 }
