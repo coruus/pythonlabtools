@@ -1,6 +1,6 @@
 "LabPro_USB supports connections of the Vernier LabPro system via USB"
 
-_rcsid="$Id: LabPro_USB.py,v 1.18 2003-10-16 18:55:04 mendenhall Exp $"
+_rcsid="$Id: LabPro_USB.py,v 1.19 2003-10-29 21:09:21 mendenhall Exp $"
 
 import LabPro
 from LabPro import RawLabPro, LabProError, _bigendian
@@ -14,7 +14,6 @@ import sys
 import os
 import threading
 import traceback
-import fcntl
 import struct
 
 class USB_data_mixin:
@@ -100,142 +99,264 @@ class USB_data_mixin:
 
 		return self.parse_binary(s, channels)
 
-class USB_Mac_mixin:
-	"mixin class for RawLabPro to allow operation of LabPro via USB port on Macintosh OSX using pipe server"
+
+try:
+	import fcntl #on platforms with fcntl, use it!
 	
-	server_executable_path=os.path.join(os.path.dirname(__file__),"LabProUSBMacServer")
-	
-	def setup_serial(self,port_name=None):
-		self.usb_send, self.usb_recv, self.usb_err=os.popen3(self.server_executable_path+( " %d" % -self.device_index),'b',0)
-		self.usb_timestamp=0
-		self.__usb_read_leftovers=''
-		try:
-			fcntl.fcntl(self.usb_recv, fcntl.F_SETFL, os.O_NONBLOCK) #pipes must be nonblocking
-			fcntl.fcntl(self.usb_err, fcntl.F_SETFL, os.O_NONBLOCK) #pipes must be nonblocking
-			firstmsg=''
-			badloops=0
-			while badloops<5  and not firstmsg:
-				time.sleep(0.5)
-				try:
-					firstmsg=self.usb_err.read()
-				except:
-					badloops+=1
-				
-			if badloops==5:
-				raise LabProError("cannot find or communicate with USB Server: "+str(self.server_executable_path))
-			if firstmsg.find("No LabPro Found") >=0:
-				raise LabProError("USB Server could not connect to a LabPro device at index %d" % self.device_index)  
-				
-			self.__keep_running=1
-			self.status_monitor=threading.Thread(target=self.read_status, name='USB LabPro status monitor')
-			self.status_monitor.start()
-			self.__saved_realtime_fragment=''
-		except:
-			self.__keep_running=0
-			self.close()
-			raise
-			
-	def check_usb_status(self):
-		if not self.__keep_running or not self.status_monitor.isAlive():
-			raise LabProError("LabPro USB server has died...")
-			
-	def high_speed_serial(self):
-		"not implemented on USB"
-		return 
-
-	def high_speed_setup(self):
-		"not implemented onUSB"
-		return 
-
-	def set_port_params(self):
-		"not implemented on USB"
-		return 
-
-	def read(self, maxlen=None, mode=None):
-		"read data from USB.  If mode is None or 0, strip trailing nulls for ASCII, otherwise leave alone"
-		self.check_usb_status()
-		res=''
+	class USB_Mac_mixin:
+		"mixin class for RawLabPro to allow operation of LabPro via USB port on Macintosh OSX using pipe server"
 		
-		db=self.__usb_read_leftovers
-				
-		while(not maxlen or (maxlen and len(res) < maxlen)):
-			while len(db)<76: #64 bytes + 8 byte timestamp + 4 byte 0xffffffff flag		
-				try:
-					db+=self.usb_recv.read() 
-				except IOError:
-					err=sys.exc_info()[1].args
-					if err[0] in (29, 35): #these errors are sometimes returned on a nonblocking empty read
-						pass #just return empty data
-					else:
-						print  "USB server disconnected unexpectedly", err
-						raise LabProError("USB server disconnected unexpectedly", sys.exc_info()[1].args)
-
-				if not db: break #no data at all, just fall out of this inner loop
-
-			if not db: break #doing uncounted read, just take data until it quits coming
-							
-			flag, tv_sec, tv_usec=struct.unpack('LLL', db[:12])
-			if flag != 0x00ffffff:
-				raise LabProError("Bad packet header from LabPro: " + ("%04x %08x %08x"%(flag, tv_sec, tv_usec)))
-			self.data_timestamp=float(tv_sec)+float(tv_usec)*1e-6
-			res+=db[12:76]
-			db=db[76:]
-
-		if not mode:
-			zp=res.find('\0')
-			if zp>=0:
-				res=res[:zp] #trim any nulls
+		server_executable_path=os.path.join(os.path.dirname(__file__),"LabProUSBMacServer")
 		
-		self.__usb_read_leftovers=db		
-		
-		return res
-			
-
-	def read_status(self):
-		"monitor the pipe server's stderr in a thread"
-		while(self.__keep_running):
+		def setup_serial(self,port_name=None):
+			self.usb_send, self.usb_recv, self.usb_err=os.popen3(self.server_executable_path+( " %d" % -self.device_index),'b',0)
+			self.usb_timestamp=0
+			self.__usb_read_leftovers=''
 			try:
-				res=self.usb_err.read()
+				fcntl.fcntl(self.usb_recv, fcntl.F_SETFL, os.O_NONBLOCK) #pipes must be nonblocking
+				fcntl.fcntl(self.usb_err, fcntl.F_SETFL, os.O_NONBLOCK) #pipes must be nonblocking
+				firstmsg=''
+				badloops=0
+				while badloops<5  and not firstmsg:
+					time.sleep(0.5)
+					try:
+						firstmsg=self.usb_err.read()
+					except:
+						badloops+=1
+					
+				if badloops==5:
+					raise LabProError("cannot find or communicate with USB Server: "+str(self.server_executable_path))
+				if firstmsg.find("No LabPro Found") >=0:
+					raise LabProError("USB Server could not connect to a LabPro device at index %d" % self.device_index)  
+					
+				self.__keep_running=1
+				self.status_monitor=threading.Thread(target=self.read_status, name='USB LabPro status monitor')
+				self.status_monitor.start()
+				self.__saved_realtime_fragment=''
+			except:
+				self.__keep_running=0
+				self.close()
+				raise
+				
+		def check_usb_status(self):
+			if not self.__keep_running or not self.status_monitor.isAlive():
+				raise LabProError("LabPro USB server has died...")
+				
+		def high_speed_serial(self):
+			"not implemented on USB"
+			return 
+	
+		def high_speed_setup(self):
+			"not implemented onUSB"
+			return 
+	
+		def set_port_params(self):
+			"not implemented on USB"
+			return 
+	
+		def read(self, maxlen=None, mode=None):
+			"read data from USB.  If mode is None or 0, strip trailing nulls for ASCII, otherwise leave alone"
+			self.check_usb_status()
+			res=''
+			
+			db=self.__usb_read_leftovers
+					
+			while(not maxlen or (maxlen and len(res) < maxlen)):
+				while len(db)<76: #64 bytes + 8 byte timestamp + 4 byte 0xffffffff flag		
+					try:
+						db+=self.usb_recv.read() 
+					except IOError:
+						err=sys.exc_info()[1].args
+						if err[0] in (29, 35): #these errors are sometimes returned on a nonblocking empty read
+							pass #just return empty data
+						else:
+							print  "USB server disconnected unexpectedly", err
+							raise LabProError("USB server disconnected unexpectedly", sys.exc_info()[1].args)
+	
+					if not db: break #no data at all, just fall out of this inner loop
+	
+				if not db: break #doing uncounted read, just take data until it quits coming
+								
+				flag, tv_sec, tv_usec=struct.unpack('LLL', db[:12])
+				if flag != 0x00ffffff:
+					raise LabProError("Bad packet header from LabPro: " + ("%04x %08x %08x"%(flag, tv_sec, tv_usec)))
+				self.data_timestamp=float(tv_sec)+float(tv_usec)*1e-6
+				res+=db[12:76]
+				db=db[76:]
+	
+			if not mode:
+				zp=res.find('\0')
+				if zp>=0:
+					res=res[:zp] #trim any nulls
+			
+			self.__usb_read_leftovers=db		
+			
+			return res
+				
+	
+		def read_status(self):
+			"monitor the pipe server's stderr in a thread"
+			while(self.__keep_running):
+				try:
+					res=self.usb_err.read()
+					if res: print >> sys.stderr, "LabPro USB message: ", res
+					if res.find("****EXITED****") >= 0: break #if this thread dies, LabPro has gone away somehow
+				except IOError:
+					if sys.exc_info()[1].args[0]==35: #this error is returned on a nonblocking empty read
+						time.sleep(1) #so just wait and try again
+					else:
+						raise
+			
+		def write(self, data):
+			self.check_usb_status()
+			#print "writing...", data
+			self.usb_send.write(data)
+			time.sleep(0.1) #give a little extra time for message passing
+			
+		def close(self):
+			self.__keep_running=0
+			try:
+				self.stop()
+			except:
+				pass
+			try:
+				self.usb_send.write("****QUIT****\n")
+			except:
+				pass
+			time.sleep(2)
+			self.usb_recv.close()
+			self.usb_send.close()
+			self.usb_err.close()	
+	
+	class LabPro_Mac_USB(USB_data_mixin, USB_Mac_mixin, RawLabPro):
+		def __init__(self, device_index=1):
+			self.device_index=device_index
+			RawLabPro.__init__(self,'')
+	
+	class USB_libusb_mixin(USB_Mac_mixin):
+		"mixin class for RawLabPro to allow operation of LabPro via USB port on machines supporting libusb using pipe server"
+		
+		server_executable_path=os.path.realpath(os.path.join(os.path.dirname(__file__),"LabProUSBServer"))
+
+	default_server_mixin=USB_libusb_mixin
+	
+except ImportError:
+	
+	class USB_Win32_libusb_mixin:
+		"mixin class for RawLabPro to allow operation of LabPro via USB port on Win32 using pipe server"
+		
+		server_executable_path=os.path.join(os.path.dirname(__file__),"LabProUSBServer.exe")
+		
+		def setup_serial(self,port_name=None):
+			self.usb_send, self.usb_recv, self.usb_err=os.popen3(self.server_executable_path+( " %d" % -self.device_index),'b',-1)
+			self.usb_timestamp=0
+			self.__usb_read_leftovers=''
+			try:
+				firstmsg=''
+				badloops=0
+				while badloops<5 and (not firstmsg or not firstmsg[-1] in '\r\n'):
+					try:
+						firstmsg+=self.usb_err.readline(1000)
+					except:
+						traceback.print_exc()
+						badloops+=1
+					
+				if badloops==5:
+					raise LabProError("cannot find or communicate with USB Server: "+str(self.server_executable_path))
+				if firstmsg.find("No LabPro Found") >=0:
+					raise LabProError("USB Server could not connect to a LabPro device at index %d" % self.device_index)  
+	
+				self.__keep_running=1
+				self.status_monitor=threading.Thread(target=self.read_status, name='USB LabPro status monitor')
+				self.status_monitor.start()
+				self.__saved_realtime_fragment=''
+			except:
+				self.__keep_running=0
+				self.close()
+				raise
+				
+		def check_usb_status(self):
+			if not self.__keep_running or not self.status_monitor.isAlive():
+				raise LabProError("LabPro USB server has died...")
+				
+		def high_speed_serial(self):
+			"not implemented on USB"
+			return 
+	
+		def high_speed_setup(self):
+			"not implemented onUSB"
+			return 
+	
+		def set_port_params(self):
+			"not implemented on USB"
+			return 
+	
+		def read(self, maxlen=None, mode=None):
+			"""read data from USB.  If mode is None or 0, strip trailing nulls for ASCII, otherwise leave alone."""
+			self.check_usb_status()
+			res=''
+			db=self.__usb_read_leftovers
+					
+			while( not maxlen or len(res) < maxlen):
+				while len(db)<76: #64 bytes + 8 byte timestamp + 4 byte 0xffffffff flag
+	
+					#a pipe is a seek-and-tallable object, so we can see how much data is there this way			
+					self.usb_recv.seek(0,2)
+					count=self.usb_recv.tell()
+					self.usb_recv.seek(0)
+					
+					if count: db+=self.usb_recv.read(count)
+					if not db: break #no data at all, just fall out of this inner loop
+	
+				if not db: break #doing uncounted read, just take data until it quits coming
+								
+				flag, tv_sec, tv_usec=struct.unpack('LLL', db[:12])
+				if flag != 0x00ffffff:
+					raise LabProError("Bad packet header from LabPro: " + ("%04x %08x %08x"%(flag, tv_sec, tv_usec)))
+				self.data_timestamp=float(tv_sec)+float(tv_usec)*1e-6
+				res+=db[12:76]
+				db=db[76:]
+	
+			if not mode:
+				zp=res.find('\0')
+				if zp>=0:
+					res=res[:zp] #trim any nulls
+			
+			self.__usb_read_leftovers=db		
+			return res
+				
+	
+		def read_status(self):
+			"monitor the pipe server's stderr in a thread"
+			while(self.__keep_running):
+				res=self.usb_err.readline(1000)
 				if res: print >> sys.stderr, "LabPro USB message: ", res
 				if res.find("****EXITED****") >= 0: break #if this thread dies, LabPro has gone away somehow
-			except IOError:
-				if sys.exc_info()[1].args[0]==35: #this error is returned on a nonblocking empty read
-					time.sleep(1) #so just wait and try again
-				else:
-					raise
-		
-	def write(self, data):
-		self.check_usb_status()
-		#print "writing...", data
-		self.usb_send.write(data)
-		time.sleep(0.1) #give a little extra time for message passing
-		
-	def close(self):
-		self.__keep_running=0
-		try:
-			self.stop()
-		except:
-			pass
-		try:
-			self.usb_send.write("****QUIT****\n")
-		except:
-			pass
-		time.sleep(2)
-		self.usb_recv.close()
-		self.usb_send.close()
-		self.usb_err.close()	
-
-class LabPro_Mac_USB(USB_data_mixin, USB_Mac_mixin, RawLabPro):
-	def __init__(self, device_index=1):
-		self.device_index=device_index
-		RawLabPro.__init__(self,'')
-
-class USB_libusb_mixin(USB_Mac_mixin):
-	"mixin class for RawLabPro to allow operation of LabPro via USB port on machines supporting libusb using pipe server"
+			
+		def write(self, data):
+			self.check_usb_status()
+			#print "writing...", data
+			self.usb_send.write(data)
+			time.sleep(0.1) #give a little extra time for message passing
+			
+		def close(self):
+			self.__keep_running=0
+			try:
+				self.stop()
+			except:
+				pass
+			try:
+				self.usb_send.write("****QUIT****\n")
+			except:
+				pass
+			time.sleep(2)
+			self.usb_recv.close()
+			self.usb_send.close()
+			self.usb_err.close()	
 	
-	server_executable_path=os.path.realpath(os.path.join(os.path.dirname(__file__),"LabProUSBServer"))
+	default_server_mixin=USB_Win32_libusb_mixin
 
-class LabPro_USB(USB_data_mixin, USB_libusb_mixin, RawLabPro):
+class LabPro_USB(USB_data_mixin, default_server_mixin, RawLabPro):
 	def __init__(self, device_index=1):
 		self.device_index=device_index
 		RawLabPro.__init__(self,'')
