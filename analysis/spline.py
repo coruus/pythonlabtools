@@ -1,8 +1,7 @@
 """cubic spline handling, in a manner compatible with the API in Numeric Recipes"""
-_rcsid="$Id: spline.py,v 1.17 2003-10-31 01:52:29 mendenhall Exp $"
+_rcsid="$Id: spline.py,v 1.18 2003-11-04 15:24:25 mendenhall Exp $"
 
-__all__=["spline","splint","cubeinterpolate","RangeError",
-"spline_extension", "spline_extrapolate", "approximate_least_squares_spline"]
+__all__=["spline","splint","cubeinterpolate","RangeError"]
 
 class RangeError(IndexError):
 	"X out of input range in splint()"
@@ -144,23 +143,30 @@ def cubeinterpolate(xlist, ylist, x3):
 
 from analysis import fitting_toolkit
 
-def approximate_least_squares_spline(xvals, yvals, nodelist=None, nodecount=None):
+def approximate_least_squares_spline(xvals, yvals, nodelist=None, nodeindices=None, nodecount=None):
 	"""Compute an approximation to the true least-squares-spline to the dataset.  If the <nodelist> is not None,
-	nodes will be placed near the x values indicated.  If <nodelist> is None,<nodecount> equally-spaced nodes will be placed"""
+	nodes will be placed near the x values indicated.  If <nodelist> is None,<nodecount> equally-spaced nodes will be placed.
+	Explicit indices for the node placement can be given in nodeindices, which overrides everything else."""
 	
-	assert nodelist or nodecount, "Must have either a list of nodes or a node count"
+	assert nodelist or nodecount or nodeindices, "Must have either a list of nodes or a node count"
 		
 	fitter=fitting_toolkit.polynomial_fit(2) #will fit quadratic sections
 	
-	if not nodelist: #make equally-spaced nodelist
-		nodelist=Numeric.array(range(nodecount),Numeric.Float)*((xvals[-1]-xvals[0])/(nodecount-1))+xvals[0]
-		nodelist[-1]=xvals[-1] #make sure no roundoff error clips the last point!
+	if not nodeindices:
+		if not nodelist: #make equally-spaced nodelist
+			nodelist=Numeric.array(range(nodecount),Numeric.Float)*((xvals[-1]-xvals[0])/(nodecount-1))+xvals[0]
+			nodelist[-1]=xvals[-1] #make sure no roundoff error clips the last point!
+		else:
+			nodecount=len(nodelist)
+			
+		nodeindices=Numeric.searchsorted(xvals, nodelist)
+		boundindices=Numeric.searchsorted(xvals, (nodelist[1:]+nodelist[:-1])*0.5) #find halfway points
 	else:
-		nodecount=len(nodelist)
+		boundindices=(nodeindices[1:]+nodeindices[:-1])//2 
+		nodelist=Numeric.take(xvals, nodeindices)
 		
-	nodeindices=Numeric.searchsorted(xvals, nodelist)
-	boundindices=Numeric.searchsorted(xvals, (nodelist[1:]+nodelist[:-1])*0.5) #find halfway points
-	
+	nodecount=len(nodeindices)
+
 	ya=Numeric.zeros(nodecount,Numeric.Float)
 
 	#fit first  chunk un-centered to get slope at start
