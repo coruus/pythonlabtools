@@ -1,6 +1,6 @@
 "LabPro_USB supports connections of the Vernier LabPro system via USB"
 
-_rcsid="$Id: LabPro_USB.py,v 1.5 2003-06-11 20:43:48 mendenhall Exp $"
+_rcsid="$Id: LabPro_USB.py,v 1.6 2003-06-12 14:33:07 mendenhall Exp $"
 
 import LabPro
 from LabPro import RawLabPro, LabProError, _bigendian
@@ -36,7 +36,7 @@ class USB_data_mixin:
 			newdata=self.read(chunklen-len(s), mode=1) #mode=1 stops stripping of nulls from end of 64 bytes packets
 
 			if not s and newdata:
-				self.data_transmission_start=time.time() #remember when transmission started
+				self.data_transmission_start=time.time() #remember when transmission started, in case someone cares
 
 			s+=newdata
 			if newdata:
@@ -97,7 +97,7 @@ class USB_Mac_mixin:
 	server_executable_path=os.path.join(os.path.dirname(__file__),"LabProUSBMacServer")
 	
 	def setup_serial(self,port_name=None):
-		self.usb_send, self.usb_recv, self.usb_err=os.popen3(self.server_executable_path,'b',0)
+		self.usb_send, self.usb_recv, self.usb_err=os.popen3(self.server_executable_path+( " %d" % self.device_index),'b',0)
 		
 		fcntl.fcntl(self.usb_recv, fcntl.F_SETFL, os.O_NONBLOCK) #pipes must be nonblocking
 		fcntl.fcntl(self.usb_err, fcntl.F_SETFL, os.O_NONBLOCK) #pipes must be nonblocking
@@ -113,7 +113,7 @@ class USB_Mac_mixin:
 		if badloops==5:
 			raise LabProError("cannot find or communicate with USB Server: "+str(self.server_executable_path))
 		if firstmsg.find("No LabPro Found") >=0:
-			raise LabProError("USB Server could not connect to a LabPro device")  
+			raise LabProError("USB Server could not connect to a LabPro device at index %d" % self.device_index)  
 			
 		self.__keep_running=1
 		self.status_monitor=threading.Thread(target=self.read_status, name='USB LabPro status monitor')
@@ -182,7 +182,8 @@ class USB_Mac_mixin:
 			pass
 	
 class LabPro_Mac_USB(USB_data_mixin, USB_Mac_mixin, RawLabPro):
-	def __init__(self):
+	def __init__(self, device_index=1):
+		self.device_index=device_index
 		RawLabPro.__init__(self,'')
 
 if __name__=='__main__':
@@ -270,7 +271,7 @@ if __name__=='__main__':
 	
 	def rt_test():
 		badloops=0
-		lp=LabPro_Mac_USB()
+		lp=LabPro_Mac_USB(1)
 		
 		try:	
 			lp.wake()
