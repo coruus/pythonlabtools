@@ -1,6 +1,6 @@
 """Compute Hermite-Gauss basis functions very quickly and efficiently using 
 Numerov's method to solve the underlying differential equations"""
-_rcsid="$Id: hermite_numerov.py,v 1.4 2003-08-14 18:14:14 mendenhall Exp $"
+_rcsid="$Id: hermite_numerov.py,v 1.5 2003-08-20 18:01:59 mendenhall Exp $"
 
 import math
 import Numeric
@@ -43,7 +43,7 @@ def generate_table(order, final_x=None, npoints=None):
 	if order%2 == 0: #even function
 		y=Numeric.concatenate((psi, psi[::-1][1:]))
 	else:
-		psi[0]=0 #enforce oddness exactly
+		psi[-1]=0 #enforce oddness exactly
 		y=Numeric.concatenate((psi, -psi[::-1][1:]))
 
 	y=y*math.sqrt(1.0/(Numeric.dot(y,y)*dx))
