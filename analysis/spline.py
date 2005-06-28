@@ -1,5 +1,5 @@
 """cubic spline handling, in a manner compatible with the API in Numeric Recipes"""
-_rcsid="$Id: spline.py,v 1.20 2003-11-04 19:04:08 mendenhall Exp $"
+_rcsid="$Id: spline.py,v 1.21 2005-06-28 20:16:29 mendenhall Exp $"
 
 __all__=["spline","splint","cubeinterpolate","RangeError",
 "spline_extension", "spline_extrapolate", "approximate_least_squares_spline" ]
@@ -92,10 +92,11 @@ def spline_extrapolate(x, y, yp1=None, ypn=None, xmin=None, xmax=None):
 
 import types
 
-def splint(xa, ya, y2a, x):
-	"""splint(x_vals, y_vals, y2_vals, x) returns the interpolated from from the spline
+def splint(xa, ya, y2a, x, derivs=False):
+	"""returns the interpolated from from the spline
 	x can either be a scalar or a listable item, in which case a Numeric Float array will be
-	returned and the multiple interpolations will be done somewhat more efficiently."""
+	returned and the multiple interpolations will be done somewhat more efficiently.
+	If derivs is not False, return y, y', y'' instead of just y."""
 	if type(x) is types.IntType or type(x) is types.FloatType: 
 		if (x<xa[0] or x>xa[-1]):
 			raise RangeError, "%f not in range (%f, %f) in splint()" % (x, xa[0], xa[-1])
@@ -104,7 +105,7 @@ def splint(xa, ya, y2a, x):
 		klo=khi-1
 		h=float(xa[khi]-xa[klo])
 		a=(xa[khi]-x)/h; b=1.0-a
-		return a*ya[klo]+b*ya[khi]+((a*a*a-a)*y2a[klo]+(b*b*b-b)*y2a[khi])*(h*h)/6.0
+		ylo=ya[klo]; yhi=ya[khi]; y2lo=y2a[klo]; y2hi=y2a[khi]
 	else:
 		#if we got here, we are processing a list, and should do so more efficiently
 		if (min(x)<xa[0] or max(x)>xa[-1]):
@@ -125,7 +126,11 @@ def splint(xa, ya, y2a, x):
 		a=(xhi-x)/h
 		b=1.0-a
 		
-		return a*ylo+b*yhi+((a*a*a-a)*y2lo +(b*b*b-b)*y2hi)*(h*h)/6.0
+	y=a*ylo+b*yhi+((a*a*a-a)*y2lo+(b*b*b-b)*y2hi)*(h*h)/6.0
+	if derivs:
+		return y, yhi-ylo+((3*b*b-1)*y2hi-(3*a*a-1)*y2lo)*(h*h)/6.0, b*y2hi+a*y2lo
+	else:
+		return y
 		
 def cubeinterpolate(xlist, ylist, x3):
 	"find point at x3 given 4 points in given lists using exact cubic interpolation, not splining"
@@ -198,11 +203,15 @@ if __name__=="__main__":
 	ylist=[i[1] for i in testlist]
 	print "\n\nStarting splint tests...\n", testlist
 	y2=spline(xlist,ylist, yp1=-5, ypn=10)
-	r=(0,1,2,3.5, 3.7, 4,6,7,2,8,9,10,11, 5, 12,13,14, 15)
+	r=(0,1,2,3.5, 3.7, 4,6,7,2,8,9,10,11, 5, 12,13,14, 15, 16)
 	v=splint(xlist, ylist, y2, r)	
 	print y2
 	for i in range(len(r)):
 		print "%.1f %.3f %.3f" % (r[i], v[i], splint(xlist, ylist, y2, r[i]))
+	
+	v, vp, vpp=splint(xlist, ylist, y2, r, derivs=True)	
+	for i in range(len(r)):
+		print "%5.1f %10.3f %10.3f %10.3f" % (r[i], v[i], vp[i], vpp[i])
 	
 	print "The next operations should print exceptions"
 	try:
