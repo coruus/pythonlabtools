@@ -59,7 +59,7 @@ Heuer, Dunweg and Ferrenberg,
 by Marcus Mendenhall
                                                                 
 """
-_rcsid="$Id: r250.py,v 1.5 2003-11-04 17:58:16 mendenhall Exp $"
+_rcsid="$Id: r250.py,v 1.6 2005-06-28 21:30:24 mendenhall Exp $"
 
 import random
 import Numeric
@@ -81,7 +81,8 @@ class ran_shift(random.Random):
 		self.p=p
 		self.q=q
 		self.seed(seed)
-			
+		self.mask32=~Numeric.array(0xffff, Numeric.UnsignedInt32)
+		
 	def seed(self, seed=None):
 		"seed from the built in RNG python provides, and then scramble results a little"
 		random.Random.seed(self, seed)
@@ -151,7 +152,7 @@ class ran_shift(random.Random):
 	def double_float_random_series(self, count):
 		"return a series of 52-bit significance double-precision randoms on [0,1)."
 		q1 = self.fast_random_series(2*count) #take bits from the random pool
-		q1[count:] &= ~0xfff#mask off low bits to prevent rounding when combined to 52-bit mantissas
+		q1[count:] &= self.mask32#mask off low bits to prevent rounding when combined to 52-bit mantissas
 		q1=q1*self.single_floatscale #convert results to doubles scaled on [0,1)
 		q1+=_numpy_conversion_bias*0.5
 		#now, for any generator with two-point correlations, or unknown bit lengths, this would fail horribly, but this class is safe.
@@ -177,7 +178,8 @@ class r250_521(ran_shift):
 		self.single_floatscale=1.0/float(1L<<32)
 		self.r250=r250(seed)
 		self.r521=r521(seed)
-
+		self.mask32=~Numeric.array(0xffff, Numeric.UnsignedInt32)
+		
 	def getstate(self):
 		return self.r250.getstate(), self.r521.getstate()
 		 	
@@ -198,7 +200,7 @@ if __name__ == "__main__":
 		print r.random(),
 	print
 	
-	print 10*"%08lx "%tuple(r.fast_random_series(10))
+	print 10*"%08lx "%tuple(r.fast_random_series(10).tolist())
 	print
 
 	print r.single_float_random_series(10)
