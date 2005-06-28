@@ -4,7 +4,7 @@ diffraction gratings, etc., and run a laser beam through it.
 It correctly handles off-axis optics of most types (tilted lenses & mirrors, e.g.).
 It has been used to model a 10 Joule Nd:Glass CPA system at Vanderbilt University, for example
 """
-_rcsid="$Id: general_optics.py,v 1.3 2003-05-30 13:31:55 mendenhall Exp $"
+_rcsid="$Id: general_optics.py,v 1.4 2005-06-28 20:09:53 mendenhall Exp $"
 
 from math import *
 import math
@@ -126,6 +126,7 @@ def principal_axis_angle(q22):
 	return qtheta
 
 def expand_to_2x2tensor(object):
+	"expand x to ((x,0),(0,x)), (x,y) to ((x,0),(0,y)), ((x,t),(z,t)) to itself"
 	a=Numeric.array(object)
 	if a.shape==():
 		return a[0]*Numeric.identity(2)
@@ -136,7 +137,16 @@ def expand_to_2x2tensor(object):
 		
 
 class qtens:
+	"this is the hear of the general optics package: the 2x2 transverse tensor q parameter, and the book-keeping it needs"
+	
 	def __init__(self, lambda_initial, q=None, w=None, r=None, name=None, qit=None, medium_index=1.0):
+		"""build a q tensor from 
+			a) another valid inverse q tensor qit, 
+			b) a scalar complex q parameter which creates a diagonal q inverse tensor ( (1/q, 0), (0,1/q) )
+			c) a vector of two q parameters which creates a diagonal q inverse tensor ( (1/q[0], 0), (0, 1/q[1]) )
+			d) a radius of curvature r, wavelength lambda_initial, and medium index, which creates a diagonal tensor.  If r is general_optics.Infinity, beam is collimated
+		"""
+		
 		self.name=name			
 		self.lambda0=lambda_initial*medium_index
 		self.medium_index=medium_index
@@ -156,19 +166,23 @@ class qtens:
 				self.qit=Numeric.array(((1.0/q[0],0),(0,1.0/q[1])))
 				
 	def q_moments(self):
+		"return the eigenvectors v and complex q eigenvalues for this q tensor"
 		u,v=LinearAlgebra.eigenvectors(self.qit)
 		return v, 1.0/u[0], 1.0/u[1]
 	
 	def qi_moments(self):
+		"return the eigenvectors v and complex inverse q eigenvalues for this q tensor"
 		u,v = LinearAlgebra.eigenvectors(self.qit)
 		return v, u[0], u[1]
 
 
 	def set_medium_index(self, new_index):
+		"shift the current q tensor through a perpendicular planar boundary with a different index"
 		self.qit=self.qit*(self.medium_index/new_index)
 		self.medium_index=new_index
 		
 	def rw(self, qi):
+		"get the radius of curvature r and the spot size w for a given inverse qi assuming our wavelength and index of refraction"
 		w=math.sqrt(-self.lambda0/qi.imag/math.pi/self.medium_index)
 		if abs(qi.real) < 1e-15:
 			r=Infinity
@@ -177,6 +191,7 @@ class qtens:
 		return r, w
 	
 	def next_waist(self):
+		"find the distance to the next waist on either of our principal axes.  If the number is negative, we are past the waist."
 		theta, qx, qy=self.q_moments()
 		qxr=qx.real
 		qyr=qy.real
@@ -186,6 +201,7 @@ class qtens:
 			return -max((qxr, qyr)) #the least negative one is the first waist, or no waist if both positive
 		
 	def rwstr(self, qi):
+		"format ourself as a nice string givien r, w and the distance dz to the next waist"
 		r,w=self.rw(qi)
 		if r is not Infinity:
 			r="%.2f" % r
@@ -209,10 +225,17 @@ class qtens:
 		return self.__str__()
 		
 	def qw(self, element):
+		"for a given optical element which provides a q_transform method, apply it to ourself"
 		element.q_transform(self)		
 		return self #make daisy-chaining easy
 	
 	def abcd_transform(self, abcd):
+		"""for a given abcd matrix, apply it to ourself.  
+			If the matrix elements themselves are vectors, it is an on-axis transform with different x & y matrices.  
+			Such a matrox would look like ( ( (ax, ay), (by, by) ), ( (cx, cy), (dx, dy) ) ).
+			If the matrix elements themselves are tensors, it is operating off axis.  
+			Such a matrox would look like ( ( ( ( axx, axy ) , ( ayx, ayy )), ( ( bxx, bxy ) , ( byx, byy )) ), ( ... ) )
+		"""
 		dot=Numeric.dot
 		ar=Numeric.array
 		a, b, c, d = [expand_to_2x2tensor(i) for i in ar(abcd).flat]
@@ -221,20 +244,24 @@ class qtens:
 		self.qit=dot(c+dot(d, self.qit), inverse)
 	
 	def drift(self, length):
+		"advance the beam forward a distance length"
 		q,r,s,t=(Numeric.identity(2)+length*self.qit).flat
 		inverse=Numeric.array(((t,-r),(-s,q))) *(1.0/ (q*t-r*s))
 		self.qit=Numeric.dot(self.qit, inverse)
 
 	def focus(self, strength):
+		"apply a pure focusing strength.  It can be a scalar in diopters, a vector of x & y strengths, or a tensor for an off-axis cylindrical lens"
 		self.qit=self.qit+expand_to_2x2tensor(strength)
 
 	def clone(self, newname=None):
+		"make a complete clone of ourself"
 		q=copy.deepcopy(self)
 		if newname is not None:
 			q.name=newname
 		return q
 
 	def transform(self, tensor):
+		"transform ourself by tensor . qinv . transpose(conjugate(tensor)).  Note that if tensor is not unitary, this isn't either."
 		tr=Numeric.transpose
 		dot=Numeric.dot
 		self.qit=dot(tensor, dot(self.qit, Numeric.conjugate(tr(tensor))))
@@ -247,7 +274,9 @@ class OpticDirectionError(exceptions.AssertionError):
 import copy
 
 class beam:
-	"the beam class carries around information for a beam of light: starting point, polarization, wavelength... starting along +z"
+	"""	the beam class carries around information for a beam of light: starting point, polarization, wavelength... starting along +z.
+		It also carries around a dictionary of markers which record snapshots of the beam at interesting pointds along its trajectory
+	"""
 	def __init__(self, x0, q, lam=None, polarization=(1,0), medium_index=None):
 		
 		self.x0=Numeric.array(x0,Numeric.Float)
@@ -264,23 +293,29 @@ class beam:
 		self.marks={"order":[]}
 	
 	def direction(self):
+		"get the current propagation direction of the beam"
 		return Numeric.array(self.matrix_to_global[:,2])
 	
 	def set_medium_index(self, new_index):
+		"adjust the beam for a new index of refraction"
 		self.q.set_medium_index(new_index)
 		return self
 	
 	def get_medium_index(self):
+		"get the index of the material in which the beam is currently propagating"
 		return self.q.medium_index
 		
 	def set_lambda(self, lambda0):
+		"set the wavelength of the beam to a new value"
 		self.q.lambda0=lambda0
 		return self
 	
 	def get_lambda(self):
+		"get the wavelength that has been set"
 		return self.q.lambda0
 		
 	def free_drift(self, distance):
+		"allow the beam to step forward a specified distance, and set some variables which can be recorded in a marker, if desired" 
 		self.q.drift(distance)
 		self.total_drift+=distance
 		self.x0+=self.direction()*distance
@@ -289,7 +324,11 @@ class beam:
 		self.footprint_q=self.q.clone()
 		return self
 		
-	def localize(self, optic):			
+	def localize(self, optic):
+		"""transform the beam into the local coordinate system of an optic, taking care to handle intersecting an optic at any angle and position. 
+		This is typically used by optics to get the q parameter (etc.) of the beam as it appears in the optic's preferred coordinate system
+		It also records information about the shape of the beam which can be captured by setting a marker.
+		"""
 		ar=Numeric.array
 		dot=Numeric.dot
 		tr=Numeric.transpose
@@ -309,7 +348,8 @@ class beam:
 		self.localize_tensor_transform=cm2inv
 		self.local_polarization=dot(cm2, self.polarization)
 		
-	def globalize(self, optic):			
+	def globalize(self, optic):	
+		"undo the localizing transform.  Typically called by an optic after it has applied itself to us in its preferred coordinate system"
 		ar=Numeric.array
 		dot=Numeric.dot
 		tr=Numeric.transpose
@@ -324,11 +364,13 @@ class beam:
 		del self.local_x0, self.local_direction, self.localize_tensor_transform, self.local_polarization
 		
 	def transform(self, matrix):
+		"transform the beam into a new coordinate system"
 		ar=Numeric.array
 		dot=Numeric.dot
 		self.matrix_to_global=dot(matrix, self.matrix_to_global)
 			
 	def update_q(self, optic):
+		"update our q parameter for a given optic.  See qtens.qw for more info"
 		self.q.qw(optic)
 			
 	def __str__(self):
@@ -340,9 +382,11 @@ class beam:
 		return self.__str__()
 	
 	def clone(self):
+		"make a complete clone of the beam"
 		return copy.deepcopy(self)
 	
 	def clone_no_marks(self):
+		"make a clone of the beam without any marks.  This is used by the marks system to embed non-recursive snapshots of the beam into the marks array"
 		marks=self.marks
 		del self.marks
 		q=self.clone()
@@ -350,14 +394,21 @@ class beam:
 		return q
 	
 	def shift_lambda(self, delta):
+		"""reset the beam to a wavelength shifted by delta from the current wavelength.  
+		Typically used on a cloned beam to prepare a set of beams with different wavelengths but otherwise identical for propagation
+		""" 
 		self.set_lambda(self.get_lambda()+delta)
 		return self
 	
 	def x(self, optic):
+		"""apply an optic's tranform method to us, and return self for daisy chaining.  For example,
+			b.x(mylens).x(mygrating).x(mydrift) etc. causes the beam to be passed theough mylens, mygrating, and mydrift in that order.
+		"""
 		optic.transform(self)
 		return self #to make daisy-chains easy
 	
-	def mark(self, label=None): #record an entry in the marks array as to what we look like here
+	def mark(self, label=None): 
+		"record an entry in the marks array as to what we look like here"
 		if not self.marks.has_key(label):
 			self.marks[label]=[] #empty list for this optic
 			
@@ -365,6 +416,12 @@ class beam:
 		self.marks["order"].append((label, len(self.marks[label])-1))
 
 	def transformation_matrix_to_table(self, up):
+		"""find a best-effort transformation matrix which describes our current direction relative to the vector 'up'.
+			This is used to find a matrix which transforms the beam into a coordinate system which looks natural on the optics table.
+			Returns flag, matrix where flag is 0 if there is no obvious solution, and 1 if there is a pretty good solution.
+			If our direction is close to perpendicular to 'up', the matrix puts z in our propagation direction, y close to 'up', and x perpendicular to y.
+			If the beam is close to parallel to 'up', returns the identity matrix.
+		"""
 		ar=Numeric.array
 		dot=Numeric.dot
 		tr=Numeric.transpose
@@ -382,6 +439,7 @@ class beam:
 			return 1, dot(tr(direction), dir) #coordinates are rational, return true and transform
 
 	def transform_q_to_table(self, qi, up=(0,1,0)):
+		"return qix, qiy (our inverse q parameter diagonal components) in a coordinate system relative to the direction 'up', if possible"
 		dot=Numeric.dot
 		tr=Numeric.transpose
 		ok, matrix=self.transformation_matrix_to_table(up)
@@ -394,8 +452,9 @@ class beam:
 			return qiprime[0,0], qiprime[1,1]
 
 class general_optic:
-	
+	"general_optic a a class which provides coordinate-system and transport support for many 'atomic' optics types such as thin lenses, mirrors, and gratings"
 	def __init__(self, name, center=(0,0,0), angle=0, **extras):
+		"set up our name, center position, and angle, and any extra keyword, value pairs.  See general_optic.reset_angle for the meaning of the angle"
 		self.init(name, center, angle, extras)
 		
 	def init(self, name, center, angle, extras):
@@ -405,7 +464,7 @@ class general_optic:
 		
 		#copy any extra information directly into the class dictionary
 		for i in extras.keys():
-			self.__dict__[i]=extras[i]
+			setattr(self, i, extras[i])
 
 		if len(center)==2: #2-d optics live in the x-z plane
 			center=(center[0], 0, center[1])
@@ -417,11 +476,15 @@ class general_optic:
 		self.post_init()
 	
 	def post_init(self):
+		"""override post_init in subclasses to do computations after the construction, usually based on extra keywords.  
+		This avoids the need for every general_optic to override the default constructor. 
+		"""
 		pass
 	
 	def add_info(self, **keys):
+		"copy extra keywrd-value pairs into our attributes"
 		for i in keys.keys():
-			self.__dict__[i]=keys[i]
+			setattr(self, i, keys[i])
 	
 	def __str__(self):
 		if self.name is not None:
@@ -431,14 +494,24 @@ class general_optic:
 			return "Unnamed optic"
 	
 	def entrance_center(self):
+		"""return the coordiinate at which this optic's front/entrance surface is centered.  For 'atomic' optics, it is the center of the whole object'
+			override this for thick optics, etc.
+		"""
 		return self.center
 	def exit_center(self):
+		"""return the coordiinate at which this optic's back/exit surface is centered.  For 'atomic' optics, it is the center of the whole object'
+			override this for thick optics, etc.
+		"""
 		return self.center
 
 	def transform_into_local(self, direction):
+		"take a vector in global coordinates, and express it in the local, preferred frame of this optic"
 		return Numeric.dot(self.matrix_to_local, direction)
 	
 	def transform_into_global(self, local_direction):
+		"""take a vector in the local frame of the optic, and express it globally.  For example, transform_into_global((0,0,1)) 
+		usually points in the global direction of forward propagation through the optic
+		"""
 		return Numeric.dot(self.matrix_to_global, local_direction)
 		
 	def check_hit_optic(self):
@@ -446,16 +519,20 @@ class general_optic:
 		return 1
 	
 	def localize_tensor(self, tens):
+		"compute what a tensor looks like in the coordinate system of self.beam "
 		dot=Numeric.dot
 		tr=Numeric.transpose
 		return dot(self.beam.localize_tensor_transform, dot(tens, tr(self.beam.localize_tensor_transform)))
 	
 	def globalize_transform(self, transform):
+		"""express a transform which is represented in our local frame as a global transform.  Used typically to 
+		express a rotation about a specific axis in our preferred frame globally
+		"""
 		dot=Numeric.dot
 		return dot(self.matrix_to_global, dot(transform, self.matrix_to_local))
 		
 	def transform(self, beam, backwards=0):
-		"transform(pos, direction, lambda) set up local coordinates, calls local_transform, and returns transform in global coordinates"
+		"transform(beam, backwards) set up local coordinates, calls local_transform on the beam, and resets it to global coordinates.  Returns self for chaining."
 		self.beam=beam
 		self.backwards=backwards #in case anyone needs to know (e.g. dielectric interfaces)
 		beam.localize(self)
@@ -466,7 +543,7 @@ class general_optic:
 		return self
 		
 	def local_transform(self):
-		#default is to use abcd_transform
+		"by default, do abcd_transform on self.beam, assuming small angles"
 		ar=Numeric.array
 		dot=Numeric.dot
 		tr=Numeric.transpose
@@ -482,7 +559,8 @@ class general_optic:
 		self.q_transform()
 		
 	def intersect(self, from_point, from_direction):
-		a,x  =  planesolve(from_point, from_direction, self.center, self.cosines)
+		"find the intersection of a beam coming from from_point, going in from_direction, with our center. Raise an exception if beam won't hit center going that way."
+		a,x  =  planesolve(from_point, from_direction, self.center, self.cosines)  
 		
 		if a < 0:
 			raise OpticDirectionError, "Optic found on backwards side of beam: "+str(self)+" incoming (x,y,z)="+\
@@ -492,6 +570,7 @@ class general_optic:
 		return a, x
 
 	def transport_to_here(self, beam):
+		"transport beam from wherever it is to our center"
 		distance, x=self.intersect(beam.x0, beam.direction())
 		beam.free_drift(distance)
 		return self
@@ -500,6 +579,9 @@ class general_optic:
 		return ("(x,y,z)=(%.3f, %.3f, %.3f) "%tuple(self.center))+str(self.euler)
 	
 	def reset_angle(self, angle):
+		"""set the angle of the optic.  If angle is a scalar, it is an absolute rotation about the y axis.
+		Otherwise, angle should be a triple Euler angles theta (yaw), eta (roll around absolute z), phi(roll around local z)		
+		"""
 		if type(angle) != types.TupleType: #convert conventional angle to rotation about y only
 			self.euler=euler(angle, 0, 0)
 			theta=angle
@@ -517,9 +599,17 @@ class general_optic:
 		self.cosines=self.transform_into_global(Numeric.array((0,0,1)))
 		
 	def rotate_in_local_frame(self, matrix_to_global):
+		"""Apply an incremental change to our global direction, expressed in local coordinates.  For example, this makes it easy to 
+			roll an optic around its local z axis or turn it off center around its local y axis, even after it has already been set in its global frame
+		"""
 		self.update_coordinates(self.center, self.center, self.globalize_transform(matrix_to_global))
 
 	def update_coordinates(self, parent_center=None, reference_coordinate=None, matrix_to_global=None):
+		"""do a complete transform of our angular coordinates and positions to a new frame.  
+		Our rotation is adjusted from its current value by matrix_to_global.
+		Our center is moved to parent_center+rotated value of (self.center-reference_coordinate).  
+		This is used when we are embedded in a composite optic, and the whole composite optic is moved or rotated.
+		"""
 		if parent_center is None:
 			parent_center=self.center
 		if reference_coordinate is None:
@@ -533,6 +623,7 @@ class general_optic:
 		return self
 		
 	def polygon(self):
+		"return a polygonal boundary for the object.  By default it is just the bounding box"
 		try:
 			
 			face_centered=hasattr(self,"face_centered")
@@ -583,10 +674,11 @@ class general_optic:
 			return None
 	
 	def polygon_list(self):
+		"return a list of polygons which might be used to draw this object.  In this case, it is a single item."
 		return [self.polygon()] #for simple optics, the list has one item
 	
 	def place_between(self, from_obj, to_obj, distance):
-		"place_between(from, to, distance, set_info) puts the optic between object or coordinate 'from' and 'to'"
+		"place_between(from, to, distance, set_info) puts the optic between object or coordinate 'from' and 'to' and rotates it to the specified axis."
 		if isinstance(from_obj, general_optic):
 			fc=from_obj.exit_center()
 			fn=from_obj.name
@@ -615,7 +707,7 @@ class general_optic:
 		return self #make daisy-chaining easy!
 
 	def set_direction(self, from_obj, to_obj):
-		"set_direction(from, to, set_info) points the mirror from object or coordinate 'from' to 'to'"
+		"set_direction(from, to, set_info) points a mirror from object or coordinate 'from' to 'to'"
 		if isinstance(from_obj, general_optic):
 			fc=from_obj.exit_center()
 			fn=from_obj.name
@@ -678,12 +770,16 @@ class general_optic:
 class base_reflector:
 	"reflector is a class for mirror-like objects... the default is a mirror"
 	def local_transform(self):
+		"a mirror just reverse the z-component of the motion of the beam"
 		self.beam.transform(self.globalize_transform(Numeric.array(((1.0,0,0),(0,1.0,0),(0,0,-1.0)))))
 	
 	def post_init(self):
 		self.reflector_info=self.format_geometry()
 
 class base_lens:
+	"""a base_lens handles simple thin lenses with either a scalar or vector (diagonal) focal length or strength specified.  To put it off axis,
+			apply a rotation after the object has been initialized.
+	"""
 	def post_init(self):
 		f=self.f
 		if type(f)==types.TupleType:
@@ -708,24 +804,29 @@ class base_lens:
 		self.info_str()
 		
 	def mat2(self):
+		"get an abcd matrix, if we look like a spherical lens"
 		if self.d1==self.d2:
 			return Numeric.array(((1.0,0.),(-1.0/self.d1,1)))
 		else:
 			raise "Attempt to get 2x2 matrix of non-spherical lens" 
 
 	def mat4(self):
+		"get a full abcd tensor for this lens, as needed to transform q"
 		mxx, mxy, myx, myy=[Numeric.array(((1.,0.),(d,1.))) for d in self.strength.flat]
 		return Numeric.array(((mxx,mxy),(myx,myy)))
 	
 	def rotate_axis(self, axis_theta):
+		"rrotate our axis, and update our info string"
 		general_optic.rotate_axis(self, axis_theta)
 		self.info_str()
 		return self
 		
 	def q_transform(self):
+		"apply our q-transform to a localized beam"
 		self.beam.q.focus(self.strength) #it's easy!
 	
 	def abcd_transform(self, vec):
+		"apply our abcd matrix to a vector.  Used for propagating the center of a beam"
 		x, xp, y, yp = tuple(vec)
 		
 		dxx,dxy,dyx,dyy=tuple(self.localize_tensor(self.strength).flat)
@@ -753,7 +854,7 @@ class base_lens:
 		return self.format_name()+self.base_lens_info
 
 class reflector(general_optic, base_reflector):
-	"reflector is a class for mirror-like objects... the default is a mirror"
+	"reflector is a class for mirror-like objects... the default is a mirror.  Like a base_reflector, but with size and drawing info set up"
 		
 	def post_init(self):
 		if not hasattr(self,"face_centered"):
@@ -776,7 +877,7 @@ class reflector(general_optic, base_reflector):
 		pass
 		
 	def set_direction(self, from_obj, to_obj, set_info=1):
-		"set_direction(from, to, set_info) points the mirror from object or coordinate 'from' to 'to'"
+		"set_direction(from, to, set_info) points the mirror from object or coordinate 'from' to 'to' and updates the info string"
 		general_optic.set_direction(self, from_obj, to_obj)
 		
 		if set_info:
@@ -785,6 +886,7 @@ class reflector(general_optic, base_reflector):
 		return self #make daisy-chaining easy
 		
 class null_optic(general_optic):
+	"null_optic is drawable, but has no effect on the beam... useful for markers in an optical system"
 	def post_init(self):
 		if not hasattr(self,"width"):
 			self.width=0.0254
@@ -798,6 +900,7 @@ class null_optic(general_optic):
 		pass
 		
 class lens(general_optic, base_lens):
+	"lens is like a base_lens, but has geometry information"
 	def post_init(self):
 		base_lens.post_init(self)
 		#default lens draws as 1" diameter x 5 mm thick
@@ -898,6 +1001,9 @@ class dielectric_interface(general_optic, base_lens):
 			
 
 class spherical_mirror(reflector, base_lens):
+	"""spherical_mirror is a reflector which focuses.  
+	Since base_lens (q.v.) also handles optics with different x&y strengths, this can represent cylinders and ellipses, too.
+	"""
 	def post_init(self):
 		base_reflector.post_init(self)
 		base_lens.post_init(self)
@@ -939,7 +1045,7 @@ if 0:
 
 
 class grating(reflector):
-	"grating is a reflector which diffracts. The ruling is along the y axis"
+	"grating is a reflector which diffracts. The ruling is along the y axis.  It should be initialized with keywords order and pitch."
 	
 	def local_transform(self):
 		
@@ -995,7 +1101,12 @@ class composite_optic(general_optic):
 	
 	def __init__(self, name, optics_dict, optics_order, reference_coordinate=None,
 			center=(0,0,0), angle=0.0, **extras):
-		self.init( name, optics_dict, optics_order, reference_coordinate, center, angle, extras)
+			"""create a composite_optics.  It is composed of a dictionary 'optics_dict' of named objects, and a list 'optics_order' of dictionary keys
+			which defines the order in which elements of this optic should be traversed.  A single element may appear multiple times in the list.
+			The reference_coordinate is the coordinate around which this optic will rotate, it is the reference_coordinate that is placed at the position 'center'.
+			If no reference_coordinate is specified, it is ssumed to be the entrance_center of the first optic in the optics_order list.
+			"""
+			self.init( name, optics_dict, optics_order, reference_coordinate, center, angle, extras)
 		
 	def init(self, name, optics_dict, optics_order, reference_coordinate, center, angle, extras):
 		
@@ -1013,20 +1124,25 @@ class composite_optic(general_optic):
 			self.optics_dict[k].update_coordinates(center, reference_coordinate, self.matrix_to_global)
 	
 	def exit_center(self):
+		"return the position of the exit center of this optic"
 		return self.optics_dict[self.exit_optics_tags()[1]].center
 	
 	def entrance_center(self):
+		"return the position of the entrance center of this optic"
 		return self.optics_dict[self.entrance_optics_tags()[0]].center
 				
 	def update_coordinates(self, new_center, parent_reference, matrix_to_global):
+		"move us to a new positin and/or angle.  See general_optic.update_coordinates"
 		for k in self.optics_dict.keys():
 			self.optics_dict[k].update_coordinates(new_center, parent_reference, matrix_to_global)
 		general_optic.update_coordinates(self, new_center, parent_reference, matrix_to_global) #update our top-level matrices, etc.
 		
 	def mark_label(self, opticname):
+		"provide a default label for automatic marking of the beam as it passes though this optic"
 		return (self,opticname)
 				
 	def transform(self, beam, back=0):
+		"track a beam through this optics, forwards or backwards, and mark the beam whenever it strikes an atomic optic"
 		if back:
 			order=copy.copy(self.optics_order)
 			order.reverse()
@@ -1053,6 +1169,7 @@ class composite_optic(general_optic):
 				beam.mark(self.mark_label(get_tagged_key(opticname)))
 			
 	def polygon_list(self):
+		"return a list of polygons which will draw this optic"
 		l=[]
 		for o in self.optics_dict.keys():
 			#use additions semantics to flatten nesting of lists
@@ -1060,22 +1177,27 @@ class composite_optic(general_optic):
 		return [poly for poly in l if poly is not None]	
 	
 	def exit_optics_tags(self):
+		"return the last two elements of this optic, to allow one to get an exit axis direction"
 		return self.optics_order[-2], self.optics_order[-1]
 	
 	def entrance_optics_tags(self):
+		"return the first two elements of this optic, to allow one to get an entrance axis direction"
 		return self.optics_order[0], self.optics_order[1]
 
 	def set_exit_direction(self, look_to):
+		"make the last optic of this look from the second-to-last optic to a final look_to point.  Useful if the last optic is a mirror"
 		l=self.optics_dict
 		e1, e2 = self.exit_optics_tags()
 		l[e2].set_direction(l[e1], look_to)
 
-	def set_entrance_direction(self, look_to):
+	def set_entrance_direction(self, look_from):
+		"make the first optic of this look from a look_from point to the second optic.  Useful if the first optic is a mirror"
 		l=self.optics_dict
 		e1, e2 = self.entrance_optics_tags()
-		l[e1].set_direction(look_to, l[e2])
+		l[e1].set_direction(look_from, l[e2])
 
 	def rotate_to_axis(self, from_obj):
+		"rotate this object by an angle that makes it look at from_obj, assuming it started out looking along the z axis"
 		if isinstance(from_obj, general_optic):
 			fc=from_obj.exit_center()
 			fn=from_obj.name
@@ -1095,6 +1217,7 @@ class composite_optic(general_optic):
 		return self #make daisy-chaining easy
 
 	def __getitem__(self, tag):
+		"get an optic from our list by its identifier.  If a mark is passed in of the form (self, item), use the item"
 		if type(tag) is types.TupleType and tag[0] is self:
 			return self.optics_dict[tag[1]] #in case the tag had our object identifier attached
 		else:
