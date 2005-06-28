@@ -4,7 +4,7 @@ diffraction gratings, etc., and run a laser beam through it.
 It correctly handles off-axis optics of most types (tilted lenses & mirrors, e.g.).
 It has been used to model a 10 Joule Nd:Glass CPA system at Vanderbilt University, for example
 """
-_rcsid="$Id: general_optics.py,v 1.4 2005-06-28 20:09:53 mendenhall Exp $"
+_rcsid="$Id: general_optics.py,v 1.5 2005-06-28 20:36:29 mendenhall Exp $"
 
 from math import *
 import math
@@ -137,14 +137,15 @@ def expand_to_2x2tensor(object):
 		
 
 class qtens:
-	"this is the hear of the general optics package: the 2x2 transverse tensor q parameter, and the book-keeping it needs"
+	"this is the heart of the general optics package: the 2x2 transverse tensor q parameter, and the book-keeping it needs"
 	
 	def __init__(self, lambda_initial, q=None, w=None, r=None, name=None, qit=None, medium_index=1.0):
 		"""build a q tensor from 
 			a) another valid inverse q tensor qit, 
 			b) a scalar complex q parameter which creates a diagonal q inverse tensor ( (1/q, 0), (0,1/q) )
 			c) a vector of two q parameters which creates a diagonal q inverse tensor ( (1/q[0], 0), (0, 1/q[1]) )
-			d) a radius of curvature r, wavelength lambda_initial, and medium index, which creates a diagonal tensor.  If r is general_optics.Infinity, beam is collimated
+			d) a radius of curvature r, wavelength lambda_initial, and medium index, which creates a diagonal tensor.  
+				If r is general_optics.Infinity, beam is collimated
 		"""
 		
 		self.name=name			
@@ -158,7 +159,7 @@ class qtens:
 					rinv=0
 				else:
 					rinv=1.0/r
-				qi=complex(rinv , -self.lambda0 / (self.medium_index*(math.pi*w**2)) )
+				qi=complex(rinv, -self.lambda0 / (self.medium_index*(math.pi*w**2)) )
 				self.qit=Numeric.array(((qi,0),(0,qi)))
 			elif type(q)==types.ComplexType:
 				self.qit=Numeric.array(((1.0/q,0),(0,1.0/q)))
@@ -1255,6 +1256,11 @@ class optics_trace:
 		return len(self.marks["order"])
 	
 def trace_path(optics_system, beam):
+	"""tracks a beam through a composite_optic, and returns an optics_trace wrapper around the marks which were created.
+		If an error is encountered which throws an exception, the exception is printed, and the partial trace returned.
+		This makes it very easy to find a problem optic (e.g. a grating which is diffracting a beam away from the next item,
+		or a mirror which isn't steered right).
+	"""
 	beam.total_drift=0.0		
 	try:
 		optics_system.transform(beam)	
