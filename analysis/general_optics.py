@@ -4,7 +4,7 @@ diffraction gratings, etc., and run a laser beam through it.
 It correctly handles off-axis optics of most types (tilted lenses & mirrors, e.g.).
 It has been used to model a 10 Joule Nd:Glass CPA system at Vanderbilt University, for example
 """
-_rcsid="$Id: general_optics.py,v 1.5 2005-06-28 20:36:29 mendenhall Exp $"
+_rcsid="$Id: general_optics.py,v 1.6 2005-06-29 14:36:45 mendenhall Exp $"
 
 from math import *
 import math
@@ -420,8 +420,10 @@ class beam:
 		"""find a best-effort transformation matrix which describes our current direction relative to the vector 'up'.
 			This is used to find a matrix which transforms the beam into a coordinate system which looks natural on the optics table.
 			Returns flag, matrix where flag is 0 if there is no obvious solution, and 1 if there is a pretty good solution.
-			If our direction is close to perpendicular to 'up', the matrix puts z in our propagation direction, y close to 'up', and x perpendicular to y.
+			If our direction is close to perpendicular to 'up', the matrix puts z in our propagation direction, x perpendicular to 'up' and y perpendicular to x & z.
 			If the beam is close to parallel to 'up', returns the identity matrix.
+			The result when the flag is true is a nice coordinate system in which x lies in the plane of the table, y lies nearly in the cirection of 'up'
+			and z is the beam direction.
 		"""
 		ar=Numeric.array
 		dot=Numeric.dot
