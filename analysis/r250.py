@@ -59,7 +59,7 @@ Heuer, Dunweg and Ferrenberg,
 by Marcus Mendenhall
                                                                 
 """
-_rcsid="$Id: r250.py,v 1.6 2005-06-28 21:30:24 mendenhall Exp $"
+_rcsid="$Id: r250.py,v 1.7 2005-06-29 14:09:29 mendenhall Exp $"
 
 import random
 import Numeric
@@ -111,7 +111,7 @@ class ran_shift(random.Random):
 		return v
 
 	def getstate(self):
-		return self.ranbuf, self.counter
+		return Numeric.array(self.ranbuf), self.counter #make sure we copy the array, not just return a reference
 	
 	def setstate(self, state):
 		self.ranbuf, self.counter = state
@@ -171,27 +171,24 @@ class r521(ran_shift):
 	def __init__(self, seed=None):
 		ran_shift.__init__(self, 521, 168, seed)
 
-class r250_521(ran_shift):
+class r250_521(r250):
 	"generate super-quality r250/521 randoms per Heuer, Dunweg & Ferrenberg ca. 1995"
 	def __init__(self, seed=None):
-		self.floatscale=1.0/float(1L<<64)
-		self.single_floatscale=1.0/float(1L<<32)
-		self.r250=r250(seed)
-		self.r521=r521(seed)
-		self.mask32=~Numeric.array(0xffff, Numeric.UnsignedInt32)
+		r250.__init__(self, seed)
+		self.r521=r521(seed) #give ourself a second generator
 		
 	def getstate(self):
-		return self.r250.getstate(), self.r521.getstate()
+		return r250.getstate(self), self.r521.getstate()
 		 	
 	def setstate(self, state):
-		self.r250.setstate(state[0])
+		r250.setstate(self, state[0])
 		self.r521.setstate(state[1])
 
 	def next(self):
-		return self.r250.next() ^ self.r521.next()
+		return r250.next(self) ^ self.r521.next()
 	
 	def fast_random_series(self, count):
-		return self.r250.fast_random_series(count) ^ self.r521.fast_random_series(count)
+		return r250.fast_random_series(self, count) ^ self.r521.fast_random_series(count)
 			
 if __name__ == "__main__":
 	r=r250_521()
@@ -203,10 +200,17 @@ if __name__ == "__main__":
 	print 10*"%08lx "%tuple(r.fast_random_series(10).tolist())
 	print
 
+	state=r.getstate()
+	
 	print r.single_float_random_series(10)
 	print
 	
 	print r.double_float_random_series(10)
+	print
+
+	r.setstate(state)
+	
+	print r.single_float_random_series(10)
 	print
 
 	if 1:
