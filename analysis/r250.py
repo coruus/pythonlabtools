@@ -59,7 +59,7 @@ Heuer, Dunweg and Ferrenberg,
 by Marcus Mendenhall
                                                                 
 """
-_rcsid="$Id: r250.py,v 1.7 2005-06-29 14:09:29 mendenhall Exp $"
+_rcsid="$Id: r250.py,v 1.8 2005-06-29 14:23:28 mendenhall Exp $"
 
 import random
 import Numeric
@@ -72,14 +72,12 @@ if a<0.0:
 else:
 	_numpy_conversion_bias=0
 
-
 class ran_shift(random.Random):
 	"generate shift-register based high-quality randoms"	
-	def __init__(self, p=250, q=103, seed=None):
+	p,q = 250, 103
+	def __init__(self, seed=None):
 		self.floatscale=1.0/float(1L<<64)
 		self.single_floatscale=1.0/float(1L<<32)
-		self.p=p
-		self.q=q
 		self.seed(seed)
 		self.mask32=~Numeric.array(0xffff, Numeric.UnsignedInt32)
 		
@@ -162,14 +160,11 @@ class ran_shift(random.Random):
 
 class r250(ran_shift):
 	"generate r250 based high-quality randoms"	
-	def __init__(self, seed=None):
-		ran_shift.__init__(self, 250, 103, seed)
+	p,q = 250, 103
 			
-
 class r521(ran_shift):
 	"generate r521 based high-quality randoms"	
-	def __init__(self, seed=None):
-		ran_shift.__init__(self, 521, 168, seed)
+	p,q = 521, 168
 
 class r250_521(r250):
 	"generate super-quality r250/521 randoms per Heuer, Dunweg & Ferrenberg ca. 1995"
