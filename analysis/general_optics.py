@@ -4,7 +4,7 @@ diffraction gratings, etc., and run a laser beam through it.
 It correctly handles off-axis optics of most types (tilted lenses & mirrors, e.g.).
 It has been used to model a 10 Joule Nd:Glass CPA system at Vanderbilt University, for example
 """
-_rcsid="$Id: general_optics.py,v 1.6 2005-06-29 14:36:45 mendenhall Exp $"
+_rcsid="$Id: general_optics.py,v 1.7 2005-06-30 17:47:50 mendenhall Exp $"
 
 from math import *
 import math
@@ -553,9 +553,9 @@ class general_optic:
 		xp, yp, zp=tuple(self.beam.local_direction)  #it better be a small angle, so sin(theta)=theta for this to work
 		dx, dy, dz=tuple(self.beam.local_x0) #dz should always be zero in these coordinates
 		x1,xp1, y1, yp1 =self.abcd_transform((dx, xp, dy, yp))
-		sx=xp1-xp #this is sort of a sine of a rotation angle of x about y
+		sx=-(xp1-xp) #this is sort of a sine of a rotation angle of x about y, with the right sign
 		cx=math.sqrt(1-sx*sx)
-		sy=yp1-yp #this is sort of a sine of a rotation angle of y about x
+		sy=-(yp1-yp) #this is sort of a sine of a rotation angle of y about x, with the right sign
 		cy=math.sqrt(1-sy*sy)
 		rot=dot(ar(((cx, 0, -sx),(0,1,0),(sx,0,cx))),ar(((1,0,0),(0,cy,-sy),(0,sy,cy))))
 		self.beam.transform(self.globalize_transform(rot))
@@ -1245,7 +1245,7 @@ class optics_trace:
 		self.marks=marks
 		#copy any extra information directly into the class dictionary
 		for i in extras.keys():
-			self.__dict__[i]=extras[i]
+			setattr(self, i, extras[i])
 	
 	def __getitem__(self, index):
 		if type(index) is types.IntType:
