@@ -4,7 +4,7 @@ diffraction gratings, etc., and run a laser beam through it.
 It correctly handles off-axis optics of most types (tilted lenses & mirrors, e.g.).
 It has been used to model a 10 Joule Nd:Glass CPA system at Vanderbilt University, for example
 """
-_rcsid="$Id: general_optics.py,v 1.9 2005-07-01 11:02:32 mendenhall Exp $"
+_rcsid="$Id: general_optics.py,v 1.10 2005-07-01 14:02:47 mendenhall Exp $"
 
 from math import *
 import math
@@ -565,7 +565,7 @@ class general_optic:
 		"find the intersection of a beam coming from from_point, going in from_direction, with our center. Raise an exception if beam won't hit center going that way."
 		a,x  =  planesolve(from_point, from_direction, self.center, self.cosines)  
 		
-		if a < 0:
+		if a < -1e-9:
 			raise OpticDirectionError, "Optic found on backwards side of beam: "+str(self)+" incoming (x,y,z)="+\
 			Numeric.array_str(from_point, precision=3, suppress_small=1)+" cosines="+\
 			Numeric.array_str(from_direction, precision=3, suppress_small=1) + \
@@ -889,7 +889,7 @@ class reflector(general_optic, base_reflector):
 		return self #make daisy-chaining easy
 		
 class null_optic(general_optic):
-	"null_optic is drawable, but has no effect on the beam... useful for markers in an optical system"
+	"null_optic is drawable, but has no effect on the beam except the beam will be transported to it... useful for markers in an optical system"
 	def post_init(self):
 		if not hasattr(self,"width"):
 			self.width=0.0254
@@ -901,7 +901,13 @@ class null_optic(general_optic):
 
 	def q_transform(self):
 		pass
-		
+
+class marker_optic(null_optic):
+	"marker_optic is drawable, but has no effect on the beam at all... useful for markers in an optical system"
+	def transport_to_here(self, beam):
+		"transport beam from wherever it is to our center"
+		return self
+
 class lens(general_optic, base_lens):
 	"lens is like a base_lens, but has geometry information"
 	def post_init(self):
