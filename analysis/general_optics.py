@@ -4,7 +4,7 @@ diffraction gratings, etc., and run a laser beam through it.
 It correctly handles off-axis optics of most types (tilted lenses & mirrors, e.g.).
 It has been used to model a 10 Joule Nd:Glass CPA system at Vanderbilt University, for example
 """
-_rcsid="$Id: general_optics.py,v 1.7 2005-06-30 17:47:50 mendenhall Exp $"
+_rcsid="$Id: general_optics.py,v 1.8 2005-07-01 02:08:52 mendenhall Exp $"
 
 from math import *
 import math
@@ -1051,19 +1051,35 @@ class grating(reflector):
 	"grating is a reflector which diffracts. The ruling is along the y axis.  It should be initialized with keywords order and pitch."
 	
 	def local_transform(self):
+		dot=Numeric.dot
+		tr=Numeric.transpose
+		deg=math.pi/180.0
 		
-		kx, ky, kz=self.beam.local_direction
+		#need to find basis set for rotation which is perp. to beam and grating rulings (yhat)
+		kx, ky, kz = v1 = self.beam.local_direction
+		v2 = cross(v1, (0,1,0)) #this is first basis vector for rotation
+		v2 /= vec_mag(v2)
+		v3 = cross(v1, v2) #this is rotation axis (!) in grating frame
+		v3 /= vec_mag(v3)
+		coord=Numeric.array((v1,v2,v3)) #matrix to convert coordinates in grating system into diffraction rotation system
+		cinv=tr(coord) #matrix to convert diffraction basis vectors to grating basis i.e. cinv.(0,0,1) is rotation axis in grating system
 		
-		theta=math.atan2(kx, kz)
+		print "**grating**"
+		print Numeric.array_str(coord, precision=4)
+		
+		theta=math.atan2(kx, math.sqrt(ky*ky+kz*kz))
 		littrow, out=self.angles(theta, self.beam.get_lambda())
+		print littrow/deg, theta/deg, out/deg, (out+theta)/deg
 		
 		#remember, outgoing angle is _not_ outgoing direction... beam has changed from incoming to outgoing, too
 		dtheta=out+theta
-		s,c=math.sin(dtheta), math.cos(dtheta)
+		s,c=-math.sin(dtheta), math.cos(dtheta)
 		
 		#this funny matrix is a rotation by dtheta, followed by a reflection in z
-		self.beam.transform(self.globalize_transform(Numeric.array(((c,0,-s),(0,1,0),(-s,0,-c)))))
-						
+		rot1=dot(Numeric.array(((1,0,0),(0,1,0),(0,0,-1))), dot(cinv, dot(Numeric.array(((c,s,0),(-s,c,0),(0,0,1))), coord )))
+		print Numeric.array_str(rot1, precision=4)
+		self.beam.transform(self.globalize_transform(rot1))
+
 	def degree_angles(self, theta, lam):
 		#return angle info for incoming and outgoing angles in degrees (for user convenience)
 		litt, beta = self.angles(theta*deg, lam)
@@ -1238,6 +1254,7 @@ if 0:
 	print mybeam
 	optic.transform(mybeam)
 	print mybeam
+	print math.atan2(mybeam.direction()[0], mybeam.direction()[2])/(math.pi/180.0)
 	
 class optics_trace:
 	def __init__(self, marks, color=None, **extras):
