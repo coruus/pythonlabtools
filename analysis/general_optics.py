@@ -4,7 +4,7 @@ diffraction gratings, etc., and run a laser beam through it.
 It correctly handles off-axis optics of most types (tilted lenses & mirrors, e.g.).
 It has been used to model a 10 Joule Nd:Glass CPA system at Vanderbilt University, for example
 """
-_rcsid="$Id: general_optics.py,v 1.8 2005-07-01 02:08:52 mendenhall Exp $"
+_rcsid="$Id: general_optics.py,v 1.9 2005-07-01 11:02:32 mendenhall Exp $"
 
 from math import *
 import math
@@ -1056,20 +1056,20 @@ class grating(reflector):
 		deg=math.pi/180.0
 		
 		#need to find basis set for rotation which is perp. to beam and grating rulings (yhat)
-		kx, ky, kz = v1 = self.beam.local_direction
-		v2 = cross(v1, (0,1,0)) #this is first basis vector for rotation
-		v2 /= vec_mag(v2)
-		v3 = cross(v1, v2) #this is rotation axis (!) in grating frame
+		kx, ky, kz = v2 = self.beam.local_direction
+		v3 = cross((1,0,0), v2) #this is rotation axis (!) in grating frame 
 		v3 /= vec_mag(v3)
+		v1 = cross(v2, v3) #this is first basis vector for rotation 
+		v1 /= vec_mag(v1)
 		coord=Numeric.array((v1,v2,v3)) #matrix to convert coordinates in grating system into diffraction rotation system
 		cinv=tr(coord) #matrix to convert diffraction basis vectors to grating basis i.e. cinv.(0,0,1) is rotation axis in grating system
 		
-		print "**grating**"
-		print Numeric.array_str(coord, precision=4)
+		#print "**grating**"
+		#print Numeric.array_str(coord, precision=4)
 		
 		theta=math.atan2(kx, math.sqrt(ky*ky+kz*kz))
 		littrow, out=self.angles(theta, self.beam.get_lambda())
-		print littrow/deg, theta/deg, out/deg, (out+theta)/deg
+		#print littrow/deg, theta/deg, out/deg, (out+theta)/deg
 		
 		#remember, outgoing angle is _not_ outgoing direction... beam has changed from incoming to outgoing, too
 		dtheta=out+theta
@@ -1077,7 +1077,7 @@ class grating(reflector):
 		
 		#this funny matrix is a rotation by dtheta, followed by a reflection in z
 		rot1=dot(Numeric.array(((1,0,0),(0,1,0),(0,0,-1))), dot(cinv, dot(Numeric.array(((c,s,0),(-s,c,0),(0,0,1))), coord )))
-		print Numeric.array_str(rot1, precision=4)
+		#print Numeric.array_str(rot1, precision=4)
 		self.beam.transform(self.globalize_transform(rot1))
 
 	def degree_angles(self, theta, lam):
