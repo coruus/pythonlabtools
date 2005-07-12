@@ -1,5 +1,5 @@
 """cubic spline handling, in a manner compatible with the API in Numeric Recipes"""
-_rcsid="$Id: spline.py,v 1.21 2005-06-28 20:16:29 mendenhall Exp $"
+_rcsid="$Id: spline.py,v 1.22 2005-07-12 20:44:29 mendenhall Exp $"
 
 __all__=["spline","splint","cubeinterpolate","RangeError",
 "spline_extension", "spline_extrapolate", "approximate_least_squares_spline" ]
@@ -128,9 +128,10 @@ def splint(xa, ya, y2a, x, derivs=False):
 		
 	y=a*ylo+b*yhi+((a*a*a-a)*y2lo+(b*b*b-b)*y2hi)*(h*h)/6.0
 	if derivs:
-		return y, yhi-ylo+((3*b*b-1)*y2hi-(3*a*a-1)*y2lo)*(h*h)/6.0, b*y2hi+a*y2lo
+		return y, (yhi-ylo)/h+((3*b*b-1)*y2hi-(3*a*a-1)*y2lo)*h/6.0, b*y2hi+a*y2lo
 	else:
 		return y
+
 		
 def cubeinterpolate(xlist, ylist, x3):
 	"find point at x3 given 4 points in given lists using exact cubic interpolation, not splining"
