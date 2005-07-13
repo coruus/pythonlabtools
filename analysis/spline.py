@@ -1,5 +1,5 @@
 """cubic spline handling, in a manner compatible with the API in Numeric Recipes"""
-_rcsid="$Id: spline.py,v 1.22 2005-07-12 20:44:29 mendenhall Exp $"
+_rcsid="$Id: spline.py,v 1.23 2005-07-13 14:24:58 mendenhall Exp $"
 
 __all__=["spline","splint","cubeinterpolate","RangeError",
 "spline_extension", "spline_extrapolate", "approximate_least_squares_spline" ]
@@ -68,7 +68,7 @@ def spline_extension(x, y, y2, xmin=None, xmax=None):
 	if xmin is not None:
 		h0=x[1]-x[0]
 		h1=xmin-x[0]
-		yextrap=((y[1]-y[0])/h0 - h0*(y2[0]+2.0*y2[1])/6.0)*h1+y2[0]*h1*h1/2.0
+		yextrap=y[0]+((y[1]-y[0])/h0 - h0*(y2[0]+2.0*y2[1])/6.0)*h1+y2[0]*h1*h1/2.0
 		yl.insert(0, (yextrap,))
 		xl.insert(0, (xmin,))
 		y2l.insert(0, (y2[0],))
@@ -76,7 +76,7 @@ def spline_extension(x, y, y2, xmin=None, xmax=None):
 	if xmax is not None:
 		h0=x[-1]-x[-2]
 		h1=xmax-x[-1]
-		yextrap=((y[-1]-y[-2])/h0 + h0*(2.0*y2[-2]+y2[-1])/6.0)*h1+y2[-1]*h1*h1/2.0
+		yextrap=y[-1]+((y[-1]-y[-2])/h0 + h0*(2.0*y2[-2]+y2[-1])/6.0)*h1+y2[-1]*h1*h1/2.0
 		yl.append((yextrap,))
 		xl.append((xmax,))
 		y2l.append((y2[-1],))
