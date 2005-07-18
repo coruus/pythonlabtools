@@ -12,8 +12,9 @@ C2Functions can be combined with unary operators (nested functions) or binary op
 Developed by Marcus H. Mendenhall, Vanderbilt University Keck Free Electron Laser Center, Nashville, TN USA
 email: marcus.h.mendenhall@vanderbilt.edu
 Work supported by the US DoD  MFEL program under grant FA9550-04-1-0045
+version $Id: C2Functions.py,v 1.2 2005-07-18 19:09:48 mendenhall Exp $
 """
-_rcsid="$Id: C2Functions.py,v 1.1 2005-07-18 17:00:33 mendenhall Exp $"
+_rcsid="$Id: C2Functions.py,v 1.2 2005-07-18 19:09:48 mendenhall Exp $"
 
 import math
 import operator
@@ -21,6 +22,8 @@ import types
 
 import Numeric as _numeric #makes it easy to change to NumArray later
 _myfuncs=_numeric #can change to math for (possibly greater) speed (?) but no vectorized evaluation
+
+from analysis import spline as _spline #also for later flexibility
 
 class C2Exception(Exception):
 	pass
@@ -60,8 +63,8 @@ class C2Function:
 		#find f(x)=value within the brackets, using the guarantees of smoothness associated with a C2Function
 		# can use local f(x)=a*x**2 + b*x + c and solve quadratic to find root, then iterate
 
-		ftol=(2e-16*abs(value)+1e-308);
-		xtol=(2e-16*(abs(upper_bracket)+abs(lower_bracket))+1e-308);
+		ftol=(5e-16*abs(value)+2e-308);
+		xtol=(5e-16*(abs(upper_bracket)+abs(lower_bracket))+2e-308);
 
 		root=start	#start looking in the middle
 		cupper, yp, ypp=self.value_with_derivatives(upper_bracket)
@@ -327,7 +330,8 @@ class InterpolatingFunction(C2Function):
 		C2Function.__init__(self) #just on general principle, right now this does nothing
 		self.SetDomain(min(x), max(x))
 		self.Xraw=_numeric.array(x) #keep a private copy
-
+		self.xInverted=False
+		
 		if YConversions is not None: self.YConversions=YConversions #inherit from class if not passed		
 		if self.YConversions is None:
 			self.fYin, self.fYinP, self.fYinPP, self.fYout = self.YConversions = lambda x: x, lambda x: 1, lambda x: 0, lambda x : x
@@ -355,16 +359,28 @@ class InterpolatingFunction(C2Function):
 			if self.X[0] > self.X[-1]: #make sure our transformed X array is increasing
 				self.Xraw=self.Xraw[::-1]
 				self.X=self.X[::-1]
-				self.Y=self.Y[::-1]
+				self.F=self.F[::-1]
+				self.xInverted=True
 				lowerSlope, upperSlope=upperSlope, lowerSlope
 
-		from analysis import spline
-		self.y2=spline.spline(self.X, self.F, yp1=lowerSlope, ypn=upperSlope)
+		if not self.xInverted:
+			self.SetLowerExtrapolation=self.SetLeftExtrapolation
+			self.SetUpperExtrapolation=self.SetRightExtrapolation
+		else:
+			self.SetLowerExtrapolation=self.SetRightExtrapolation
+			self.SetUpperExtrapolation=self.SetLeftExtrapolation
+		
+		dx=self.X[1:]-self.X[:-1]
+		if min(dx) <  0 or min(self.X) < self.X[0] or max(self.X) > self.X[-1]:
+			raise C2Exception("monotonicity error in X values for interpolating function: "  + 
+				_numeric.array_str(self.X))
+			
+
+		self.y2=_spline.spline(self.X, self.F, yp1=lowerSlope, ypn=upperSlope)
 
 	def value_with_derivatives(self, x): 
-		from analysis import spline
 		if self.xNonLin or self.yNonLin: #skip this if this is a completely untransformed spline
-			y0, yp0, ypp0=spline.splint(self.X, self.F, self.y2, self.fXin(x), derivs=True)
+			y0, yp0, ypp0=_spline.splint(self.X, self.F, self.y2, self.fXin(x), derivs=True)
 			y=self.fYout(y0)
 			fpi=1.0/self.fYinP(y)
 			gp=self.fXinP(x)
@@ -377,8 +393,43 @@ class InterpolatingFunction(C2Function):
 			yprimeprime=(gp*gp*ypp0 + yp0*gpp - gp*gp*yp0*yp0*fpp*fpi*fpi)*fpi; 
 			return y, yprime, yprimeprime
 		else:
-			return spline.splint(self.X, self.F, self.y2, x, derivs=True)
+			return _spline.splint(self.X, self.F, self.y2, x, derivs=True)
 
+	def SetLeftExtrapolation(self, bound):
+		"""Set extrapolation on left end of data set.  
+		This will be dynamically assigned to either SetLowerExtrapolation or SetUpperExtrapolation by the constructor
+		"""
+		xmin=self.fXin(bound)
+		if xmin >= self.X[0]: 
+			raise C2Exception("Attempting to extrapolate spline within its current range: bound = %g, bounds [%g, %g]" % 
+				((bound,) + self.GetDomain()) )
+		
+		self.X, self.F, self.y2=_spline.spline_extension(self.X, self.F, self.y2, xmin=xmin)
+		self.Xraw=_numeric.concatenate(((bound, ), self.Xraw))
+		self.SetDomain(min(self.Xraw), max(self.Xraw))
+		
+	def SetRightExtrapolation(self, bound):
+		"""Set extrapolation on right end of data set.  
+		This will be dynamically assigned to either SetLowerExtrapolation or SetUpperExtrapolation by the constructor
+		"""
+		xmax=self.fXin(bound)
+		if xmax <= self.X[-1]: 
+			raise C2Exception("Attempting to extrapolate spline within its current range: bound = %g, bounds [%g, %g]" % 
+				((bound,) + self.GetDomain()) )
+
+		self.X, self.F, self.y2=_spline.spline_extension(self.X, self.F, self.y2, xmax=xmax)
+		self.Xraw=_numeric.concatenate((self.Xraw, (bound, )))
+		self.SetDomain(min(self.Xraw), max(self.Xraw))
+
+	def YtoX(self):
+		"returns a new InterpolatingFunction with our currect grid of Y values as the X values"
+		
+		yv=self.fYout(self.F) #get current Y values transformed out
+		if yv[1] < yv[0]: yv=yv[::-1]
+		f=InterpolatingFunction(yv, yv, XConversions=self.XConversions, YConversions=self.YConversions)
+		f.SetName("x values: "+self.name)
+		return f
+		
 	def UnaryOperator(self, C2source):
 		"return new InterpolatingFunction C2source(self)"
 		yv=[C2source.compose(self, x) for x in self.Xraw] #get array of ( ( y, y', y''), ...)
@@ -446,7 +497,17 @@ def LogLogInterpolatingGrid(xmin, dx, count):
 if __name__=="__main__":
 	def as(x): return _numeric.array_str(x, precision=3)
 	
-	ag=ag1=LinearInterpolatingGrid(0.01, 5.0,4)	
+	ag=ag1=LinearInterpolatingGrid(1, 1.0,4)	
+	print ag
+	
+	try:
+		ag.SetLowerExtrapolation(2)
+	except:
+		import sys
+		print "***got expected error on bad extrapolation: ", sys.exc_value
+		
+	ag.SetLowerExtrapolation(-2)
+	ag.SetUpperExtrapolation(15)
 	print ag
 	
 	print C2Constant(11.5)
@@ -457,14 +518,22 @@ if __name__=="__main__":
 	print C2Linear(1.3,2.5).apply(ag1)
 	print C2Quadratic(0,1,0,0).apply(ag1)
 	print ag1*ag1*ag1
+	print (ag1*ag1*ag1).YtoX()
 		
-	fn=C2sin(C2sqrt(ag1*ag1*ag1))	
+	try:
+		ag13=(ag1*ag1).YtoX()
+	except:
+		import sys
+		print "***got expected error on bad X axis: ", sys.exc_value
+		
+	fn=C2sin(C2sqrt(ag1*ag1*ag1)).SetDomain(0, ag1.GetDomain()[1]) #cut off sqrt(negative)
 	print fn
 	
-	for i in range(7):
+	
+	for i in range(10):
 		print i, math.sin((i+0.01)**(3./2.)), fn(i+0.01)
 	
-	x1=fn.find_root(0.1, 1.35128, 0.1, 0.995, trace=True)
+	x1=fn.find_root(0.0, 1.35128, 0.1, 0.995, trace=True)
 	print x1, math.sin(x1**(3./2.)), fn(x1)-0.995
 	
 	print fn([1., 2., 3., 4.])
