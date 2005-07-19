@@ -12,9 +12,9 @@ C2Functions can be combined with unary operators (nested functions) or binary op
 Developed by Marcus H. Mendenhall, Vanderbilt University Keck Free Electron Laser Center, Nashville, TN USA
 email: marcus.h.mendenhall@vanderbilt.edu
 Work supported by the US DoD  MFEL program under grant FA9550-04-1-0045
-version $Id: C2Functions.py,v 1.2 2005-07-18 19:09:48 mendenhall Exp $
+version $Id: C2Functions.py,v 1.3 2005-07-19 15:48:20 mendenhall Exp $
 """
-_rcsid="$Id: C2Functions.py,v 1.2 2005-07-18 19:09:48 mendenhall Exp $"
+_rcsid="$Id: C2Functions.py,v 1.3 2005-07-19 15:48:20 mendenhall Exp $"
 
 import math
 import operator
@@ -151,6 +151,31 @@ class C2Function:
 	def __div__(self, right):
 		"a/b returns a new C2Function which represents the ratio"
 		return C2Ratio(self, right)
+
+	def partial_integrals(self, xgrid, debug=False):
+		"Return the integrals of a function between the sampling points xgrid.  The sum is the definite integral."
+		xgrid=_numeric.asarray(xgrid, _numeric.Float)
+		y, yp, ypp=self.value_with_derivatives(xgrid) #compute all values & derivatives at sampling points
+		
+		dx=xgrid[1:]-xgrid[:-1]
+		yppp=(ypp[1:]-ypp[:-1])/dx #estimate next higher derivative
+		 
+		dx2=dx*dx
+		dx3=dx*dx2
+		dx4=dx2*dx2
+		
+		dx2*=(1.0/2.0)
+		dx3*=(1.0/6.0)
+		dx4*=(1.0/24.0)
+	
+		weights=_numeric.array((dx, dx2, dx3, dx4))			
+		partials=_numeric.sum(weights*_numeric.array((y[:-1], yp[:-1], ypp[:-1], yppp)))
+		if debug:
+			print "\nIntegration debug:"
+			print _numeric.array_str(weights, precision=4, suppress_small=True, max_line_width=10000)
+			print _numeric.array_str(partials, precision=4, suppress_small=True, max_line_width=10000)
+		
+		return partials
 
 class C2Constant(C2Function):
 	"a constant and its derivatives"
@@ -495,6 +520,7 @@ def LogLogInterpolatingGrid(xmin, dx, count):
 
 
 if __name__=="__main__":
+	print _rcsid
 	def as(x): return _numeric.array_str(x, precision=3)
 	
 	ag=ag1=LinearInterpolatingGrid(1, 1.0,4)	
@@ -505,6 +531,8 @@ if __name__=="__main__":
 	except:
 		import sys
 		print "***got expected error on bad extrapolation: ", sys.exc_value
+	else:
+		print "***failed to get expected exception on bad extrapolation"
 		
 	ag.SetLowerExtrapolation(-2)
 	ag.SetUpperExtrapolation(15)
@@ -525,17 +553,27 @@ if __name__=="__main__":
 	except:
 		import sys
 		print "***got expected error on bad X axis: ", sys.exc_value
+	else:
+		print "***failed to get expected exception on bad X axis"
 		
 	fn=C2sin(C2sqrt(ag1*ag1*ag1)).SetDomain(0, ag1.GetDomain()[1]) #cut off sqrt(negative)
 	print fn
 	
-	
 	for i in range(10):
-		print i, math.sin((i+0.01)**(3./2.)), fn(i+0.01)
+		print i, "%20.15f %20.15f" % (math.sin((i+0.01)**(3./2.)), fn(i+0.01) )
 	
 	x1=fn.find_root(0.0, 1.35128, 0.1, 0.995, trace=True)
 	print x1, math.sin(x1**(3./2.)), fn(x1)-0.995
 	
 	print fn([1., 2., 3., 4.])
 	
+	import math
+	import Numeric
+	print "\nIntegration tests"
+	sna=C2sin(ag1)
+	for sample in (10, 20, 40, 100):
+		partials=sna.partial_integrals(Numeric.array(range(sample), Numeric.Float)/(2*(sample-1)/(math.pi)), debug=False)
+		if sample==10: print partials
+		sumsum=sum(partials)
+		print sample, sumsum, (1-sumsum)*sample**4
 	
