@@ -12,9 +12,9 @@ C2Functions can be combined with unary operators (nested functions) or binary op
 Developed by Marcus H. Mendenhall, Vanderbilt University Keck Free Electron Laser Center, Nashville, TN USA
 email: marcus.h.mendenhall@vanderbilt.edu
 Work supported by the US DoD  MFEL program under grant FA9550-04-1-0045
-version $Id: C2Functions.py,v 1.3 2005-07-19 15:48:20 mendenhall Exp $
+version $Id: C2Functions.py,v 1.4 2005-07-19 16:32:04 mendenhall Exp $
 """
-_rcsid="$Id: C2Functions.py,v 1.3 2005-07-19 15:48:20 mendenhall Exp $"
+_rcsid="$Id: C2Functions.py,v 1.4 2005-07-19 16:32:04 mendenhall Exp $"
 
 import math
 import operator
@@ -371,11 +371,11 @@ class InterpolatingFunction(C2Function):
 
 		if XConversions is not None: self.XConversions=XConversions #inherit from class if not passed		
 		if self.XConversions is None:
-			self.fXin, self.fXinP, self.XinPP = self.XConversions =  lambda x: x, lambda x: 1, lambda x: 0
+			self.fXin, self.fXinP, self.fXinPP, self.fXout = self.XConversions =  lambda x: x, lambda x: 1, lambda x: 0, lambda x: x
 			self.xNonLin=False
 			self.X=_numeric.array(x)
 		else:
-			self.fXin, self.fXinP, self.fXinPP = self.XConversions
+			self.fXin, self.fXinP, self.fXinPP, self.fXout = self.XConversions
 			self.xNonLin=True
 			self.X=_numeric.array([self.fXin(q) for q in x])
 			if lowerSlope is not None: lowerSlope /= self.fXinP(x[0])
@@ -413,7 +413,7 @@ class InterpolatingFunction(C2Function):
 			# from Mathematica Dt[InverseFunction[f][g[y[x]]], x]
 			yprime=gp*yp0*fpi # the real derivative of the inverse transformed output 
 			fpp=self.fYinPP(y)
-			gpp=self.fXinPP(x);
+			gpp=self.fXinPP(x)
 			#also from Mathematica Dt[InverseFunction[f][g[y[x]]], {x,2}]
 			yprimeprime=(gp*gp*ypp0 + yp0*gpp - gp*gp*yp0*yp0*fpp*fpi*fpi)*fpi; 
 			return y, yprime, yprimeprime
@@ -487,21 +487,23 @@ class InterpolatingFunction(C2Function):
 	def __div__(self, right):
 		return self.BinaryOperator(right, C2Ratio)
 
+_logconversions=_myfuncs.log, lambda x: 1.0/x, lambda x: -1.0/(x*x), _myfuncs.exp
+
 class LogLinInterpolatingFunction(InterpolatingFunction):
 	"An InterpolatingFunction which stores log(x) vs. y"
 	ClassName='LogLinInterpolatingFunction'
-	XConversions=math.log, lambda x: 1.0/x, lambda x: -1.0/(x*x)
+	XConversions=_logconversions
 
 class LinLogInterpolatingFunction(InterpolatingFunction):
 	"An InterpolatingFunction which stores x vs. log(y), useful for functions with exponential-like behavior"
 	ClassName='LinLogInterpolatingFunction'
-	YConversions=math.log, lambda x: 1.0/x, lambda x: -1.0/(x*x), math.exp
+	YConversions=_logconversions
 
 class LogLogInterpolatingFunction(InterpolatingFunction):
 	"An InterpolatingFunction which stores log(x) vs. log(y), useful for functions with power-law-like behavior"
 	ClassName='LogLogInterpolatingFunction'
-	XConversions=math.log, lambda x: 1.0/x, lambda x: -1.0/(x*x)
-	YConversions=math.log, lambda x: 1.0/x, lambda x: -1.0/(x*x), math.exp
+	XConversions=_logconversions
+	YConversions=_logconversions
 
 def LinearInterpolatingGrid(xmin, dx, count):
 	"""create a linear-linear interpolating grid with both x & y set to (xmin, xmin+dx, ... xmin + dx*(count -1) )
@@ -518,7 +520,36 @@ def LogLogInterpolatingGrid(xmin, dx, count):
 		x.append(x[-1]*dx)
 	return LogLogInterpolatingFunction(x,x).SetName('x')
 
+class AccumulatedHistogram(InterpolatingFunction):
+	"""Compute an InterpolatingFunction which is the cumulative integral of the (histogram) specified by binedges and binheights.
+		Note than binedges should be one element longer than binheights, since the lower & upper edges are specified. 
+		Note that this is a somewhat malformed spline, since the second derivatives are all zero, so it has less continuity.
+		Also, note that the bin edges can be given in backwards order to generate the reversed accumulation (starting at the high end) 
+	"""
+	ClassName='AccumulatedHistogram'
 
+	def __init__(self, binedges, binheights, normalize=False, **args):
+		be=_numeric.asarray(binedges, _numeric.Float)
+		bh=_numeric.asarray(binheights, _numeric.Float)
+		cum=_numeric.concatenate( ( (0,), _numeric.cumsum( (be[1:]-be[:-1])*bh ) ))
+		
+		if normalize:
+			cum *= (1.0/cum[-1])
+
+		if be[1] < be[0]: #fix backwards bins, if needed.
+			be=be[::-1]
+			cum=cum[::-1]
+			cum*=-1 #the dx values were all negative if the bins were backwards, so fix the sums
+
+		InterpolatingFunction.__init__(self, be, cum, **args)
+		self.y2 *=0 #clear second derivatives... we know nothing about them
+
+class LogLogAccumulatedHistogram(AccumulatedHistogram):
+	"same as AccumulatedHistogram, but log-log axes by inheritance"
+	ClassName='LogLogAccumulatedHistogram'
+	XConversions=_logconversions
+	YConversions=_logconversions
+	
 if __name__=="__main__":
 	print _rcsid
 	def as(x): return _numeric.array_str(x, precision=3)
@@ -568,12 +599,11 @@ if __name__=="__main__":
 	print fn([1., 2., 3., 4.])
 	
 	import math
-	import Numeric
 	print "\nIntegration tests"
 	sna=C2sin(ag1)
 	for sample in (10, 20, 40, 100):
-		partials=sna.partial_integrals(Numeric.array(range(sample), Numeric.Float)/(2*(sample-1)/(math.pi)), debug=False)
-		if sample==10: print partials
+		partials=sna.partial_integrals(_numeric.array(range(sample), _numeric.Float)/(2*(sample-1)/(math.pi)), debug=False)
+		if sample==10: print _numeric.array_str(partials, precision=8, suppress_small=False, max_line_width=10000)
 		sumsum=sum(partials)
 		print sample, sumsum, (1-sumsum)*sample**4
 	
