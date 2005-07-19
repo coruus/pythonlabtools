@@ -12,9 +12,9 @@ C2Functions can be combined with unary operators (nested functions) or binary op
 Developed by Marcus H. Mendenhall, Vanderbilt University Keck Free Electron Laser Center, Nashville, TN USA
 email: marcus.h.mendenhall@vanderbilt.edu
 Work supported by the US DoD  MFEL program under grant FA9550-04-1-0045
-version $Id: C2Functions.py,v 1.4 2005-07-19 16:32:04 mendenhall Exp $
+version $Id: C2Functions.py,v 1.5 2005-07-19 22:00:55 mendenhall Exp $
 """
-_rcsid="$Id: C2Functions.py,v 1.4 2005-07-19 16:32:04 mendenhall Exp $"
+_rcsid="$Id: C2Functions.py,v 1.5 2005-07-19 22:00:55 mendenhall Exp $"
 
 import math
 import operator
@@ -487,23 +487,44 @@ class InterpolatingFunction(C2Function):
 	def __div__(self, right):
 		return self.BinaryOperator(right, C2Ratio)
 
-_logconversions=_myfuncs.log, lambda x: 1.0/x, lambda x: -1.0/(x*x), _myfuncs.exp
+LogConversions=_myfuncs.log, lambda x: 1.0/x, lambda x: -1.0/(x*x), _myfuncs.exp
 
 class LogLinInterpolatingFunction(InterpolatingFunction):
 	"An InterpolatingFunction which stores log(x) vs. y"
 	ClassName='LogLinInterpolatingFunction'
-	XConversions=_logconversions
+	XConversions=LogConversions
 
 class LinLogInterpolatingFunction(InterpolatingFunction):
 	"An InterpolatingFunction which stores x vs. log(y), useful for functions with exponential-like behavior"
 	ClassName='LinLogInterpolatingFunction'
-	YConversions=_logconversions
+	YConversions=LogConversions
 
 class LogLogInterpolatingFunction(InterpolatingFunction):
 	"An InterpolatingFunction which stores log(x) vs. log(y), useful for functions with power-law-like behavior"
 	ClassName='LogLogInterpolatingFunction'
-	XConversions=_logconversions
-	YConversions=_logconversions
+	XConversions=LogConversions
+	YConversions=LogConversions
+	def partial_integrals(self, xgrid, debug=False):
+		"""Return the integrals of a function between the sampling points xgrid.  The sum is the definite integral.
+		This version knows about integrating in log-log space, at least to some simple approximation.
+		The approximation is that ln(y)=a + b*ln(x) + c*ln(x)^2 -> a + (b + c*ln(xbar)) * ln(x) where xbar=sqrt(x0*x1) for the interval 
+		"""
+		
+		xgrid=_numeric.log(xgrid)
+		dx=xgrid[1:]-xgrid[:-1]
+	
+		#compute all log values & derivatives of logs at sampling points
+		y, yp, ypp=_spline.splint(self.X, self.F, self.y2, self.fXin(xgrid), derivs=True) 
+		
+		localpower=yp+0.25*ypp*(xgrid[1:]+xgrid[:-1]) #this is the slope of log x assuming  ln^2(x) is ln(x)*ln(sqrt(x0*x1))
+		partials=self.fYout(y+localpower*dx)
+		
+		if debug:
+			print "\nIntegration debug:"
+			print _numeric.array_str(weights, precision=4, suppress_small=True, max_line_width=10000)
+			print _numeric.array_str(partials, precision=4, suppress_small=True, max_line_width=10000)
+		
+		return partials
 
 def LinearInterpolatingGrid(xmin, dx, count):
 	"""create a linear-linear interpolating grid with both x & y set to (xmin, xmin+dx, ... xmin + dx*(count -1) )
@@ -528,27 +549,38 @@ class AccumulatedHistogram(InterpolatingFunction):
 	"""
 	ClassName='AccumulatedHistogram'
 
-	def __init__(self, binedges, binheights, normalize=False, **args):
-		be=_numeric.asarray(binedges, _numeric.Float)
-		bh=_numeric.asarray(binheights, _numeric.Float)
+	def __init__(self, binedges, binheights, normalize=False, inverse_function=False, drop_zeros=True, **args):
+		be=_numeric.array(binedges, _numeric.Float)
+		bh=_numeric.array(binheights, _numeric.Float)
+
+		if drop_zeros or inverse_function: #invese functions cannot have any zero bins or they have vertical sections
+		
+			nz=_numeric.not_equal(bh, 0) #mask of non-empty bins, or lower edges
+			if not inverse_function: nz[0]=nz[-1]=1 #always preserve end bins to keep X range, but don't dare do it for inverses
+			bh=_numeric.compress(nz, bh)
+			be=_numeric.compress(_numeric.concatenate( (nz, (1,) ) ), be)
+				
 		cum=_numeric.concatenate( ( (0,), _numeric.cumsum( (be[1:]-be[:-1])*bh ) ))
 		
-		if normalize:
-			cum *= (1.0/cum[-1])
-
 		if be[1] < be[0]: #fix backwards bins, if needed.
 			be=be[::-1]
 			cum=cum[::-1]
 			cum*=-1 #the dx values were all negative if the bins were backwards, so fix the sums
 
+		if normalize:
+			cum *= (1.0/max(cum[0], cum[-1])) #always normalize on the big end
+
+		if inverse_function:
+			be, cum = cum, be #build it the other way around
+			
 		InterpolatingFunction.__init__(self, be, cum, **args)
 		self.y2 *=0 #clear second derivatives... we know nothing about them
 
 class LogLogAccumulatedHistogram(AccumulatedHistogram):
-	"same as AccumulatedHistogram, but log-log axes by inheritance"
+	"same as AccumulatedHistogram, but log-log axes"
 	ClassName='LogLogAccumulatedHistogram'
-	XConversions=_logconversions
-	YConversions=_logconversions
+	XConversions=LogConversions
+	YConversions=LogConversions
 	
 if __name__=="__main__":
 	print _rcsid
@@ -557,53 +589,65 @@ if __name__=="__main__":
 	ag=ag1=LinearInterpolatingGrid(1, 1.0,4)	
 	print ag
 	
-	try:
-		ag.SetLowerExtrapolation(2)
-	except:
-		import sys
-		print "***got expected error on bad extrapolation: ", sys.exc_value
-	else:
-		print "***failed to get expected exception on bad extrapolation"
+	if 0:
+		try:
+			ag.SetLowerExtrapolation(2)
+		except:
+			import sys
+			print "***got expected error on bad extrapolation: ", sys.exc_value
+		else:
+			print "***failed to get expected exception on bad extrapolation"
+			
+		ag.SetLowerExtrapolation(-2)
+		ag.SetUpperExtrapolation(15)
+		print ag
 		
-	ag.SetLowerExtrapolation(-2)
-	ag.SetUpperExtrapolation(15)
-	print ag
-	
-	print C2Constant(11.5)
-	print C2Quadratic(x0=5, a=2, b=1, c=0)
-	print C2PowerLaw(a=1.5, b=-2.3)
-	print LogLogInterpolatingGrid(0.1, 1.1, 20)
-	
-	print C2Linear(1.3,2.5).apply(ag1)
-	print C2Quadratic(0,1,0,0).apply(ag1)
-	print ag1*ag1*ag1
-	print (ag1*ag1*ag1).YtoX()
+		print C2Constant(11.5)
+		print C2Quadratic(x0=5, a=2, b=1, c=0)
+		print C2PowerLaw(a=1.5, b=-2.3)
+		print LogLogInterpolatingGrid(0.1, 1.1, 20)
 		
-	try:
-		ag13=(ag1*ag1).YtoX()
-	except:
-		import sys
-		print "***got expected error on bad X axis: ", sys.exc_value
-	else:
-		print "***failed to get expected exception on bad X axis"
+		print C2Linear(1.3,2.5).apply(ag1)
+		print C2Quadratic(0,1,0,0).apply(ag1)
+		print ag1*ag1*ag1
+		print (ag1*ag1*ag1).YtoX()
+			
+		try:
+			ag13=(ag1*ag1).YtoX()
+		except:
+			import sys
+			print "***got expected error on bad X axis: ", sys.exc_value
+		else:
+			print "***failed to get expected exception on bad X axis"
+			
+		fn=C2sin(C2sqrt(ag1*ag1*ag1)).SetDomain(0, ag1.GetDomain()[1]) #cut off sqrt(negative)
+		print fn
 		
-	fn=C2sin(C2sqrt(ag1*ag1*ag1)).SetDomain(0, ag1.GetDomain()[1]) #cut off sqrt(negative)
-	print fn
+		for i in range(10):
+			print i, "%20.15f %20.15f" % (math.sin((i+0.01)**(3./2.)), fn(i+0.01) )
+		
+		x1=fn.find_root(0.0, 1.35128, 0.1, 0.995, trace=True)
+		print x1, math.sin(x1**(3./2.)), fn(x1)-0.995
+		
+		print fn([1., 2., 3., 4.])
+		
+		import math
+		print "\nIntegration tests"
+		sna=C2sin(ag1)
+		for sample in (10, 20, 40, 100):
+			partials=sna.partial_integrals(_numeric.array(range(sample), _numeric.Float)/(2*(sample-1)/(math.pi)), debug=False)
+			if sample==10: print _numeric.array_str(partials, precision=8, suppress_small=False, max_line_width=10000)
+			sumsum=sum(partials)
+			print sample, sumsum, (1-sumsum)*sample**4
 	
-	for i in range(10):
-		print i, "%20.15f %20.15f" % (math.sin((i+0.01)**(3./2.)), fn(i+0.01) )
-	
-	x1=fn.find_root(0.0, 1.35128, 0.1, 0.995, trace=True)
-	print x1, math.sin(x1**(3./2.)), fn(x1)-0.995
-	
-	print fn([1., 2., 3., 4.])
-	
-	import math
-	print "\nIntegration tests"
-	sna=C2sin(ag1)
-	for sample in (10, 20, 40, 100):
-		partials=sna.partial_integrals(_numeric.array(range(sample), _numeric.Float)/(2*(sample-1)/(math.pi)), debug=False)
-		if sample==10: print _numeric.array_str(partials, precision=8, suppress_small=False, max_line_width=10000)
-		sumsum=sum(partials)
-		print sample, sumsum, (1-sumsum)*sample**4
+	print "\nAccumulatedHistogram tests"
+	xg=(_numeric.array(range(21), _numeric.Float)-10.0)*0.25
+	yy=_numeric.exp(-xg[:-1]*xg[:-1])
+	yy[3]=yy[8]=yy[9]=0
+	ah=AccumulatedHistogram(xg[::-1], yy[::-1], normalize=True)
+	print ah([-2, -1, 0, 1, 2])
+	ah=AccumulatedHistogram(xg[::-1], yy[::-1], normalize=True, drop_zeros=False)
+	print ah([-2, -1, 0, 1, 2])
+	ahi=AccumulatedHistogram(xg, yy, normalize=True, inverse_function=True)
+	print ahi([0, 0.01,0.5, 0.7, 0.95, 1])
 	
