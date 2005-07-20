@@ -12,9 +12,9 @@ C2Functions can be combined with unary operators (nested functions) or binary op
 Developed by Marcus H. Mendenhall, Vanderbilt University Keck Free Electron Laser Center, Nashville, TN USA
 email: marcus.h.mendenhall@vanderbilt.edu
 Work supported by the US DoD  MFEL program under grant FA9550-04-1-0045
-version $Id: C2Functions.py,v 1.8 2005-07-20 19:30:04 mendenhall Exp $
+version $Id: C2Functions.py,v 1.9 2005-07-20 21:10:25 mendenhall Exp $
 """
-_rcsid="$Id: C2Functions.py,v 1.8 2005-07-20 19:30:04 mendenhall Exp $"
+_rcsid="$Id: C2Functions.py,v 1.9 2005-07-20 21:10:25 mendenhall Exp $"
 
 import math
 import operator
@@ -155,7 +155,8 @@ class C2Function:
 	def partial_integrals(self, xgrid):
 		"""Return the integrals of a function between the sampling points xgrid.  The sum is the definite integral.
 			This method uses an exact integration of the polynomial which matches the values and derivatives at the 
-			endpoints of a segment.  Its error scales as h**6.
+			endpoints of a segment.  Its error scales as h**6.  
+			This could very well be used as a stepper for adaptive Romberg integration.
 		"""
 		xgrid=_numeric.asarray(xgrid, _numeric.Float)
 		y, yp, ypp=self.value_with_derivatives(xgrid) #compute all values & derivatives at sampling points
@@ -669,6 +670,16 @@ if __name__=="__main__":
 				simp, simp-exact, (exact-simp)*sample**4, 
 				sumsum, sumsum-exact, (exact-sumsum)*sample**6) #the comparision is to the Fresnel Integral from Mathematica
 	
+		print "\nBessel Functions by integration"
+		def bessj(n, z, point_density=2):
+			f=C2cos(C2Linear(slope=n) - C2Constant(z) * C2sin)
+			pc=int((abs(z)+abs(n)+2)*point_density)
+			g=_numeric.array(range(pc), _numeric.Float)*(math.pi/(pc-1))
+			return sum(f.partial_integrals(g))/math.pi
+		
+		print bessj(0, 0.1), bessj(0,5), bessj(2,3), bessj(2,30)
+		
+			
 	if 0:
 		print "\nAccumulatedHistogram tests"
 		xg=(_numeric.array(range(21), _numeric.Float)-10.0)*0.25
