@@ -12,9 +12,9 @@ C2Functions can be combined with unary operators (nested functions) or binary op
 Developed by Marcus H. Mendenhall, Vanderbilt University Keck Free Electron Laser Center, Nashville, TN USA
 email: marcus.h.mendenhall@vanderbilt.edu
 Work supported by the US DoD  MFEL program under grant FA9550-04-1-0045
-version $Id: C2Functions.py,v 1.7 2005-07-20 19:17:13 mendenhall Exp $
+version $Id: C2Functions.py,v 1.8 2005-07-20 19:30:04 mendenhall Exp $
 """
-_rcsid="$Id: C2Functions.py,v 1.7 2005-07-20 19:17:13 mendenhall Exp $"
+_rcsid="$Id: C2Functions.py,v 1.8 2005-07-20 19:30:04 mendenhall Exp $"
 
 import math
 import operator
@@ -164,22 +164,20 @@ class C2Function:
 		
 		dx=xgrid[1:]-xgrid[:-1]
 
-		yc=y[1:]+y[:-1] 
-		
-		ypc=yp[:-1]-yp[1:]
-		ypc *= dx
-		ypc *= (1.0/5.0)
-		
 		yppc=ypp[1:]+ypp[:-1]
-		yppc *= dx*dx
 		yppc*=(1.0/60.0)
+		yppc *= dx
+
+		ypc=yp[:-1]-yp[1:]
+		ypc *= (1.0/5.0)
+		yppc += ypc
+		yppc *= dx
 		
-		yc += ypc
-		yc += yppc
-		yc*=dx
-		yc *= 0.5
+		yppc += y[1:]+y[:-1] 		
+		yppc *= dx
+		yppc *= 0.5
 		
-		return yc
+		return yppc
 
 	def simpson_partial_integrals(self, xgrid):
 		"""Return the integrals of a function between the sampling points xgrid with Simpson's rule.  The sum is the definite integral.
