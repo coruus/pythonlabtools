@@ -12,9 +12,9 @@ C2Functions can be combined with unary operators (nested functions) or binary op
 Developed by Marcus H. Mendenhall, Vanderbilt University Keck Free Electron Laser Center, Nashville, TN USA
 email: marcus.h.mendenhall@vanderbilt.edu
 Work supported by the US DoD  MFEL program under grant FA9550-04-1-0045
-version $Id: C2Functions.py,v 1.6 2005-07-20 15:27:11 mendenhall Exp $
+version $Id: C2Functions.py,v 1.7 2005-07-20 19:17:13 mendenhall Exp $
 """
-_rcsid="$Id: C2Functions.py,v 1.6 2005-07-20 15:27:11 mendenhall Exp $"
+_rcsid="$Id: C2Functions.py,v 1.7 2005-07-20 19:17:13 mendenhall Exp $"
 
 import math
 import operator
@@ -153,37 +153,40 @@ class C2Function:
 		return C2Ratio(self, right)
 
 	def partial_integrals(self, xgrid):
-		"Return the integrals of a function between the sampling points xgrid.  The sum is the definite integral."
+		"""Return the integrals of a function between the sampling points xgrid.  The sum is the definite integral.
+			This method uses an exact integration of the polynomial which matches the values and derivatives at the 
+			endpoints of a segment.  Its error scales as h**6.
+		"""
 		xgrid=_numeric.asarray(xgrid, _numeric.Float)
 		y, yp, ypp=self.value_with_derivatives(xgrid) #compute all values & derivatives at sampling points
+		#the weights come from an exact mathematica solution to the 5th order polynomial with the given values & derivatives
+		#yint = dx/2* ( (y0+y1) + dx*(yp0-yp1)/5 + dx^2 * (ypp0+ypp1)/60 )
 		
 		dx=xgrid[1:]-xgrid[:-1]
-		ypppdx=(ypp[1:]-ypp[:-1]) #estimate next higher derivative
-		 
-		dx2=dx*dx
-		dx3=dx*dx2
-		dx4yppp = ypppdx*dx3
+
+		yc=y[1:]+y[:-1] 
 		
-		#from here on in, use 'in place' functions to make it fast
-		dx *= y[:-1]
-		dx2 *= yp[:-1]
-		dx3 *= ypp[:-1]
+		ypc=yp[:-1]-yp[1:]
+		ypc *= dx
+		ypc *= (1.0/5.0)
 		
-		dx2*=(1.0/2.0)
-		dx3*=(1.0/6.0)
-		dx4yppp*=(1.0/24.0)
-	
-		dx += dx2
-		dx += dx3
-		dx += dx4yppp
+		yppc=ypp[1:]+ypp[:-1]
+		yppc *= dx*dx
+		yppc*=(1.0/60.0)
 		
-		return dx
+		yc += ypc
+		yc += yppc
+		yc*=dx
+		yc *= 0.5
+		
+		return yc
 
 	def simpson_partial_integrals(self, xgrid):
 		"""Return the integrals of a function between the sampling points xgrid with Simpson's rule.  The sum is the definite integral.
 			Note that this also samples the function at the center of each requested interval, so there is no requirement for
 				an odd number of points.  Also, though, if all that is needed is the final sum, the grid can be made twice as coarse
-				as expected.
+				as expected. If you don't think your function is smooth enough to benefit from a higher order method, use this.
+				For example, for InterpolatingFunctions, where all the higher-order information does not exist, this is appropriate.
 		"""
 		xgrid=_numeric.asarray(xgrid, _numeric.Float)
 		y, yp, ypp=self.value_with_derivatives(xgrid) #compute all values & derivatives at sampling points
@@ -656,14 +659,17 @@ if __name__=="__main__":
 		import math
 		print "\nIntegration tests"
 		sna=C2sin(C2PowerLaw(1,2)) #integrate sin(x**2)
-		for sample in (11, 21, 41, 101):
+		for sample in (5, 11, 21, 41, 101):
 			xg=_numeric.array(range(sample), _numeric.Float)*(2.0/(sample-1))
 			partials=sna.partial_integrals(xg)
 			if sample==10: print _numeric.array_str(partials, precision=8, suppress_small=False, max_line_width=10000)
 			sumsum=sum(partials)
 			yg=sna(xg)
 			simp=sum(sna.simpson_partial_integrals(xg[::2])) #sparsify grid by 2 to be fair since Simpsons fills in extra points
-			print sample, simp, (0.804776489343756-simp)*sample**4, sumsum, (0.804776489343756-sumsum)*sample**4 #the comparision is to the Fresnel Integral from Mathematica
+			exact=0.804776489343756110
+			print ("%3d "+6*"%18.10g") %  (sample, 
+				simp, simp-exact, (exact-simp)*sample**4, 
+				sumsum, sumsum-exact, (exact-sumsum)*sample**6) #the comparision is to the Fresnel Integral from Mathematica
 	
 	if 0:
 		print "\nAccumulatedHistogram tests"
