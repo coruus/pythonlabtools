@@ -12,9 +12,9 @@ C2Functions can be combined with unary operators (nested functions) or binary op
 Developed by Marcus H. Mendenhall, Vanderbilt University Keck Free Electron Laser Center, Nashville, TN USA
 email: marcus.h.mendenhall@vanderbilt.edu
 Work supported by the US DoD  MFEL program under grant FA9550-04-1-0045
-version $Id: C2Functions.py,v 1.5 2005-07-19 22:00:55 mendenhall Exp $
+version $Id: C2Functions.py,v 1.6 2005-07-20 15:27:11 mendenhall Exp $
 """
-_rcsid="$Id: C2Functions.py,v 1.5 2005-07-19 22:00:55 mendenhall Exp $"
+_rcsid="$Id: C2Functions.py,v 1.6 2005-07-20 15:27:11 mendenhall Exp $"
 
 import math
 import operator
@@ -85,7 +85,7 @@ class C2Function:
 		while abs(delta) > xtol: # can allow quite small steps, since we have exact derivatives!
 			a=ypp/2	#second derivative is 2*a
 			disc=b*b-4*a*c
-			if disc > 0:
+			if disc >= 0:
 				if b>=0:
 					q=-0.5*(b+math.sqrt(disc))
 				else:
@@ -95,7 +95,7 @@ class C2Function:
 				else: delta=q/a
 				root+=delta;
 
-			if disc <= 0 or root<lower_bracket or root>upper_bracket:	#if we jump out of the bracket, bisect
+			if disc < 0 or root<lower_bracket or root>upper_bracket:	#if we jump out of the bracket, bisect
 				root=0.5*(lower_bracket+upper_bracket)	
 				delta=upper_bracket-lower_bracket
 
@@ -152,30 +152,50 @@ class C2Function:
 		"a/b returns a new C2Function which represents the ratio"
 		return C2Ratio(self, right)
 
-	def partial_integrals(self, xgrid, debug=False):
+	def partial_integrals(self, xgrid):
 		"Return the integrals of a function between the sampling points xgrid.  The sum is the definite integral."
 		xgrid=_numeric.asarray(xgrid, _numeric.Float)
 		y, yp, ypp=self.value_with_derivatives(xgrid) #compute all values & derivatives at sampling points
 		
 		dx=xgrid[1:]-xgrid[:-1]
-		yppp=(ypp[1:]-ypp[:-1])/dx #estimate next higher derivative
+		ypppdx=(ypp[1:]-ypp[:-1]) #estimate next higher derivative
 		 
 		dx2=dx*dx
 		dx3=dx*dx2
-		dx4=dx2*dx2
+		dx4yppp = ypppdx*dx3
+		
+		#from here on in, use 'in place' functions to make it fast
+		dx *= y[:-1]
+		dx2 *= yp[:-1]
+		dx3 *= ypp[:-1]
 		
 		dx2*=(1.0/2.0)
 		dx3*=(1.0/6.0)
-		dx4*=(1.0/24.0)
+		dx4yppp*=(1.0/24.0)
 	
-		weights=_numeric.array((dx, dx2, dx3, dx4))			
-		partials=_numeric.sum(weights*_numeric.array((y[:-1], yp[:-1], ypp[:-1], yppp)))
-		if debug:
-			print "\nIntegration debug:"
-			print _numeric.array_str(weights, precision=4, suppress_small=True, max_line_width=10000)
-			print _numeric.array_str(partials, precision=4, suppress_small=True, max_line_width=10000)
+		dx += dx2
+		dx += dx3
+		dx += dx4yppp
 		
-		return partials
+		return dx
+
+	def simpson_partial_integrals(self, xgrid):
+		"""Return the integrals of a function between the sampling points xgrid with Simpson's rule.  The sum is the definite integral.
+			Note that this also samples the function at the center of each requested interval, so there is no requirement for
+				an odd number of points.  Also, though, if all that is needed is the final sum, the grid can be made twice as coarse
+				as expected.
+		"""
+		xgrid=_numeric.asarray(xgrid, _numeric.Float)
+		y, yp, ypp=self.value_with_derivatives(xgrid) #compute all values & derivatives at sampling points
+		centers=(xgrid[1:]+xgrid[:-1])
+		centers*=0.5
+		yc, ypc, yppc=self.value_with_derivatives(centers) #compute all values & derivatives at centers
+		yc*=4.0 #center bin weight
+		ysums=y[:-1]+y[1:]
+		ysums+=yc
+		ysums*=(1.0/6.0)
+		ysums*=(xgrid[1:]-xgrid[:-1])
+		return ysums
 
 class C2Constant(C2Function):
 	"a constant and its derivatives"
@@ -504,25 +524,28 @@ class LogLogInterpolatingFunction(InterpolatingFunction):
 	ClassName='LogLogInterpolatingFunction'
 	XConversions=LogConversions
 	YConversions=LogConversions
-	def partial_integrals(self, xgrid, debug=False):
+	def log_log_partial_integrals_broken(self, xgrid, debug=False):
 		"""Return the integrals of a function between the sampling points xgrid.  The sum is the definite integral.
 		This version knows about integrating in log-log space, at least to some simple approximation.
 		The approximation is that ln(y)=a + b*ln(x) + c*ln(x)^2 -> a + (b + c*ln(xbar)) * ln(x) where xbar=sqrt(x0*x1) for the interval 
 		"""
 		
-		xgrid=_numeric.log(xgrid)
-		dx=xgrid[1:]-xgrid[:-1]
+		xgridl=_numeric.log(xgrid)
+		dx=xgridl[1:]-xgridl[:-1]
 	
 		#compute all log values & derivatives of logs at sampling points
-		y, yp, ypp=_spline.splint(self.X, self.F, self.y2, self.fXin(xgrid), derivs=True) 
+		y, yp, ypp=_spline.splint(self.X, self.F, self.y2, xgridl, derivs=True) 
 		
-		localpower=yp+0.25*ypp*(xgrid[1:]+xgrid[:-1]) #this is the slope of log x assuming  ln^2(x) is ln(x)*ln(sqrt(x0*x1))
-		partials=self.fYout(y+localpower*dx)
-		
-		if debug:
-			print "\nIntegration debug:"
-			print _numeric.array_str(weights, precision=4, suppress_small=True, max_line_width=10000)
-			print _numeric.array_str(partials, precision=4, suppress_small=True, max_line_width=10000)
+		localpower=yp[:-1]+0.25*ypp[:-1]*(xgridl[1:]+xgridl[:-1])+1 #this is the 1+slope of log x assuming  ln^2(x) is ln(x)*ln(sqrt(x0*x1))
+		if debug: 
+			print "\ndebug log_log_partial_integrals:"
+			print dx
+			print y
+			print yp
+			print ypp
+			print localpower
+			print zip(self.fYout(y[:-1]), self.fYout(localpower*dx))
+		partials=_numeric.exp(y[:-1]-(localpower+1)*xgridl[:-1])*(_numeric.exp(localpower*dx)-1.0)/localpower
 		
 		return partials
 
@@ -542,9 +565,9 @@ def LogLogInterpolatingGrid(xmin, dx, count):
 	return LogLogInterpolatingFunction(x,x).SetName('x')
 
 class AccumulatedHistogram(InterpolatingFunction):
-	"""Compute an InterpolatingFunction which is the cumulative integral of the (histogram) specified by binedges and binheights.
+	"""An InterpolatingFunction which is the cumulative integral of the (histogram) specified by binedges and binheights.
 		Note than binedges should be one element longer than binheights, since the lower & upper edges are specified. 
-		Note that this is a somewhat malformed spline, since the second derivatives are all zero, so it has less continuity.
+		Note that this is a malformed spline, since the second derivatives are all zero, so it has less continuity.
 		Also, note that the bin edges can be given in backwards order to generate the reversed accumulation (starting at the high end) 
 	"""
 	ClassName='AccumulatedHistogram'
@@ -586,10 +609,9 @@ if __name__=="__main__":
 	print _rcsid
 	def as(x): return _numeric.array_str(x, precision=3)
 	
-	ag=ag1=LinearInterpolatingGrid(1, 1.0,4)	
-	print ag
-	
-	if 0:
+	if 1:
+		ag=ag1=LinearInterpolatingGrid(1, 1.0,4)	
+		print ag	
 		try:
 			ag.SetLowerExtrapolation(2)
 		except:
@@ -633,21 +655,42 @@ if __name__=="__main__":
 		
 		import math
 		print "\nIntegration tests"
-		sna=C2sin(ag1)
-		for sample in (10, 20, 40, 100):
-			partials=sna.partial_integrals(_numeric.array(range(sample), _numeric.Float)/(2*(sample-1)/(math.pi)), debug=False)
+		sna=C2sin(C2PowerLaw(1,2)) #integrate sin(x**2)
+		for sample in (11, 21, 41, 101):
+			xg=_numeric.array(range(sample), _numeric.Float)*(2.0/(sample-1))
+			partials=sna.partial_integrals(xg)
 			if sample==10: print _numeric.array_str(partials, precision=8, suppress_small=False, max_line_width=10000)
 			sumsum=sum(partials)
-			print sample, sumsum, (1-sumsum)*sample**4
+			yg=sna(xg)
+			simp=sum(sna.simpson_partial_integrals(xg[::2])) #sparsify grid by 2 to be fair since Simpsons fills in extra points
+			print sample, simp, (0.804776489343756-simp)*sample**4, sumsum, (0.804776489343756-sumsum)*sample**4 #the comparision is to the Fresnel Integral from Mathematica
 	
-	print "\nAccumulatedHistogram tests"
-	xg=(_numeric.array(range(21), _numeric.Float)-10.0)*0.25
-	yy=_numeric.exp(-xg[:-1]*xg[:-1])
-	yy[3]=yy[8]=yy[9]=0
-	ah=AccumulatedHistogram(xg[::-1], yy[::-1], normalize=True)
-	print ah([-2, -1, 0, 1, 2])
-	ah=AccumulatedHistogram(xg[::-1], yy[::-1], normalize=True, drop_zeros=False)
-	print ah([-2, -1, 0, 1, 2])
-	ahi=AccumulatedHistogram(xg, yy, normalize=True, inverse_function=True)
-	print ahi([0, 0.01,0.5, 0.7, 0.95, 1])
+	if 0:
+		print "\nAccumulatedHistogram tests"
+		xg=(_numeric.array(range(21), _numeric.Float)-10.0)*0.25
+		yy=_numeric.exp(-xg[:-1]*xg[:-1])
+		yy[3]=yy[8]=yy[9]=0
+		ah=AccumulatedHistogram(xg[::-1], yy[::-1], normalize=True)
+		print ah([-2, -1, 0, 1, 2])
+		ah=AccumulatedHistogram(xg[::-1], yy[::-1], normalize=True, drop_zeros=False)
+		print ah([-2, -1, 0, 1, 2])
+		ahi=AccumulatedHistogram(xg, yy, normalize=True, inverse_function=True)
+		print ahi([0, 0.01,0.5, 0.7, 0.95, 1])
 	
+	
+	if 0:
+		xv=_numeric.array([1.5**(0.1*i) for i in range(100)])
+		yv=_numeric.array([x**(-4)+0.25*x**(-3) for x in xv])
+		f=LogLogInterpolatingFunction(xv,yv, 
+			lowerSlope=-4*xv[0]**(-5)+(0.25)*(-3)*xv[0]**(-4),
+			upperSlope=-4*xv[-1]**(-5)+(0.25)*(-3)*xv[-1]**(-4))
+		f0=C2PowerLaw(1., -4)+C2PowerLaw(0.25, -3)
+		print f(_numeric.array([1.,2.,3.,4., 5., 10., 20.]))
+		print f0(_numeric.array([1.,2.,3.,4., 5., 10., 20.]))
+		partials=f.partial_integrals(_numeric.array([1.,2.,3.,4., 5., 10., 20., 21.]), debug=False)
+		print partials, sum(partials)
+		partials=f.log_log_partial_integrals(_numeric.array([1.,2.,3.,4., 5., 10., 20., 21.]), debug=False)
+		print partials, sum(partials)
+		pp=f0.partial_integrals(_numeric.array(range(11), _numeric.Float)*0.1 + 20)
+		print pp, sum(pp)
+		
