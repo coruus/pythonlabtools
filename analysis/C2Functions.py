@@ -1,6 +1,6 @@
 """A group of classes which make it easy to manipulate smooth functions, including cubic splines. 
 
-C2Functions know how to keep track of the first and second derivatives of functions, and to use this iformation in, for example, find_root()
+C2Functions know how to keep track of the first and second derivatives of functions, and to use this information in, for example, find_root()
 to allow much more efficient solutions to problems for which the general solution may be expensive.
 
 The two primary classes are 
@@ -12,9 +12,9 @@ C2Functions can be combined with unary operators (nested functions) or binary op
 Developed by Marcus H. Mendenhall, Vanderbilt University Keck Free Electron Laser Center, Nashville, TN USA
 email: marcus.h.mendenhall@vanderbilt.edu
 Work supported by the US DoD  MFEL program under grant FA9550-04-1-0045
-version $Id: C2Functions.py,v 1.9 2005-07-20 21:10:25 mendenhall Exp $
+version $Id: C2Functions.py,v 1.10 2005-07-21 15:16:19 mendenhall Exp $
 """
-_rcsid="$Id: C2Functions.py,v 1.9 2005-07-20 21:10:25 mendenhall Exp $"
+_rcsid="$Id: C2Functions.py,v 1.10 2005-07-21 15:16:19 mendenhall Exp $"
 
 import math
 import operator
@@ -158,28 +158,42 @@ class C2Function:
 			endpoints of a segment.  Its error scales as h**6.  
 			This could very well be used as a stepper for adaptive Romberg integration.
 		"""
-		xgrid=_numeric.asarray(xgrid, _numeric.Float)
-		y, yp, ypp=self.value_with_derivatives(xgrid) #compute all values & derivatives at sampling points
-		#the weights come from an exact mathematica solution to the 5th order polynomial with the given values & derivatives
-		#yint = dx/2* ( (y0+y1) + dx*(yp0-yp1)/5 + dx^2 * (ypp0+ypp1)/60 )
 		
-		dx=xgrid[1:]-xgrid[:-1]
+		if len(xgrid) < 100: #handle short vectors in a loop to avoid Numpy slow allocation
+			partials=[None]*(len(xgrid)-1)
+			y0, yp0, ypp0=self.value_with_derivatives(xgrid[0]) #compute all values & derivatives at sampling points
+			#the weights come from an exact mathematica solution to the 5th order polynomial with the given values & derivatives
+			#yint = dx/2* ( (y0+y1) + dx*(yp0-yp1)/5 + dx^2 * (ypp0+ypp1)/60 )
+			for i in range(len(xgrid)-1):
+				y1, yp1, ypp1=self.value_with_derivatives(xgrid[i+1]) #compute all values & derivatives at sampling points
+				dx=xgrid[i+1]-xgrid[i]
+				partials[i]=( ( (ypp1+ypp0)/60.0*dx+ (yp0-yp1)/5.0 )*dx + (y1+y0) )*dx/2.0
+				y0=y1; yp0=yp1; ypp0=ypp1
+			return _numeric.array(partials)
+			
+		else: #use Numpy array ops for long vectors, where they are quite efficient
+			xgrid=_numeric.asarray(xgrid, _numeric.Float)
+			y, yp, ypp=self.value_with_derivatives(xgrid) #compute all values & derivatives at sampling points
+			#the weights come from an exact mathematica solution to the 5th order polynomial with the given values & derivatives
+			#yint = dx/2* ( (y0+y1) + dx*(yp0-yp1)/5 + dx^2 * (ypp0+ypp1)/60 )
+			
+			dx=xgrid[1:]-xgrid[:-1]
 
-		yppc=ypp[1:]+ypp[:-1]
-		yppc*=(1.0/60.0)
-		yppc *= dx
+			yppc=ypp[1:]+ypp[:-1]
+			yppc*=(1.0/60.0)
+			yppc *= dx
 
-		ypc=yp[:-1]-yp[1:]
-		ypc *= (1.0/5.0)
-		yppc += ypc
-		yppc *= dx
+			ypc=yp[:-1]-yp[1:]
+			ypc *= (1.0/5.0)
+			yppc += ypc
+			yppc *= dx
+			
+			yppc += y[1:]+y[:-1] 		
+			yppc *= dx
+			yppc *= 0.5
+			
+			return yppc
 		
-		yppc += y[1:]+y[:-1] 		
-		yppc *= dx
-		yppc *= 0.5
-		
-		return yppc
-
 	def simpson_partial_integrals(self, xgrid):
 		"""Return the integrals of a function between the sampling points xgrid with Simpson's rule.  The sum is the definite integral.
 			Note that this also samples the function at the center of each requested interval, so there is no requirement for
@@ -187,17 +201,30 @@ class C2Function:
 				as expected. If you don't think your function is smooth enough to benefit from a higher order method, use this.
 				For example, for InterpolatingFunctions, where all the higher-order information does not exist, this is appropriate.
 		"""
-		xgrid=_numeric.asarray(xgrid, _numeric.Float)
-		y, yp, ypp=self.value_with_derivatives(xgrid) #compute all values & derivatives at sampling points
-		centers=(xgrid[1:]+xgrid[:-1])
-		centers*=0.5
-		yc, ypc, yppc=self.value_with_derivatives(centers) #compute all values & derivatives at centers
-		yc*=4.0 #center bin weight
-		ysums=y[:-1]+y[1:]
-		ysums+=yc
-		ysums*=(1.0/6.0)
-		ysums*=(xgrid[1:]-xgrid[:-1])
-		return ysums
+		if len(xgrid) < 50: #handle short vectors in a loop
+			partials=[None]*(len(xgrid)-1)
+			y0, yp0, ypp0=self.value_with_derivatives(xgrid[0])
+	
+			for i in range(len(xgrid)-1):
+				x0=xgrid[i]; x1 = xgrid[i+1]
+				ym, ypm, yppm=self.value_with_derivatives( (x1+x0)*0.5) # mid-point evaluation
+				y1, yp1, ypp1=self.value_with_derivatives(x1)
+				partials[i]=(y0 + y1 + 4.0* ym)*(x1-x0)/6.0
+				y0=y1; yp0=yp1; ypp0=ypp1;
+			return _numeric.array(partials)
+			
+		else:
+			xgrid=_numeric.asarray(xgrid, _numeric.Float)
+			y, yp, ypp=self.value_with_derivatives(xgrid) #compute all values & derivatives at sampling points
+			centers=(xgrid[1:]+xgrid[:-1])
+			centers*=0.5
+			yc, ypc, yppc=self.value_with_derivatives(centers) #compute all values & derivatives at centers
+			yc*=4.0 #center bin weight
+			ysums=y[:-1]+y[1:]
+			ysums+=yc
+			ysums*=(1.0/6.0)
+			ysums*=(xgrid[1:]-xgrid[:-1])
+			return ysums
 
 class C2Constant(C2Function):
 	"a constant and its derivatives"
@@ -206,6 +233,11 @@ class C2Constant(C2Function):
 		C2Function.__init__(self)
 		self.val=val
 		self.name='%g' % val
+
+	def reset(self, val):
+		"reset the value to a new value"
+		self.val=val
+
 	def value_with_derivatives(self, x): 
 		return self.val, 0., 0.
 
@@ -269,7 +301,14 @@ class C2Linear(C2Function):
 		self.slope=slope
 		self.y0=y0
 		self.name="(%g * x + %g)" % (slope, y0)
-		
+	
+	def reset(self, slope=None, y0=None):
+		"reset the slope or intercept to a new value"
+		if slope is not None:
+			self.slope=slope
+		if y0 is not None:
+			self.y0=y0
+			
 	def value_with_derivatives(self, x):
 		return x*self.slope+self.y0, self.slope, 0.0
 
@@ -280,6 +319,17 @@ class C2Quadratic(C2Function):
 		self.x0, self.a, self.b, self.c = x0, a, b, c
 		self.name="(%g*(x-x0)^2 + %g*(x-x0) + %g, x0=%g)" % (a, b, c, x0)
 		
+	def reset(self, x0=None, a=None, b=None, c=None):
+		"reset the parameters to new values"
+		if x0 is not None:
+			self.x0=x0
+		if a is not None:
+			self.a=a
+		if b is not None:
+			self.b=b
+		if b is not None:
+			self.c=c
+
 	def value_with_derivatives(self, x):
 		dx=x-self.x0
 		return self.a*dx*dx+self.b*dx+self.c, 2*self.a*dx+self.b, 2*self.a
@@ -293,6 +343,13 @@ class C2PowerLaw(C2Function):
 		self.bb1=b*(b-1)
 		self.name='%g*x^%g' % (a,b)
 		
+	def reset(self, a=None, b=None):
+		"reset the parameters to new values"
+		if a is not None:
+			self.a=a
+		if b is not None:
+			self.b=b
+
 	def value_with_derivatives(self, x):
 		xp=self.a*x**self.b2
 		return xp*x*x, self.b*xp*x, self.bb1*xp
@@ -469,7 +526,7 @@ class InterpolatingFunction(C2Function):
 		self.SetDomain(min(self.Xraw), max(self.Xraw))
 
 	def YtoX(self):
-		"returns a new InterpolatingFunction with our currect grid of Y values as the X values"
+		"returns a new InterpolatingFunction with our current grid of Y values as the X values"
 		
 		yv=self.fYout(self.F) #get current Y values transformed out
 		if yv[1] < yv[0]: yv=yv[::-1]
@@ -583,7 +640,7 @@ class AccumulatedHistogram(InterpolatingFunction):
 			nz=_numeric.not_equal(bh, 0) #mask of non-empty bins, or lower edges
 			if not inverse_function: nz[0]=nz[-1]=1 #always preserve end bins to keep X range, but don't dare do it for inverses
 			bh=_numeric.compress(nz, bh)
-			be=_numeric.compress(_numeric.concatenate( (nz, (1,) ) ), be)
+			be=_numeric.compress(_numeric.concatenate( (nz, (nz[-1],) ) ), be)
 				
 		cum=_numeric.concatenate( ( (0,), _numeric.cumsum( (be[1:]-be[:-1])*bh ) ))
 		
