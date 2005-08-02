@@ -12,9 +12,9 @@ C2Functions can be combined with unary operators (nested functions) or binary op
 Developed by Marcus H. Mendenhall, Vanderbilt University Keck Free Electron Laser Center, Nashville, TN USA
 email: marcus.h.mendenhall@vanderbilt.edu
 Work supported by the US DoD  MFEL program under grant FA9550-04-1-0045
-version $Id: C2Functions.py,v 1.10 2005-07-21 15:16:19 mendenhall Exp $
+version $Id: C2Functions.py,v 1.11 2005-08-02 21:22:06 mendenhall Exp $
 """
-_rcsid="$Id: C2Functions.py,v 1.10 2005-07-21 15:16:19 mendenhall Exp $"
+_rcsid="$Id: C2Functions.py,v 1.11 2005-08-02 21:22:06 mendenhall Exp $"
 
 import math
 import operator
@@ -151,6 +151,9 @@ class C2Function:
 	def __div__(self, right):
 		"a/b returns a new C2Function which represents the ratio"
 		return C2Ratio(self, right)
+	def __pow__(self, right):
+		"a**b returns a new C2Function which represents the power law, with a optimization for numerical powers"
+		return C2Power(self, right)
 
 	def partial_integrals(self, xgrid):
 		"""Return the integrals of a function between the sampling points xgrid.  The sum is the definite integral.
@@ -335,7 +338,7 @@ class C2Quadratic(C2Function):
 		return self.a*dx*dx+self.b*dx+self.c, 2*self.a*dx+self.b, 2*self.a
 
 class C2PowerLaw(C2Function):
-	"a*x**b"
+	"a*x**b where a and b are constant"
 	def __init__(self, a=1.0, b=2.0):
 		C2Function.__init__(self)
 		self.a, self.b = a, b
@@ -369,13 +372,13 @@ class C2ComposedFunction(C2Function):
 class C2BinaryFunction(C2Function):
 	"create a binary function using a helper function which computes the derivatives"
 	def __init__(self, left,  right):
-		C2Function.__init__(self, left, right)
 		self.left=self.convert_arg(left)
 		self.right=self.convert_arg(right)
+		C2Function.__init__(self, self.left, self.right)
 		
 		if isinstance(left, C2BinaryFunction): p1, p2 = '(', ')'
 		else: p1, p2='', ''
-		self.name=p1+left.name+p2+self.name+right.name #put on parentheses to kepp hierachy obvious
+		self.name=p1+self.left.name+p2+self.name+self.right.name #put on parentheses to kepp hierachy obvious
 		
 	def value_with_derivatives(self, x):
 		return self.combine(x);
@@ -412,6 +415,29 @@ class C2Ratio(C2BinaryFunction):
 		y1, yp1, ypp1=self.right.value_with_derivatives(x)
 		return y0/y1, (yp0*y1-y0*yp1)/(y1*y1), (y1*y1*ypp0+y0*(2*yp1*yp1-y1*ypp1)-2*y1*yp0*yp1)/(y1*y1*y1)
 
+class C2Power(C2BinaryFunction):
+	"C2power(a,b) returns a new C2Function which evaluates as a^b where neither is necessarily constant.  Checks if b is constant, and optimizes if so"
+	name='^'
+	def combine(self, x):
+		y0, yp0, ypp0=self.left.value_with_derivatives(x)
+		y1, yp1, ypp1=self.right.value_with_derivatives(x)
+		if isinstance(self.right, C2Constant): #all derivatives of right side are zero, save some time
+			ab2=_myfuncs.power(y0, (y1-2.0)) #this if a^(b-2), which appears often
+			ab1=ab2*y0 #this is a^(b-1)
+			ab=ab1*y0 #this is a^b
+			ab1 *= yp0
+			ab1 *= y1 #ab1 is now the derivative
+			ab2 *= y1*(y1-1)*yp0*yp0+y0*y1*ypp0 #ab2 is now the second derivative
+			return ab,  ab1, ab2
+		else:
+			loga=_myfuncs.log(y0)
+			ab2=_myfuncs.exp(loga*(y1-2.0)) #this if a^(b-2), which appears often
+			ab1=ab2*y0 #this is a^(b-1)
+			ab=ab1*y0 #this is a^b
+			yp=ab1*(yp0*y1+y0*yp1*loga)
+			ypp=ab2*(y1*(y1-1)*yp0*yp0+2*y0*yp0*yp1*(1.0+y1*loga)+y0*(y1*ypp0+y0*(ypp1+yp1*yp1*loga)*loga))
+			return ab, yp, ypp
+	
 class InterpolatingFunction(C2Function):
 	"""An InterpolatingFunction stores a cubic spline representation of a set of x,y pairs.
 		It can also transform the variable on input and output, so that the underlying spline may live in log-log space, 
@@ -712,6 +738,18 @@ if __name__=="__main__":
 		
 		print fn([1., 2., 3., 4.])
 		
+		print "\nPower law sin(x)**log(x) tests"
+		fn=C2sin**C2log
+		for i in range(10):
+			x=0.1*i + 6.4
+			print ( "%10.3f "+3*"%15.12f ")%( (x, )+fn.value_with_derivatives(x))
+			
+		print "\nPower law sin(x)**3.2 tests"
+		fn=C2sin**3.2
+		for i in range(10):
+			x=0.1*i + 6.4
+			print ( "%10.3f "+3*"%15.12f ")%( (x, )+fn.value_with_derivatives(x))
+
 		import math
 		print "\nIntegration tests"
 		sna=C2sin(C2PowerLaw(1,2)) #integrate sin(x**2)
