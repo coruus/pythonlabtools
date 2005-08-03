@@ -12,9 +12,9 @@ C2Functions can be combined with unary operators (nested functions) or binary op
 Developed by Marcus H. Mendenhall, Vanderbilt University Keck Free Electron Laser Center, Nashville, TN USA
 email: marcus.h.mendenhall@vanderbilt.edu
 Work supported by the US DoD  MFEL program under grant FA9550-04-1-0045
-version $Id: C2Functions.py,v 1.11 2005-08-02 21:22:06 mendenhall Exp $
+version $Id: C2Functions.py,v 1.12 2005-08-03 22:00:56 mendenhall Exp $
 """
-_rcsid="$Id: C2Functions.py,v 1.11 2005-08-02 21:22:06 mendenhall Exp $"
+_rcsid="$Id: C2Functions.py,v 1.12 2005-08-03 22:00:56 mendenhall Exp $"
 
 import math
 import operator
@@ -161,6 +161,7 @@ class C2Function:
 			endpoints of a segment.  Its error scales as h**6.  
 			This could very well be used as a stepper for adaptive Romberg integration.
 		"""
+		self.total_func_evals=len(xgrid)
 		
 		if len(xgrid) < 100: #handle short vectors in a loop to avoid Numpy slow allocation
 			partials=[None]*(len(xgrid)-1)
@@ -196,6 +197,58 @@ class C2Function:
 			yppc *= 0.5
 			
 			return yppc
+
+	def adaptive_partial_integrals(self, xgrid, funcgrid=None, old_integrals=None, relative_error_tolerance=1e-12, absolute_error_tolerance=1e-12, depth=0, debug=0):
+		"""Return the integrals of a function between the sampling points xgrid.  The sum is the definite integral."""
+					
+		if funcgrid is None: #first call for this evaluation, compute initial grid
+			funcgrid=apply(zip,self.value_with_derivatives(xgrid))
+			self.total_func_evals=len(xgrid)
+			
+		retvals=[0.0]*(len(xgrid)-1)
+		
+		for i in range(len(xgrid)-1):
+			x0=xgrid[i]
+			y0, yp0, ypp0=funcgrid[i]
+			x2=xgrid[i+1]
+			y2, yp2, ypp2=funcgrid[i+1]
+			x1=0.5*(x0+x2)
+			y1, yp1, ypp1=self.value_with_derivatives(x1)
+			self.total_func_evals+=1
+			dx=x2-x0
+			dx2=0.5*dx
+			
+			if  old_integrals:
+				total=old_integrals[i]
+			else:
+				total=( ( (ypp2+ypp0)/60.0*dx+ (yp0-yp2)/5.0 )*dx + (y2+y0) )*dx/2.0
+				
+			left=	( ( (ypp1+ypp0)/60.0*dx2+ (yp0-yp1)/5.0 )*dx2 + (y1+y0) )*dx2/2.0
+			right=	( ( (ypp2+ypp1)/60.0*dx2+ (yp1-yp2)/5.0 )*dx2 + (y2+y1) )*dx2/2.0
+			
+			if  abs(total-(left+right)) < absolute_error_tolerance:
+				retvals[i]=left+right
+				if debug==1: print "accepted results at depth ", depth,  "x, dx = %7.3f, %10.6f" % (x1, dx), "scaled error = ", (total-(left+right))/absolute_error_tolerance
+			else:
+				if debug==1: print "rejected results at depth ", depth,  "x, dx = %7.3f, %10.6f" % (x1, dx), "scaled error = ", (total-(left+right))/absolute_error_tolerance
+				l, r =self.adaptive_partial_integrals(
+						xgrid=(x0,x1,x2), 
+						funcgrid=((y0, yp0, ypp0), (y1,yp1, ypp1), (y2, yp2, ypp2) ), 
+						old_integrals=(left, right), 
+						absolute_error_tolerance=absolute_error_tolerance/2, depth=depth+1, debug=debug)
+				retvals[i]=l+r
+		
+		if debug ==2:
+			print "\n integrating at depth ", depth
+			print xgrid
+			print funcgrid
+			import operator
+			print retvals
+			if old_integrals: 
+				print map(operator.sub, old_integrals, retvals)
+			print "\n returning from depth ", depth
+		
+		return retvals
 		
 	def simpson_partial_integrals(self, xgrid):
 		"""Return the integrals of a function between the sampling points xgrid with Simpson's rule.  The sum is the definite integral.
@@ -694,7 +747,7 @@ if __name__=="__main__":
 	print _rcsid
 	def as(x): return _numeric.array_str(x, precision=3)
 	
-	if 1:
+	if 0:
 		ag=ag1=LinearInterpolatingGrid(1, 1.0,4)	
 		print ag	
 		try:
@@ -765,14 +818,24 @@ if __name__=="__main__":
 				simp, simp-exact, (exact-simp)*sample**4, 
 				sumsum, sumsum-exact, (exact-sumsum)*sample**6) #the comparision is to the Fresnel Integral from Mathematica
 	
+	if 1:
 		print "\nBessel Functions by integration"
 		def bessj(n, z, point_density=2):
 			f=C2cos(C2Linear(slope=n) - C2Constant(z) * C2sin)
 			pc=int((abs(z)+abs(n)+2)*point_density)
 			g=_numeric.array(range(pc), _numeric.Float)*(math.pi/(pc-1))
-			return sum(f.partial_integrals(g))/math.pi
+			return sum(f.partial_integrals(g))/math.pi, f.total_func_evals
 		
-		print bessj(0, 0.1), bessj(0,5), bessj(2,3), bessj(2,30)
+		def bessj_adaptive(n, z):
+			f=C2cos(C2Linear(slope=n) - C2Constant(z) * C2sin)
+			pc=8
+			g=_numeric.array(range(pc), _numeric.Float)*(math.pi/(pc-1))
+			return sum(f.adaptive_partial_integrals(g, absolute_error_tolerance=1e-12, debug=0))/math.pi, f.total_func_evals
+
+		for order, x in ( (0, 0.1), (0,5.5), (2,3.7), (2,30.5)):
+			v1, n1=bessj(order, x)
+			v2, n2=bessj_adaptive(order, x)
+			print ("%6.2f %6.2f %6d %6d "+2*"%20.15f ") % (order, x, n1, n2, v1, v2 )
 		
 			
 	if 0:
