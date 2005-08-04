@@ -12,9 +12,9 @@ C2Functions can be combined with unary operators (nested functions) or binary op
 Developed by Marcus H. Mendenhall, Vanderbilt University Keck Free Electron Laser Center, Nashville, TN USA
 email: marcus.h.mendenhall@vanderbilt.edu
 Work supported by the US DoD  MFEL program under grant FA9550-04-1-0045
-version $Id: C2Functions.py,v 1.12 2005-08-03 22:00:56 mendenhall Exp $
+version $Id: C2Functions.py,v 1.13 2005-08-04 00:33:55 mendenhall Exp $
 """
-_rcsid="$Id: C2Functions.py,v 1.12 2005-08-03 22:00:56 mendenhall Exp $"
+_rcsid="$Id: C2Functions.py,v 1.13 2005-08-04 00:33:55 mendenhall Exp $"
 
 import math
 import operator
@@ -198,9 +198,14 @@ class C2Function:
 			
 			return yppc
 
-	def adaptive_partial_integrals(self, xgrid, funcgrid=None, old_integrals=None, relative_error_tolerance=1e-12, absolute_error_tolerance=1e-12, depth=0, debug=0):
+	def adaptive_partial_integrals(self, xgrid, funcgrid=None, old_integrals=None, relative_error_tolerance=1e-14, 
+			absolute_error_tolerance=1e-12, depth=0, debug=0, extrapolate=1):
 		"""Return the integrals of a function between the sampling points xgrid.  The sum is the definite integral."""
-					
+		
+		if debug and depth>50:
+			print depth, xgrid, funcgrid, old_integrals, absolute_error_tolerance
+			blarg
+			
 		if funcgrid is None: #first call for this evaluation, compute initial grid
 			funcgrid=apply(zip,self.value_with_derivatives(xgrid))
 			self.total_func_evals=len(xgrid)
@@ -226,16 +231,22 @@ class C2Function:
 			left=	( ( (ypp1+ypp0)/60.0*dx2+ (yp0-yp1)/5.0 )*dx2 + (y1+y0) )*dx2/2.0
 			right=	( ( (ypp2+ypp1)/60.0*dx2+ (yp1-yp2)/5.0 )*dx2 + (y2+y1) )*dx2/2.0
 			
-			if  abs(total-(left+right)) < absolute_error_tolerance:
-				retvals[i]=left+right
-				if debug==1: print "accepted results at depth ", depth,  "x, dx = %7.3f, %10.6f" % (x1, dx), "scaled error = ", (total-(left+right))/absolute_error_tolerance
+			eps= abs(total-(left+right))
+			if  eps < absolute_error_tolerance or eps < abs(total)*relative_error_tolerance:
+				if not extrapolate:
+					retvals[i]=left+right
+				else:
+					retvals[i]=(64*(left+right) - total) / 63 #since h fell by 2, h**6=64, and we are extrapolating in h**6
+				if debug==1: print "accepted results at depth ", depth,  "x, dx = %7.3f, %10.6f" % (x1, dx), "scaled error = ", eps/absolute_error_tolerance
 			else:
-				if debug==1: print "rejected results at depth ", depth,  "x, dx = %7.3f, %10.6f" % (x1, dx), "scaled error = ", (total-(left+right))/absolute_error_tolerance
+				if debug==1: print "rejected results at depth ", depth,  "x, dx = %7.3f, %10.6f" % (x1, dx), "scaled error = ", eps/absolute_error_tolerance
 				l, r =self.adaptive_partial_integrals(
 						xgrid=(x0,x1,x2), 
 						funcgrid=((y0, yp0, ypp0), (y1,yp1, ypp1), (y2, yp2, ypp2) ), 
 						old_integrals=(left, right), 
-						absolute_error_tolerance=absolute_error_tolerance/2, depth=depth+1, debug=debug)
+						absolute_error_tolerance=absolute_error_tolerance/2.0, 
+						relative_error_tolerance=relative_error_tolerance, depth=depth+1, 
+						extrapolate=extrapolate, debug=debug)
 				retvals[i]=l+r
 		
 		if debug ==2:
@@ -818,7 +829,7 @@ if __name__=="__main__":
 				simp, simp-exact, (exact-simp)*sample**4, 
 				sumsum, sumsum-exact, (exact-sumsum)*sample**6) #the comparision is to the Fresnel Integral from Mathematica
 	
-	if 1:
+	if 0:
 		print "\nBessel Functions by integration"
 		def bessj(n, z, point_density=2):
 			f=C2cos(C2Linear(slope=n) - C2Constant(z) * C2sin)
@@ -830,13 +841,31 @@ if __name__=="__main__":
 			f=C2cos(C2Linear(slope=n) - C2Constant(z) * C2sin)
 			pc=8
 			g=_numeric.array(range(pc), _numeric.Float)*(math.pi/(pc-1))
-			return sum(f.adaptive_partial_integrals(g, absolute_error_tolerance=1e-12, debug=0))/math.pi, f.total_func_evals
+			return sum(f.adaptive_partial_integrals(g, absolute_error_tolerance=1e-8, debug=0))/math.pi, f.total_func_evals
 
 		for order, x in ( (0, 0.1), (0,5.5), (2,3.7), (2,30.5)):
 			v1, n1=bessj(order, x)
 			v2, n2=bessj_adaptive(order, x)
 			print ("%6.2f %6.2f %6d %6d "+2*"%20.15f ") % (order, x, n1, n2, v1, v2 )
 		
+
+	if 1:
+		print "Logarithms  by integration"
+		
+		pc=4
+		for lv in (0.1, 1.0, 2.0, 5.0, 10.0):
+			b=math.exp(lv)
+			np=int(pc*b)+4
+			g=_numeric.array(range(np), _numeric.Float)*(b-1)/(np-1)+1
+
+			v1=C2recip.partial_integrals(g)
+			n1=C2recip.total_func_evals
+			
+			v2=C2recip.adaptive_partial_integrals(_numeric.array((1.0,b)), absolute_error_tolerance=1e-8, debug=0)
+			n2=C2recip.total_func_evals
+			
+			print ("%20.15f %6.2f %6d %6d "+2*"%20.15f ") % (lv, b, n1, n2, sum(v1), sum(v2) )
+
 			
 	if 0:
 		print "\nAccumulatedHistogram tests"
