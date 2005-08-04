@@ -12,9 +12,9 @@ C2Functions can be combined with unary operators (nested functions) or binary op
 Developed by Marcus H. Mendenhall, Vanderbilt University Keck Free Electron Laser Center, Nashville, TN USA
 email: marcus.h.mendenhall@vanderbilt.edu
 Work supported by the US DoD  MFEL program under grant FA9550-04-1-0045
-version $Id: C2Functions.py,v 1.16 2005-08-04 16:09:00 mendenhall Exp $
+version $Id: C2Functions.py,v 1.17 2005-08-04 16:28:47 mendenhall Exp $
 """
-_rcsid="$Id: C2Functions.py,v 1.16 2005-08-04 16:09:00 mendenhall Exp $"
+_rcsid="$Id: C2Functions.py,v 1.17 2005-08-04 16:28:47 mendenhall Exp $"
 
 import math
 import operator
@@ -228,7 +228,10 @@ class C2Function:
 			left=	( ( (ypp1+ypp0)/60.0*dx2+ (yp0-yp1)/5.0 )*dx2 + (y1+y0) )*dx2/2.0
 			right=	( ( (ypp2+ypp1)/60.0*dx2+ (yp1-yp2)/5.0 )*dx2 + (y2+y1) )*dx2/2.0
 				
-			eps= abs(total-(left+right))
+			eps= abs(total-(left+right))/10 #the real error should be 2**6 times smaller on this iteration, be conservative & call it 10
+			if extrapolate:
+				eps=eps/10 #gain another factor of 2**6 if extrapolating (typical), but be conservative
+				
 			if  eps < absolute_error_tolerance or eps < abs(total)*relative_error_tolerance:
 				if not extrapolate:
 					retvals[i]=left+right
@@ -858,8 +861,8 @@ if __name__=="__main__":
 			v1=C2recip.partial_integrals(g)
 			n1=C2recip.total_func_evals
 			
-			v2=C2recip.adaptive_partial_integrals(_numeric.array((1.0,math.sqrt(b), b)), absolute_error_tolerance=1e-4, 
-					relative_error_tolerance=1e-4, extrapolate=1, debug=0)
+			v2=C2recip.adaptive_partial_integrals(_numeric.array((1.0,math.sqrt(b), b)), absolute_error_tolerance=1e-6, 
+					extrapolate=1, debug=0)
 			n2=C2recip.total_func_evals
 			
 			print ("%20.15f %6.2f %6d %6d "+2*"%20.15f ") % (lv, b, n1, n2, sum(v1), sum(v2) )
@@ -879,7 +882,7 @@ if __name__=="__main__":
 			v1=fn.partial_integrals(g)
 			n1=fn.total_func_evals
 			
-			v2=fn.adaptive_partial_integrals(_numeric.array((1.0,math.sqrt(b), b)), absolute_error_tolerance=1e-8, 
+			v2=fn.adaptive_partial_integrals(_numeric.array((1.0,math.sqrt(b), b)), absolute_error_tolerance=1e-10, 
 					extrapolate=1, debug=0)
 			n2=fn.total_func_evals
 			
