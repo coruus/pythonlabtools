@@ -12,9 +12,9 @@ C2Functions can be combined with unary operators (nested functions) or binary op
 Developed by Marcus H. Mendenhall, Vanderbilt University Keck Free Electron Laser Center, Nashville, TN USA
 email: marcus.h.mendenhall@vanderbilt.edu
 Work supported by the US DoD  MFEL program under grant FA9550-04-1-0045
-version $Id: C2Functions.py,v 1.13 2005-08-04 00:33:55 mendenhall Exp $
+version $Id: C2Functions.py,v 1.14 2005-08-04 00:48:57 mendenhall Exp $
 """
-_rcsid="$Id: C2Functions.py,v 1.13 2005-08-04 00:33:55 mendenhall Exp $"
+_rcsid="$Id: C2Functions.py,v 1.14 2005-08-04 00:48:57 mendenhall Exp $"
 
 import math
 import operator
@@ -198,7 +198,7 @@ class C2Function:
 			
 			return yppc
 
-	def adaptive_partial_integrals(self, xgrid, funcgrid=None, old_integrals=None, relative_error_tolerance=1e-14, 
+	def adaptive_partial_integrals(self, xgrid, funcgrid=None, old_integrals=None, relative_error_tolerance=1e-12, 
 			absolute_error_tolerance=1e-12, depth=0, debug=0, extrapolate=1):
 		"""Return the integrals of a function between the sampling points xgrid.  The sum is the definite integral."""
 		
@@ -861,7 +861,7 @@ if __name__=="__main__":
 			v1=C2recip.partial_integrals(g)
 			n1=C2recip.total_func_evals
 			
-			v2=C2recip.adaptive_partial_integrals(_numeric.array((1.0,b)), absolute_error_tolerance=1e-8, debug=0)
+			v2=C2recip.adaptive_partial_integrals(_numeric.array((1.0,b)), absolute_error_tolerance=1e-4, debug=0)
 			n2=C2recip.total_func_evals
 			
 			print ("%20.15f %6.2f %6d %6d "+2*"%20.15f ") % (lv, b, n1, n2, sum(v1), sum(v2) )
