@@ -12,9 +12,9 @@ C2Functions can be combined with unary operators (nested functions) or binary op
 Developed by Marcus H. Mendenhall, Vanderbilt University Keck Free Electron Laser Center, Nashville, TN USA
 email: marcus.h.mendenhall@vanderbilt.edu
 Work supported by the US DoD  MFEL program under grant FA9550-04-1-0045
-version $Id: C2Functions.py,v 1.15 2005-08-04 02:12:44 mendenhall Exp $
+version $Id: C2Functions.py,v 1.16 2005-08-04 16:09:00 mendenhall Exp $
 """
-_rcsid="$Id: C2Functions.py,v 1.15 2005-08-04 02:12:44 mendenhall Exp $"
+_rcsid="$Id: C2Functions.py,v 1.16 2005-08-04 16:09:00 mendenhall Exp $"
 
 import math
 import operator
@@ -219,6 +219,7 @@ class C2Function:
 			dx=x2-x0
 			dx2=0.5*dx
 			
+			
 			if  old_integrals:
 				total=old_integrals[i]
 			else:
@@ -226,7 +227,7 @@ class C2Function:
 				
 			left=	( ( (ypp1+ypp0)/60.0*dx2+ (yp0-yp1)/5.0 )*dx2 + (y1+y0) )*dx2/2.0
 			right=	( ( (ypp2+ypp1)/60.0*dx2+ (yp1-yp2)/5.0 )*dx2 + (y2+y1) )*dx2/2.0
-			
+				
 			eps= abs(total-(left+right))
 			if  eps < absolute_error_tolerance or eps < abs(total)*relative_error_tolerance:
 				if not extrapolate:
@@ -864,6 +865,26 @@ if __name__=="__main__":
 			print ("%20.15f %6.2f %6d %6d "+2*"%20.15f ") % (lv, b, n1, n2, sum(v1), sum(v2) )
 
 			
+	if 1:
+		print "Powers  by integration"
+		
+		fn=C2recip(C2Quadratic(a=1.0, c=0.01)) #make approximate power law
+		
+		pc=30
+		for lv in (0.1, 1.0, 2.0, 5.0, 10.0):
+			b=1.0+lv
+			np=int(pc*b)+4
+			g=_numeric.array(range(np), _numeric.Float)*(b-1)/(np-1)+1
+
+			v1=fn.partial_integrals(g)
+			n1=fn.total_func_evals
+			
+			v2=fn.adaptive_partial_integrals(_numeric.array((1.0,math.sqrt(b), b)), absolute_error_tolerance=1e-8, 
+					extrapolate=1, debug=0)
+			n2=fn.total_func_evals
+			
+			print ("%20.15f %6.2f %6d %6d "+2*"%20.15f ") % (lv, b, n1, n2, sum(v1), sum(v2) )
+
 	if 0:
 		print "\nAccumulatedHistogram tests"
 		xg=(_numeric.array(range(21), _numeric.Float)-10.0)*0.25
