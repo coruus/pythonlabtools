@@ -12,9 +12,9 @@ C2Functions can be combined with unary operators (nested functions) or binary op
 Developed by Marcus H. Mendenhall, Vanderbilt University Keck Free Electron Laser Center, Nashville, TN USA
 email: marcus.h.mendenhall@vanderbilt.edu
 Work supported by the US DoD  MFEL program under grant FA9550-04-1-0045
-version $Id: C2Functions.py,v 1.21 2005-08-05 16:43:04 mendenhall Exp $
+version $Id: C2Functions.py,v 1.22 2005-08-05 22:00:56 mendenhall Exp $
 """
-_rcsid="$Id: C2Functions.py,v 1.21 2005-08-05 16:43:04 mendenhall Exp $"
+_rcsid="$Id: C2Functions.py,v 1.22 2005-08-05 22:00:56 mendenhall Exp $"
 
 import math
 import operator
@@ -199,23 +199,34 @@ class C2Function:
 			return yppc
 
 	def adaptive_partial_integrals(self, recur_data, **args):
-		"""def adaptive_partial_integrals(self, xgrid, relative_error_tolerance=1e-12, 
+		"""def adaptive_partial_integrals(self, xgrid, relative_error_tolerance=1e-12, order=6
 			absolute_error_tolerance=1e-12, depth=0, debug=0, extrapolate=1)
 			Return the integrals of a function between the sampling points xgrid.  The sum is the definite integral.
+			The choices for order are 6 or 9, anything else is an error.
+			Be very aware that the 9th order method will only really benefit with very smooth functions, but then it is magic!
 		"""
 	
 		if type(recur_data[1]) is not tuple:	#this is an initialization call, set everything up
 			funcgrid=[ ( (x, )+ self.value_with_derivatives(x) ) for x in recur_data ] #convert x list to full function list
 			self.total_func_evals=len(recur_data)
 			
+			order= args.get('order', 6)
+			if order==6:
+				eps_scale, extrap_coef = 0.1, 64
+			elif order==9:
+				eps_scale, extrap_coef = 0.02, 512
+			else:
+				raise C2Exception("Illegal order passed to adaptivePartial_integrals, must be 6 or 9, got %d" % order)
+
 			recur_data=[0, funcgrid, ( ),
 					args.get('absolute_error_tolerance', 1e-12),
 					args.get('relative_error_tolerance', 1e-12),
 					args.get('debug', 0),
-					args.get('extrapolate', True)
-				]
-			
-		depth, funcgrid, old_integrals, absolute_error_tolerance, relative_error_tolerance,  debug, extrapolate=recur_data
+					args.get('extrapolate', True),
+					order, eps_scale, extrap_coef
+				]			
+		
+		depth, funcgrid, old_integrals, absolute_error_tolerance, relative_error_tolerance, debug, extrapolate, order, eps_scale, extrap_coef=recur_data
 		
 		retvals=[0.0]*(len(funcgrid)-1)
 		
@@ -236,22 +247,27 @@ class C2Function:
 				total=old_integrals[i]
 			else:
 				total=( ( (ypp2+ypp0)/60.0*dx+ (yp0-yp2)/5.0 )*dx + (y2+y0) )*dx/2.0
+
+			if order==6:				
+				left=	( ( (ypp1+ypp0)/60.0*dx2+ (yp0-yp1)/5.0 )*dx2 + (y1+y0) )*dx2/2.0
+				right=	( ( (ypp2+ypp1)/60.0*dx2+ (yp1-yp2)/5.0 )*dx2 + (y2+y1) )*dx2/2.0
+			else:
+				#use ninth-order estimates for each side, from full set of all values (!) (Thanks, Mathematica!)
+				left=	( ( (169*ypp0 + 1024*ypp1 - 41*ypp2)*dx2+ (2727*yp0 - 5040*yp1 + 423*yp2) )*dx2 + (17007*y0 + 24576*y1 - 1263*y2) )* (dx2/40320.0)
+				right=	( ( (-41*ypp0 + 1024*ypp1 + 169*ypp2)*dx2+ (-423*yp0 + 5040*yp1 - 2727*yp2) )*dx2 + (-1263*y0 + 24576*y1 + 17007*y2) )* (dx2/40320.0)
 				
-			left=	( ( (ypp1+ypp0)/60.0*dx2+ (yp0-yp1)/5.0 )*dx2 + (y1+y0) )*dx2/2.0
-			right=	( ( (ypp2+ypp1)/60.0*dx2+ (yp1-yp2)/5.0 )*dx2 + (y2+y1) )*dx2/2.0
-				
-			eps= abs(total-(left+right))/10 #the real error should be 2**6 times smaller on this iteration, be conservative & call it 10
+			eps= abs(total-(left+right))*eps_scale #the real error should be 2**order times smaller on this iteration, be conservative
 			if extrapolate:
-				eps=eps/10 #gain another factor of 2**6 if extrapolating (typical), but be conservative
+				eps=eps*eps_scale #gain another factor of 2**order if extrapolating (typical), but be conservative
 				
 			if  eps < absolute_error_tolerance or eps < abs(total)*relative_error_tolerance:
 				if not extrapolate:
 					retvals[i]=left+right
 				else:
-					retvals[i]=(64*(left+right) - total) / 63 #since h fell by 2, h**6=64, and we are extrapolating in h**6
-				if debug==1: print "accepted results at depth ", depth,  "x, dx = %7.3f, %10.6f" % (x1, dx), "scaled error = ", eps/absolute_error_tolerance
+					retvals[i]=(extrap_coef*(left+right) - total) / (extrap_coef-1) #since h fell by 2, h**6=64, and we are extrapolating in h**6
+				if debug==1: print "accepted results at depth ", depth,  "x, dx = %7.3f, %10.6f" % (x1, dx), "scaled error = ", eps/absolute_error_tolerance, eps /(dx**order)
 			else:
-				if debug==1: print "rejected results at depth ", depth,  "x, dx = %7.3f, %10.6f" % (x1, dx), "scaled error = ", eps/absolute_error_tolerance
+				if debug==1: print "rejected results at depth ", depth,  "x, dx = %7.3f, %10.6f" % (x1, dx), "scaled error = ", eps/absolute_error_tolerance, eps/(dx**order)
 				recur_data[0:4]=depth+1, (funcgrid[i], (x1, y1, yp1, ypp1), funcgrid[i+1]), (left, right), absolute_error_tolerance/2
 				l, r =self.adaptive_partial_integrals(recur_data)
 				retvals[i]=l+r
@@ -267,7 +283,6 @@ class C2Function:
 			print "\n returning from depth ", depth
 		
 		return retvals
-
 	
 	def simpson_partial_integrals(self, xgrid):
 		"""Return the integrals of a function between the sampling points xgrid with Simpson's rule.  The sum is the definite integral.
@@ -837,7 +852,7 @@ if __name__=="__main__":
 				simp, simp-exact, (exact-simp)*sample**4, 
 				sumsum, sumsum-exact, (exact-sumsum)*sample**6) #the comparision is to the Fresnel Integral from Mathematica
 	
-	if 0:
+	if 1:
 		print "\nBessel Functions by integration"
 		print """Warning... the adaptive integrator looks worse than the non-adaptive one here. 
 		There is some subtle cancellation which makes uniform sampling give extremely accurate answers for Bessel's integral, 
@@ -850,19 +865,20 @@ if __name__=="__main__":
 			g=_numeric.array(range(pc), _numeric.Float)*(math.pi/(pc-1))
 			return sum(f.partial_integrals(g))/math.pi, f.total_func_evals
 		
-		def bessj_adaptive(n, z):
+		def bessj_adaptive(n, z, order=6):
 			f=C2cos(C2Linear(slope=n) - C2Constant(z) * C2sin)
 			pc=8
 			g=_numeric.array(range(pc), _numeric.Float)*(math.pi/(pc-1))
-			return sum(f.adaptive_partial_integrals(g, absolute_error_tolerance=1e-12, relative_error_tolerance=1e-14, debug=0))/math.pi, f.total_func_evals
+			return sum(f.adaptive_partial_integrals(g, absolute_error_tolerance=1e-14, relative_error_tolerance=1e-14, debug=0, order=order))/math.pi, f.total_func_evals
 
 		for order, x in ( (0, 0.1), (0,5.5), (2,3.7), (2,30.5)):
 			v1, n1=bessj(order, x)
-			v2, n2=bessj_adaptive(order, x)
-			print ("%6.2f %6.2f %6d %6d "+2*"%20.15f ") % (order, x, n1, n2, v1, v2 )
+			v2, n2=bessj_adaptive(order, x, 6)
+			v3, n3=bessj_adaptive(order, x, 9)
+			print ("%6.2f %6.2f %6d %6d %6d "+3*"%20.15f ") % (order, x, n1, n2, n3, v1, v2, v3 )
 		
 
-	if 1:
+	if 0:
 		print "\nLogarithms  by integration"
 		
 		pc=3
@@ -874,17 +890,21 @@ if __name__=="__main__":
 			v1=C2recip.partial_integrals(g)
 			n1=C2recip.total_func_evals
 			
-			v2=C2recip.adaptive_partial_integrals(_numeric.array((1.0,math.sqrt(b), b)), absolute_error_tolerance=1e-6, 
-					extrapolate=1, debug=0)
+			v2=C2recip.adaptive_partial_integrals(_numeric.array((1.0,math.sqrt(b), b)), absolute_error_tolerance=1e-12, 
+					extrapolate=1, debug=0, order=6)
 			n2=C2recip.total_func_evals
 			
-			print ("%20.15f %10.2f %8d %8d "+2*"%20.15f ") % (lv, b, n1, n2, sum(v1), sum(v2) )
+			v3=C2recip.adaptive_partial_integrals(_numeric.array((1.0,math.sqrt(b), b)), absolute_error_tolerance=1e-12, 
+					extrapolate=1, debug=0, order=9)
+			n3=C2recip.total_func_evals
+
+			print ("%20.15f %10.2f %6d %6d %6d "+3*"%20.15f ") % (lv, b, n1, n2, n3, sum(v1), sum(v2), sum(v3) )
 
 			
-	if 0:
+	if 1:
 		print "Powers  by integration"
 		
-		fn=C2recip(C2Quadratic(a=1.0, c=0.01)) #make approximate power law
+		fn=C2recip(C2Quadratic(a=1.0, b=0.01, c=0.01)) #make approximate power law
 		
 		pc=30
 		for lv in (0.1, 1.0, 2.0, 5.0, 10.0):
@@ -894,12 +914,18 @@ if __name__=="__main__":
 
 			v1=fn.partial_integrals(g)
 			n1=fn.total_func_evals
-			
-			v2=fn.adaptive_partial_integrals(_numeric.array((1.0,math.sqrt(b), b)), absolute_error_tolerance=1e-10, 
-					extrapolate=1, debug=0)
+						
+			v2=fn.adaptive_partial_integrals(_numeric.array((1.0,math.sqrt(b), b)),
+					absolute_error_tolerance=1e-14,  relative_error_tolerance=1e-14,
+					extrapolate=1, debug=0, order=6)
 			n2=fn.total_func_evals
-			
-			print ("%20.15f %6.2f %6d %6d "+2*"%20.15f ") % (lv, b, n1, n2, sum(v1), sum(v2) )
+		
+			v3=fn.adaptive_partial_integrals(_numeric.array((1.0,math.sqrt(b), b)),
+					absolute_error_tolerance=1e-14,  relative_error_tolerance=1e-14,
+					extrapolate=1, debug=0, order=9)
+			n3=fn.total_func_evals
+
+			print ("%20.15f %6.2f %6d %6d %6d "+3*"%20.15f ") % (lv, b, n1, n2, n3, sum(v1), sum(v2), sum(v3) )
 
 	if 0:
 		print "\nAccumulatedHistogram tests"
