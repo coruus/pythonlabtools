@@ -12,9 +12,9 @@ C2Functions can be combined with unary operators (nested functions) or binary op
 Developed by Marcus H. Mendenhall, Vanderbilt University Keck Free Electron Laser Center, Nashville, TN USA
 email: marcus.h.mendenhall@vanderbilt.edu
 Work supported by the US DoD  MFEL program under grant FA9550-04-1-0045
-version $Id: C2Functions.py,v 1.20 2005-08-05 15:57:41 mendenhall Exp $
+version $Id: C2Functions.py,v 1.21 2005-08-05 16:43:04 mendenhall Exp $
 """
-_rcsid="$Id: C2Functions.py,v 1.20 2005-08-05 15:57:41 mendenhall Exp $"
+_rcsid="$Id: C2Functions.py,v 1.21 2005-08-05 16:43:04 mendenhall Exp $"
 
 import math
 import operator
@@ -208,26 +208,17 @@ class C2Function:
 			funcgrid=[ ( (x, )+ self.value_with_derivatives(x) ) for x in recur_data ] #convert x list to full function list
 			self.total_func_evals=len(recur_data)
 			
-			#compute maximum recursion depth before step size underflows
-			relative_error_tolerance=args.get('relative_error_tolerance', 1e-12)
-			dxratio=abs(funcgrid[-1][0] - funcgrid[0][0]) / (relative_error_tolerance*(abs(funcgrid[0][0])+abs(funcgrid[-1][0])) )
-			maxdepth=int(math.log(dxratio)/math.log(2.0))+1
-			
 			recur_data=[0, funcgrid, ( ),
 					args.get('absolute_error_tolerance', 1e-12),
-					relative_error_tolerance,
+					args.get('relative_error_tolerance', 1e-12),
 					args.get('debug', 0),
-					args.get('extrapolate', True), maxdepth
+					args.get('extrapolate', True)
 				]
 			
-		depth, funcgrid, old_integrals, absolute_error_tolerance, relative_error_tolerance,  debug, extrapolate, maxdepth=recur_data
+		depth, funcgrid, old_integrals, absolute_error_tolerance, relative_error_tolerance,  debug, extrapolate=recur_data
 		
 		retvals=[0.0]*(len(funcgrid)-1)
 		
-		#check for underflow on step size... can do this outside of loop for efficiency
-		if depth>maxdepth:
-			raise C2Exception("Step size underflow in adaptive_partial_integrals, depth = %d, x = %.4f" % (depth, funcgrid[0][0]))
-			
 		for i in range(len(funcgrid)-1):
 			x0, y0, yp0, ypp0=funcgrid[i]
 			x2, y2, yp2, ypp2=funcgrid[i+1]
@@ -236,6 +227,10 @@ class C2Function:
 			self.total_func_evals+=1
 			dx=x2-x0
 			dx2=0.5*dx
+
+			#check for underflow on step size, which prevents us from achieving specified accuracy. 
+			if abs(dx) < abs(x1)*relative_error_tolerance:
+				raise C2Exception("Step size underflow in adaptive_partial_integrals, depth = %d, x = %.4f" % (depth, x1))
 			
 			if  old_integrals:
 				total=old_integrals[i]
@@ -844,6 +839,11 @@ if __name__=="__main__":
 	
 	if 0:
 		print "\nBessel Functions by integration"
+		print """Warning... the adaptive integrator looks worse than the non-adaptive one here. 
+		There is some subtle cancellation which makes uniform sampling give extremely accurate answers for Bessel's integral, 
+		so it isn't the fault of the adaptive integrator.  The simple one works way too well, here, by accident.
+		"""
+			
 		def bessj(n, z, point_density=2):
 			f=C2cos(C2Linear(slope=n) - C2Constant(z) * C2sin)
 			pc=int((abs(z)+abs(n)+2)*point_density)
@@ -854,7 +854,7 @@ if __name__=="__main__":
 			f=C2cos(C2Linear(slope=n) - C2Constant(z) * C2sin)
 			pc=8
 			g=_numeric.array(range(pc), _numeric.Float)*(math.pi/(pc-1))
-			return sum(f.adaptive_partial_integrals(g, absolute_error_tolerance=1e-10, debug=0))/math.pi, f.total_func_evals
+			return sum(f.adaptive_partial_integrals(g, absolute_error_tolerance=1e-12, relative_error_tolerance=1e-14, debug=0))/math.pi, f.total_func_evals
 
 		for order, x in ( (0, 0.1), (0,5.5), (2,3.7), (2,30.5)):
 			v1, n1=bessj(order, x)
@@ -863,7 +863,7 @@ if __name__=="__main__":
 		
 
 	if 1:
-		print "Logarithms  by integration"
+		print "\nLogarithms  by integration"
 		
 		pc=3
 		for lv in (0.1, 1.0, 2.0, 5.0, 10.0):
