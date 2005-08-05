@@ -12,9 +12,9 @@ C2Functions can be combined with unary operators (nested functions) or binary op
 Developed by Marcus H. Mendenhall, Vanderbilt University Keck Free Electron Laser Center, Nashville, TN USA
 email: marcus.h.mendenhall@vanderbilt.edu
 Work supported by the US DoD  MFEL program under grant FA9550-04-1-0045
-version $Id: C2Functions.py,v 1.19 2005-08-05 11:32:53 mendenhall Exp $
+version $Id: C2Functions.py,v 1.20 2005-08-05 15:57:41 mendenhall Exp $
 """
-_rcsid="$Id: C2Functions.py,v 1.19 2005-08-05 11:32:53 mendenhall Exp $"
+_rcsid="$Id: C2Functions.py,v 1.20 2005-08-05 15:57:41 mendenhall Exp $"
 
 import math
 import operator
@@ -205,20 +205,29 @@ class C2Function:
 		"""
 	
 		if type(recur_data[1]) is not tuple:	#this is an initialization call, set everything up
-			newfuncs=[ ( (x, )+ self.value_with_derivatives(x) ) for x in recur_data ] #convert x list to full function list
+			funcgrid=[ ( (x, )+ self.value_with_derivatives(x) ) for x in recur_data ] #convert x list to full function list
 			self.total_func_evals=len(recur_data)
 			
-			recur_data=[0, newfuncs, ( ),
+			#compute maximum recursion depth before step size underflows
+			relative_error_tolerance=args.get('relative_error_tolerance', 1e-12)
+			dxratio=abs(funcgrid[-1][0] - funcgrid[0][0]) / (relative_error_tolerance*(abs(funcgrid[0][0])+abs(funcgrid[-1][0])) )
+			maxdepth=int(math.log(dxratio)/math.log(2.0))+1
+			
+			recur_data=[0, funcgrid, ( ),
 					args.get('absolute_error_tolerance', 1e-12),
-					args.get('relative_error_tolerance', 1e-12),
+					relative_error_tolerance,
 					args.get('debug', 0),
-					args.get('extrapolate', True)
+					args.get('extrapolate', True), maxdepth
 				]
-						
-		depth, funcgrid, old_integrals, absolute_error_tolerance, relative_error_tolerance,  debug, extrapolate=recur_data
+			
+		depth, funcgrid, old_integrals, absolute_error_tolerance, relative_error_tolerance,  debug, extrapolate, maxdepth=recur_data
 		
 		retvals=[0.0]*(len(funcgrid)-1)
 		
+		#check for underflow on step size... can do this outside of loop for efficiency
+		if depth>maxdepth:
+			raise C2Exception("Step size underflow in adaptive_partial_integrals, depth = %d, x = %.4f" % (depth, funcgrid[0][0]))
+			
 		for i in range(len(funcgrid)-1):
 			x0, y0, yp0, ypp0=funcgrid[i]
 			x2, y2, yp2, ypp2=funcgrid[i+1]
@@ -869,7 +878,7 @@ if __name__=="__main__":
 					extrapolate=1, debug=0)
 			n2=C2recip.total_func_evals
 			
-			print ("%20.15f %6.2f %6d %6d "+2*"%20.15f ") % (lv, b, n1, n2, sum(v1), sum(v2) )
+			print ("%20.15f %10.2f %8d %8d "+2*"%20.15f ") % (lv, b, n1, n2, sum(v1), sum(v2) )
 
 			
 	if 0:
