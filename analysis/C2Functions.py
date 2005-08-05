@@ -12,9 +12,9 @@ C2Functions can be combined with unary operators (nested functions) or binary op
 Developed by Marcus H. Mendenhall, Vanderbilt University Keck Free Electron Laser Center, Nashville, TN USA
 email: marcus.h.mendenhall@vanderbilt.edu
 Work supported by the US DoD  MFEL program under grant FA9550-04-1-0045
-version $Id: C2Functions.py,v 1.17 2005-08-04 16:28:47 mendenhall Exp $
+version $Id: C2Functions.py,v 1.18 2005-08-05 01:29:37 mendenhall Exp $
 """
-_rcsid="$Id: C2Functions.py,v 1.17 2005-08-04 16:28:47 mendenhall Exp $"
+_rcsid="$Id: C2Functions.py,v 1.18 2005-08-05 01:29:37 mendenhall Exp $"
 
 import math
 import operator
@@ -198,27 +198,35 @@ class C2Function:
 			
 			return yppc
 
-	def adaptive_partial_integrals(self, xgrid, funcgrid=None, old_integrals=None, relative_error_tolerance=1e-12, 
-			absolute_error_tolerance=1e-12, depth=0, debug=0, extrapolate=1):
-		"""Return the integrals of a function between the sampling points xgrid.  The sum is the definite integral."""
-					
-		if funcgrid is None: #first call for this evaluation, compute initial grid
-			funcgrid=apply(zip,self.value_with_derivatives(xgrid))
-			self.total_func_evals=len(xgrid)
+	def adaptive_partial_integrals(self, recur_data, **args):
+		"""def adaptive_partial_integrals(self, xgrid, relative_error_tolerance=1e-12, 
+			absolute_error_tolerance=1e-12, depth=0, debug=0, extrapolate=1)
+			Return the integrals of a function between the sampling points xgrid.  The sum is the definite integral.
+		"""
+	
+		if type(recur_data[1]) is not tuple:	#this is an initialization call, set everything up
+			newfuncs=[ ( (x, )+ self.value_with_derivatives(x) ) for x in recur_data ] #convert x list to full function list
+			self.total_func_evals=len(recur_data)
 			
-		retvals=[0.0]*(len(xgrid)-1)
+			recur_data=[0, newfuncs, ( ),
+					args.get('relative_error_tolerance', 1e-12),
+					args.get('absolute_error_tolerance', 1e-12),
+					args.get('debug', 0),
+					args.get('extrapolate', True)
+				]
+						
+		depth, funcgrid, old_integrals, relative_error_tolerance, absolute_error_tolerance, debug, extrapolate=recur_data
 		
-		for i in range(len(xgrid)-1):
-			x0=xgrid[i]
-			y0, yp0, ypp0=funcgrid[i]
-			x2=xgrid[i+1]
-			y2, yp2, ypp2=funcgrid[i+1]
+		retvals=[0.0]*(len(funcgrid)-1)
+		
+		for i in range(len(funcgrid)-1):
+			x0, y0, yp0, ypp0=funcgrid[i]
+			x2, y2, yp2, ypp2=funcgrid[i+1]
 			x1=0.5*(x0+x2)
 			y1, yp1, ypp1=self.value_with_derivatives(x1)
 			self.total_func_evals+=1
 			dx=x2-x0
 			dx2=0.5*dx
-			
 			
 			if  old_integrals:
 				total=old_integrals[i]
@@ -240,13 +248,8 @@ class C2Function:
 				if debug==1: print "accepted results at depth ", depth,  "x, dx = %7.3f, %10.6f" % (x1, dx), "scaled error = ", eps/absolute_error_tolerance
 			else:
 				if debug==1: print "rejected results at depth ", depth,  "x, dx = %7.3f, %10.6f" % (x1, dx), "scaled error = ", eps/absolute_error_tolerance
-				l, r =self.adaptive_partial_integrals(
-						xgrid=(x0,x1,x2), 
-						funcgrid=((y0, yp0, ypp0), (y1,yp1, ypp1), (y2, yp2, ypp2) ), 
-						old_integrals=(left, right), 
-						absolute_error_tolerance=absolute_error_tolerance/2.0, 
-						relative_error_tolerance=relative_error_tolerance, depth=depth+1, 
-						extrapolate=extrapolate, debug=debug)
+				recur_data[0:4]=depth+1, (funcgrid[i], (x1, y1, yp1, ypp1), funcgrid[i+1]), (left, right), absolute_error_tolerance/2
+				l, r =self.adaptive_partial_integrals(recur_data)
 				retvals[i]=l+r
 		
 		if debug ==2:
@@ -260,7 +263,8 @@ class C2Function:
 			print "\n returning from depth ", depth
 		
 		return retvals
-		
+
+	
 	def simpson_partial_integrals(self, xgrid):
 		"""Return the integrals of a function between the sampling points xgrid with Simpson's rule.  The sum is the definite integral.
 			Note that this also samples the function at the center of each requested interval, so there is no requirement for
@@ -841,7 +845,7 @@ if __name__=="__main__":
 			f=C2cos(C2Linear(slope=n) - C2Constant(z) * C2sin)
 			pc=8
 			g=_numeric.array(range(pc), _numeric.Float)*(math.pi/(pc-1))
-			return sum(f.adaptive_partial_integrals(g, absolute_error_tolerance=1e-8, debug=0))/math.pi, f.total_func_evals
+			return sum(f.adaptive_partial_integrals(g, absolute_error_tolerance=1e-10, debug=0))/math.pi, f.total_func_evals
 
 		for order, x in ( (0, 0.1), (0,5.5), (2,3.7), (2,30.5)):
 			v1, n1=bessj(order, x)
@@ -868,7 +872,7 @@ if __name__=="__main__":
 			print ("%20.15f %6.2f %6d %6d "+2*"%20.15f ") % (lv, b, n1, n2, sum(v1), sum(v2) )
 
 			
-	if 1:
+	if 0:
 		print "Powers  by integration"
 		
 		fn=C2recip(C2Quadratic(a=1.0, c=0.01)) #make approximate power law
