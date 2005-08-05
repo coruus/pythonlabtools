@@ -12,9 +12,9 @@ C2Functions can be combined with unary operators (nested functions) or binary op
 Developed by Marcus H. Mendenhall, Vanderbilt University Keck Free Electron Laser Center, Nashville, TN USA
 email: marcus.h.mendenhall@vanderbilt.edu
 Work supported by the US DoD  MFEL program under grant FA9550-04-1-0045
-version $Id: C2Functions.py,v 1.18 2005-08-05 01:29:37 mendenhall Exp $
+version $Id: C2Functions.py,v 1.19 2005-08-05 11:32:53 mendenhall Exp $
 """
-_rcsid="$Id: C2Functions.py,v 1.18 2005-08-05 01:29:37 mendenhall Exp $"
+_rcsid="$Id: C2Functions.py,v 1.19 2005-08-05 11:32:53 mendenhall Exp $"
 
 import math
 import operator
@@ -209,13 +209,13 @@ class C2Function:
 			self.total_func_evals=len(recur_data)
 			
 			recur_data=[0, newfuncs, ( ),
-					args.get('relative_error_tolerance', 1e-12),
 					args.get('absolute_error_tolerance', 1e-12),
+					args.get('relative_error_tolerance', 1e-12),
 					args.get('debug', 0),
 					args.get('extrapolate', True)
 				]
 						
-		depth, funcgrid, old_integrals, relative_error_tolerance, absolute_error_tolerance, debug, extrapolate=recur_data
+		depth, funcgrid, old_integrals, absolute_error_tolerance, relative_error_tolerance,  debug, extrapolate=recur_data
 		
 		retvals=[0.0]*(len(funcgrid)-1)
 		
