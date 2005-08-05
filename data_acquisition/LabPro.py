@@ -1,7 +1,7 @@
 """LabPro supports communications with the Vernier Instruments (www.vernier.com) LabPro Module
 over a serial line"""
 
-_rcsid="$Id: LabPro.py,v 1.23 2004-10-01 16:47:02 mendenhall Exp $"
+_rcsid="$Id: LabPro.py,v 1.22 2003-07-16 16:22:46 mendenhall Exp $"
 
 import time
 import Numeric
@@ -539,53 +539,8 @@ try:
 
 	class LabPro_e5810(e5810_serial_mixin, RawLabPro):
 		pass
-
-except ImportError:
-	pass
-	
-try:
-	import socket	as _socket
 		
-	class iPocket_serial_mixin:
-		"mixin class for RawLabPro to allow operation of LabPro via iPocket serial interface in transparent server mode. port_name is an (ip, port) tuple."
-		def setup_serial(self,port_name=(None, None)):
-			self.sock = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM)
-			self.sock.connect(port_name)
-			self.timeout_seconds=0.1
-			self.sock.settimeout(0.1)
-			
-		def read(self, maxlen=1000):
-			#print "receiving from ", sock
-			return self.sock.recv(maxlen)
-	
-		def high_speed_serial(self):
-			"not implemented on iPocket"
-			return 
-	
-		def high_speed_setup(self):
-			"not implemented on iPocket"
-			return 
-	
-		def set_port_params(self):
-			"not implemented on iPocket"
-			return 
-		
-		def write(self, data):
-			self.sock.send(data)
-	
-		def close(self):
-			self.sock.close()
-	
-	class LabPro_iPocket(iPocket_serial_mixin, RawLabPro):
-		pass
-	
-	if 0:
-		a=LabPro_iPocket(("***REMOVED***",9998))
-		a.reset()
-		print a.get_system_config()
-		del a
-	
-except ImportError:
+except: #apparently vxi-11 e5810 serial support can't be found, just ignore
 	pass
 
 if __name__=='__main__':
