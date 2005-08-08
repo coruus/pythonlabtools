@@ -12,9 +12,9 @@ C2Functions can be combined with unary operators (nested functions) or binary op
 Developed by Marcus H. Mendenhall, Vanderbilt University Keck Free Electron Laser Center, Nashville, TN USA
 email: marcus.h.mendenhall@vanderbilt.edu
 Work supported by the US DoD  MFEL program under grant FA9550-04-1-0045
-version $Id: C2Functions.py,v 1.22 2005-08-05 22:00:56 mendenhall Exp $
+version $Id: C2Functions.py,v 1.23 2005-08-08 14:53:55 mendenhall Exp $
 """
-_rcsid="$Id: C2Functions.py,v 1.22 2005-08-05 22:00:56 mendenhall Exp $"
+_rcsid="$Id: C2Functions.py,v 1.23 2005-08-08 14:53:55 mendenhall Exp $"
 
 import math
 import operator
@@ -155,78 +155,44 @@ class C2Function:
 		"a**b returns a new C2Function which represents the power law, with a optimization for numerical powers"
 		return C2Power(self, right)
 
-	def partial_integrals(self, xgrid):
-		"""Return the integrals of a function between the sampling points xgrid.  The sum is the definite integral.
-			This method uses an exact integration of the polynomial which matches the values and derivatives at the 
-			endpoints of a segment.  Its error scales as h**6.  
-			This could very well be used as a stepper for adaptive Romberg integration.
-		"""
-		self.total_func_evals=len(xgrid)
-		
-		if len(xgrid) < 100: #handle short vectors in a loop to avoid Numpy slow allocation
-			partials=[None]*(len(xgrid)-1)
-			y0, yp0, ypp0=self.value_with_derivatives(xgrid[0]) #compute all values & derivatives at sampling points
-			#the weights come from an exact mathematica solution to the 5th order polynomial with the given values & derivatives
-			#yint = dx/2* ( (y0+y1) + dx*(yp0-yp1)/5 + dx^2 * (ypp0+ypp1)/60 )
-			for i in range(len(xgrid)-1):
-				y1, yp1, ypp1=self.value_with_derivatives(xgrid[i+1]) #compute all values & derivatives at sampling points
-				dx=xgrid[i+1]-xgrid[i]
-				partials[i]=( ( (ypp1+ypp0)/60.0*dx+ (yp0-yp1)/5.0 )*dx + (y1+y0) )*dx/2.0
-				y0=y1; yp0=yp1; ypp0=ypp1
-			return _numeric.array(partials)
-			
-		else: #use Numpy array ops for long vectors, where they are quite efficient
-			xgrid=_numeric.asarray(xgrid, _numeric.Float)
-			y, yp, ypp=self.value_with_derivatives(xgrid) #compute all values & derivatives at sampling points
-			#the weights come from an exact mathematica solution to the 5th order polynomial with the given values & derivatives
-			#yint = dx/2* ( (y0+y1) + dx*(yp0-yp1)/5 + dx^2 * (ypp0+ypp1)/60 )
-			
-			dx=xgrid[1:]-xgrid[:-1]
-
-			yppc=ypp[1:]+ypp[:-1]
-			yppc*=(1.0/60.0)
-			yppc *= dx
-
-			ypc=yp[:-1]-yp[1:]
-			ypc *= (1.0/5.0)
-			yppc += ypc
-			yppc *= dx
-			
-			yppc += y[1:]+y[:-1] 		
-			yppc *= dx
-			yppc *= 0.5
-			
-			return yppc
-
-	def adaptive_partial_integrals(self, recur_data, **args):
-		"""def adaptive_partial_integrals(self, xgrid, relative_error_tolerance=1e-12, order=6
-			absolute_error_tolerance=1e-12, depth=0, debug=0, extrapolate=1)
+	def partial_integrals(self, recur_data, **args):
+		"""def partial_integrals(self, xgrid, relative_error_tolerance=1e-12, derivs=2, 
+			absolute_error_tolerance=1e-12, depth=0, debug=0, extrapolate=1, allow_recursion=True)
 			Return the integrals of a function between the sampling points xgrid.  The sum is the definite integral.
-			The choices for order are 6 or 9, anything else is an error.
-			Be very aware that the 9th order method will only really benefit with very smooth functions, but then it is magic!
+			The choices for derivs are 0, 1 or 2, anything else is an error.
+			The derivs parameter is used as follows: 
+				derivs=0 uses Simpson's rule (no derivative information).   
+				derivs=1 uses a 6th order technique based the first derivatives, but no second derivatives
+				derivs=2 uses a 9th order tehcnique based the first and second derivatives.
+				Be very aware that the 9th order method will only really benefit with very smooth functions, but then it is magic!
 		"""
 	
 		if type(recur_data[1]) is not tuple:	#this is an initialization call, set everything up
 			funcgrid=[ ( (x, )+ self.value_with_derivatives(x) ) for x in recur_data ] #convert x list to full function list
 			self.total_func_evals=len(recur_data)
 			
-			order= args.get('order', 6)
-			if order==6:
-				eps_scale, extrap_coef = 0.1, 64
-			elif order==9:
-				eps_scale, extrap_coef = 0.02, 512
+			derivs= args.get('derivs', 2)
+			if derivs==0:
+				eps_scale, extrap_coef= 0.1, 16.0
+			elif derivs==1:
+				eps_scale, extrap_coef = 0.1, 64.0
+			elif derivs==2:
+				eps_scale, extrap_coef = 0.02, 512.0
+			
 			else:
-				raise C2Exception("Illegal order passed to adaptivePartial_integrals, must be 6 or 9, got %d" % order)
+				raise C2Exception("Illegal derivs passed to adaptivePartial_integrals, must be 0, 1 or 2, got %d" % derivs)
 
+			allow_rec= args.get('allow_recursion', True)
+			extrapolate = args.get('extrapolate', True) and allow_rec #can only extrapolate after recursion
+			
 			recur_data=[0, funcgrid, ( ),
 					args.get('absolute_error_tolerance', 1e-12),
 					args.get('relative_error_tolerance', 1e-12),
 					args.get('debug', 0),
-					args.get('extrapolate', True),
-					order, eps_scale, extrap_coef
+					extrapolate, derivs, eps_scale, extrap_coef, allow_rec
 				]			
 		
-		depth, funcgrid, old_integrals, absolute_error_tolerance, relative_error_tolerance, debug, extrapolate, order, eps_scale, extrap_coef=recur_data
+		depth, funcgrid, old_integrals, absolute_error_tolerance, relative_error_tolerance, debug, extrapolate, derivs, eps_scale, extrap_coef, allow_rec=recur_data
 		
 		retvals=[0.0]*(len(funcgrid)-1)
 		
@@ -241,26 +207,35 @@ class C2Function:
 
 			#check for underflow on step size, which prevents us from achieving specified accuracy. 
 			if abs(dx) < abs(x1)*relative_error_tolerance:
-				raise C2Exception("Step size underflow in adaptive_partial_integrals, depth = %d, x = %.4f" % (depth, x1))
+				raise C2Exception("Step size underflow in partial_integrals, depth = %d, x = %.4f" % (depth, x1))
 			
+			#if we are below the top level, the previous term is already computed.  Otherwise, compute it to one lower order
 			if  old_integrals:
 				total=old_integrals[i]
-			else:
-				total=( ( (ypp2+ypp0)/60.0*dx+ (yp0-yp2)/5.0 )*dx + (y2+y0) )*dx/2.0
+			elif derivs==2:
+				total=( (14*y0 + 32*y1 + 14*y2) +  dx * (yp0 - yp2) ) * dx /60.
 
-			if order==6:				
-				left=	( ( (ypp1+ypp0)/60.0*dx2+ (yp0-yp1)/5.0 )*dx2 + (y1+y0) )*dx2/2.0
-				right=	( ( (ypp2+ypp1)/60.0*dx2+ (yp1-yp2)/5.0 )*dx2 + (y2+y1) )*dx2/2.0
+			elif derivs==1:
+				total=(y0+4.0*y1+y2)*dx/6.0
 			else:
+				total=0.5*(y0+y2)*dx
+
+			if derivs==2:
 				#use ninth-order estimates for each side, from full set of all values (!) (Thanks, Mathematica!)
 				left=	( ( (169*ypp0 + 1024*ypp1 - 41*ypp2)*dx2+ (2727*yp0 - 5040*yp1 + 423*yp2) )*dx2 + (17007*y0 + 24576*y1 - 1263*y2) )* (dx2/40320.0)
-				right=	( ( (-41*ypp0 + 1024*ypp1 + 169*ypp2)*dx2+ (-423*yp0 + 5040*yp1 - 2727*yp2) )*dx2 + (-1263*y0 + 24576*y1 + 17007*y2) )* (dx2/40320.0)
-				
+				right=	( ( (-41*ypp0 + 1024*ypp1 + 169*ypp2)*dx2+ (-423*yp0 + 5040*yp1 - 2727*yp2) )*dx2 + (-1263*y0 + 24576*y1 + 17007*y2) )* (dx2/40320.0)			
+			elif derivs==1:
+				left= 	( (202*y0 + 256*y1 + 22*y2) + dx*(13*yp0 - 40*yp1 - 3*yp2) ) * dx /960.
+				right= 	( (22*y0 + 256*y1 + 202*y2) + dx *(3*yp0 + 40*yp1 - 13*yp2) ) * dx /960.
+			else:
+				left=	(5*y0 + 8*y1 - y2)*dx/24.
+				right=	(5*y2 + 8*y1 - y0)*dx/24.
+
 			eps= abs(total-(left+right))*eps_scale #the real error should be 2**order times smaller on this iteration, be conservative
 			if extrapolate:
 				eps=eps*eps_scale #gain another factor of 2**order if extrapolating (typical), but be conservative
 				
-			if  eps < absolute_error_tolerance or eps < abs(total)*relative_error_tolerance:
+			if  (not allow_rec) or eps < absolute_error_tolerance or eps < abs(total)*relative_error_tolerance:
 				if not extrapolate:
 					retvals[i]=left+right
 				else:
@@ -269,7 +244,7 @@ class C2Function:
 			else:
 				if debug==1: print "rejected results at depth ", depth,  "x, dx = %7.3f, %10.6f" % (x1, dx), "scaled error = ", eps/absolute_error_tolerance, eps/(dx**order)
 				recur_data[0:4]=depth+1, (funcgrid[i], (x1, y1, yp1, ypp1), funcgrid[i+1]), (left, right), absolute_error_tolerance/2
-				l, r =self.adaptive_partial_integrals(recur_data)
+				l, r =self.partial_integrals(recur_data)
 				retvals[i]=l+r
 		
 		if debug ==2:
@@ -284,38 +259,6 @@ class C2Function:
 		
 		return retvals
 	
-	def simpson_partial_integrals(self, xgrid):
-		"""Return the integrals of a function between the sampling points xgrid with Simpson's rule.  The sum is the definite integral.
-			Note that this also samples the function at the center of each requested interval, so there is no requirement for
-				an odd number of points.  Also, though, if all that is needed is the final sum, the grid can be made twice as coarse
-				as expected. If you don't think your function is smooth enough to benefit from a higher order method, use this.
-				For example, for InterpolatingFunctions, where all the higher-order information does not exist, this is appropriate.
-		"""
-		if len(xgrid) < 50: #handle short vectors in a loop
-			partials=[None]*(len(xgrid)-1)
-			y0, yp0, ypp0=self.value_with_derivatives(xgrid[0])
-	
-			for i in range(len(xgrid)-1):
-				x0=xgrid[i]; x1 = xgrid[i+1]
-				ym, ypm, yppm=self.value_with_derivatives( (x1+x0)*0.5) # mid-point evaluation
-				y1, yp1, ypp1=self.value_with_derivatives(x1)
-				partials[i]=(y0 + y1 + 4.0* ym)*(x1-x0)/6.0
-				y0=y1; yp0=yp1; ypp0=ypp1;
-			return _numeric.array(partials)
-			
-		else:
-			xgrid=_numeric.asarray(xgrid, _numeric.Float)
-			y, yp, ypp=self.value_with_derivatives(xgrid) #compute all values & derivatives at sampling points
-			centers=(xgrid[1:]+xgrid[:-1])
-			centers*=0.5
-			yc, ypc, yppc=self.value_with_derivatives(centers) #compute all values & derivatives at centers
-			yc*=4.0 #center bin weight
-			ysums=y[:-1]+y[1:]
-			ysums+=yc
-			ysums*=(1.0/6.0)
-			ysums*=(xgrid[1:]-xgrid[:-1])
-			return ysums
-
 class C2Constant(C2Function):
 	"a constant and its derivatives"
 	ClassName='Constant'
@@ -863,22 +806,22 @@ if __name__=="__main__":
 			f=C2cos(C2Linear(slope=n) - C2Constant(z) * C2sin)
 			pc=int((abs(z)+abs(n)+2)*point_density)
 			g=_numeric.array(range(pc), _numeric.Float)*(math.pi/(pc-1))
-			return sum(f.partial_integrals(g))/math.pi, f.total_func_evals
+			return sum(f.partial_integrals(g, allow_recursion=False))/math.pi, f.total_func_evals
 		
-		def bessj_adaptive(n, z, order=6):
+		def bessj_adaptive(n, z, derivs=1):
 			f=C2cos(C2Linear(slope=n) - C2Constant(z) * C2sin)
 			pc=8
 			g=_numeric.array(range(pc), _numeric.Float)*(math.pi/(pc-1))
-			return sum(f.adaptive_partial_integrals(g, absolute_error_tolerance=1e-14, relative_error_tolerance=1e-14, debug=0, order=order))/math.pi, f.total_func_evals
+			return sum(f.partial_integrals(g, absolute_error_tolerance=1e-14, relative_error_tolerance=1e-14, debug=0, derivs=derivs))/math.pi, f.total_func_evals
 
 		for order, x in ( (0, 0.1), (0,5.5), (2,3.7), (2,30.5)):
 			v1, n1=bessj(order, x)
-			v2, n2=bessj_adaptive(order, x, 6)
-			v3, n3=bessj_adaptive(order, x, 9)
+			v2, n2=bessj_adaptive(order, x, 1)
+			v3, n3=bessj_adaptive(order, x, 2)
 			print ("%6.2f %6.2f %6d %6d %6d "+3*"%20.15f ") % (order, x, n1, n2, n3, v1, v2, v3 )
 		
 
-	if 0:
+	if 1:
 		print "\nLogarithms  by integration"
 		
 		pc=3
@@ -887,45 +830,55 @@ if __name__=="__main__":
 			np=int(pc*b)+4
 			g=_numeric.array(range(np), _numeric.Float)*(b-1)/(np-1)+1
 
-			v1=C2recip.partial_integrals(g)
-			n1=C2recip.total_func_evals
+			v0=C2recip.partial_integrals(g, allow_recursion=False)
+			n0=C2recip.total_func_evals
 			
-			v2=C2recip.adaptive_partial_integrals(_numeric.array((1.0,math.sqrt(b), b)), absolute_error_tolerance=1e-12, 
-					extrapolate=1, debug=0, order=6)
+			
+			v1=C2recip.partial_integrals(_numeric.array((1.0,math.sqrt(b), b)), absolute_error_tolerance=1e-6, 
+					extrapolate=1, debug=0, derivs=0)
+			n1=C2recip.total_func_evals
+
+			v2=C2recip.partial_integrals(_numeric.array((1.0,math.sqrt(b), b)), absolute_error_tolerance=1e-12, 
+					extrapolate=1, debug=0, derivs=1)
 			n2=C2recip.total_func_evals
 			
-			v3=C2recip.adaptive_partial_integrals(_numeric.array((1.0,math.sqrt(b), b)), absolute_error_tolerance=1e-12, 
-					extrapolate=1, debug=0, order=9)
+			v3=C2recip.partial_integrals(_numeric.array((1.0,math.sqrt(b), b)), absolute_error_tolerance=1e-12, 
+					extrapolate=1, debug=0, derivs=2)
 			n3=C2recip.total_func_evals
 
-			print ("%20.15f %10.2f %6d %6d %6d "+3*"%20.15f ") % (lv, b, n1, n2, n3, sum(v1), sum(v2), sum(v3) )
+			print ("%20.15f %10.2f %6d %6d %6d %6d "+4*"%20.15f ") % (lv, b, n0, n1, n2, n3, sum(v0), sum(v1), sum(v2), sum(v3) )
 
 			
 	if 1:
-		print "Powers  by integration"
+		print "\nPowers  by integration"
 		
 		fn=C2recip(C2Quadratic(a=1.0, b=0.01, c=0.01)) #make approximate power law
 		
-		pc=30
+		pc=5
 		for lv in (0.1, 1.0, 2.0, 5.0, 10.0):
 			b=1.0+lv
 			np=int(pc*b)+4
 			g=_numeric.array(range(np), _numeric.Float)*(b-1)/(np-1)+1
 
-			v1=fn.partial_integrals(g)
-			n1=fn.total_func_evals
+			v0=fn.partial_integrals(g, allow_recursion=False)
+			n0=fn.total_func_evals
 						
-			v2=fn.adaptive_partial_integrals(_numeric.array((1.0,math.sqrt(b), b)),
+			v1=fn.partial_integrals(_numeric.array((1.0,math.sqrt(b), b)),
+					absolute_error_tolerance=1e-8,  relative_error_tolerance=1e-8,
+					extrapolate=0, debug=0, derivs=0)
+			n1=fn.total_func_evals
+
+			v2=fn.partial_integrals(_numeric.array((1.0,math.sqrt(b), b)),
 					absolute_error_tolerance=1e-14,  relative_error_tolerance=1e-14,
-					extrapolate=1, debug=0, order=6)
+					extrapolate=1, debug=0, derivs=1)
 			n2=fn.total_func_evals
 		
-			v3=fn.adaptive_partial_integrals(_numeric.array((1.0,math.sqrt(b), b)),
+			v3=fn.partial_integrals(_numeric.array((1.0,math.sqrt(b), b)),
 					absolute_error_tolerance=1e-14,  relative_error_tolerance=1e-14,
-					extrapolate=1, debug=0, order=9)
+					extrapolate=1, debug=0, derivs=2)
 			n3=fn.total_func_evals
 
-			print ("%20.15f %6.2f %6d %6d %6d "+3*"%20.15f ") % (lv, b, n1, n2, n3, sum(v1), sum(v2), sum(v3) )
+			print ("%20.15f %10.2f %6d %6d %6d %6d "+4*"%20.15f ") % (lv, b, n0, n1, n2, n3, sum(v0), sum(v1), sum(v2), sum(v3) )
 
 	if 0:
 		print "\nAccumulatedHistogram tests"
