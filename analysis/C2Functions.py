@@ -12,9 +12,9 @@ C2Functions can be combined with unary operators (nested functions) or binary op
 Developed by Marcus H. Mendenhall, Vanderbilt University Keck Free Electron Laser Center, Nashville, TN USA
 email: marcus.h.mendenhall@vanderbilt.edu
 Work supported by the US DoD  MFEL program under grant FA9550-04-1-0045
-version $Id: C2Functions.py,v 1.23 2005-08-08 14:53:55 mendenhall Exp $
+version $Id: C2Functions.py,v 1.24 2005-08-08 18:08:37 mendenhall Exp $
 """
-_rcsid="$Id: C2Functions.py,v 1.23 2005-08-08 14:53:55 mendenhall Exp $"
+_rcsid="$Id: C2Functions.py,v 1.24 2005-08-08 18:08:37 mendenhall Exp $"
 
 import math
 import operator
@@ -163,7 +163,7 @@ class C2Function:
 			The derivs parameter is used as follows: 
 				derivs=0 uses Simpson's rule (no derivative information).   
 				derivs=1 uses a 6th order technique based the first derivatives, but no second derivatives
-				derivs=2 uses a 9th order tehcnique based the first and second derivatives.
+				derivs=2 uses a 9th (really 10th, since the 9th order error vanishes by symmetry) order tehcnique based the first and second derivatives.
 				Be very aware that the 9th order method will only really benefit with very smooth functions, but then it is magic!
 		"""
 	
@@ -177,7 +177,7 @@ class C2Function:
 			elif derivs==1:
 				eps_scale, extrap_coef = 0.1, 64.0
 			elif derivs==2:
-				eps_scale, extrap_coef = 0.02, 512.0
+				eps_scale, extrap_coef = 0.01, 1024.0
 			
 			else:
 				raise C2Exception("Illegal derivs passed to adaptivePartial_integrals, must be 0, 1 or 2, got %d" % derivs)
