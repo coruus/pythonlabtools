@@ -12,9 +12,9 @@ C2Functions can be combined with unary operators (nested functions) or binary op
 Developed by Marcus H. Mendenhall, Vanderbilt University Keck Free Electron Laser Center, Nashville, TN USA
 email: marcus.h.mendenhall@vanderbilt.edu
 Work supported by the US DoD  MFEL program under grant FA9550-04-1-0045
-version $Id: C2Functions.py,v 1.24 2005-08-08 18:08:37 mendenhall Exp $
+version $Id: C2Functions.py,v 1.25 2005-08-09 02:29:09 mendenhall Exp $
 """
-_rcsid="$Id: C2Functions.py,v 1.24 2005-08-08 18:08:37 mendenhall Exp $"
+_rcsid="$Id: C2Functions.py,v 1.25 2005-08-09 02:29:09 mendenhall Exp $"
 
 import math
 import operator
@@ -719,7 +719,57 @@ class LogLogAccumulatedHistogram(AccumulatedHistogram):
 	ClassName='LogLogAccumulatedHistogram'
 	XConversions=LogConversions
 	YConversions=LogConversions
+
+class InverseIntegratedDensity(InterpolatingFunction):
+	"""InverseIntegratedDensity starts with a probability density function, generates the integral, 
+	and generates a LinLogInterpolatingFunction which, when evaluated using a uniform random on [0,1] returns values
+	with a density distribution equal to the input distribution
+	If the data are passed in reverse order (large X first), the integral is carried out from the big end,
+	and then the data are reversed to the result in in increasing X order.  
+	"""
 	
+	def __init__(self, bincenters, binheights):
+		np=len(binheights)	
+		be=_numeric.array(bincenters)
+		bh=_numeric.array(binheights)
+			
+		reversed = be[1] < be[0]	#// check for backwards  channels
+	
+		if reversed:
+			be=be[::-1]
+			bh=bh[::-1]
+	
+		temp=LogLogInterpolatingFunction(be, bh)		#// create a temporary InterpolatingFunction to integrate
+	
+		# integrate from first to last bin in original order, leaving results in integral
+		# ask for relative error of 1e-6 on each bin, with absolute error set to 0 (since we don't know the data scale).
+		# since there aren't a lot of linearly independent, meaningful derivatives, select derivs=1
+		# I suspect derivs=0 is really all that is meaningful for interpolating functions, 
+		# since they are cubic & Simpson's rule should be exact when used between any two adjacent knots, which is the case here.
+		integral=[0] + temp.partial_integrals(bincenters, 
+				absolute_error_tolerance=0.0, 
+				relative_error_tolerance=1e-6,
+				derivs=1) 
+	
+		scale=1.0/sum(integral)
+	
+		if reversed:
+			lowerSlope=-1.0/binheights[0]
+			upperSlope=-1.0/binheights[-1]
+		else:
+			lowerSlope=1.0/binheights[0]
+			upperSlope=1.0/binheights[-1]
+					
+		for i in range(1,len(integral)):
+			integral[i]=integral[i]*scale + integral[i-1]
+	
+		InterpolatingFunction.__init__(self, integral, bincenters, 
+							lowerSlope=lowerSlope, upperSlope=upperSlope
+				) 	# use integral as x axis in inverse function
+
+class LinLogInverseIntegratedDensity(InverseIntegratedDensity):
+	YConversions=LogConversions
+
 if __name__=="__main__":
 	print _rcsid
 	def as(x): return _numeric.array_str(x, precision=3)
@@ -795,7 +845,7 @@ if __name__=="__main__":
 				simp, simp-exact, (exact-simp)*sample**4, 
 				sumsum, sumsum-exact, (exact-sumsum)*sample**6) #the comparision is to the Fresnel Integral from Mathematica
 	
-	if 1:
+	if 0:
 		print "\nBessel Functions by integration"
 		print """Warning... the adaptive integrator looks worse than the non-adaptive one here. 
 		There is some subtle cancellation which makes uniform sampling give extremely accurate answers for Bessel's integral, 
@@ -821,7 +871,7 @@ if __name__=="__main__":
 			print ("%6.2f %6.2f %6d %6d %6d "+3*"%20.15f ") % (order, x, n1, n2, n3, v1, v2, v3 )
 		
 
-	if 1:
+	if 0:
 		print "\nLogarithms  by integration"
 		
 		pc=3
@@ -849,7 +899,7 @@ if __name__=="__main__":
 			print ("%20.15f %10.2f %6d %6d %6d %6d "+4*"%20.15f ") % (lv, b, n0, n1, n2, n3, sum(v0), sum(v1), sum(v2), sum(v3) )
 
 			
-	if 1:
+	if 0:
 		print "\nPowers  by integration"
 		
 		fn=C2recip(C2Quadratic(a=1.0, b=0.01, c=0.01)) #make approximate power law
@@ -908,4 +958,21 @@ if __name__=="__main__":
 		print partials, sum(partials)
 		pp=f0.partial_integrals(_numeric.array(range(11), _numeric.Float)*0.1 + 20)
 		print pp, sum(pp)
+	
+	if 1:
+		print "\nTesting LinLogInverseIntegratedDensity"
+		energies=[float(2**(0.5*n)) for n in range(41)]
+		spect=[1.0/(e*e) for e in energies]
 		
+		e0=energies[-1]
+		e1=energies[0]
+		
+		pf=LinLogInverseIntegratedDensity(energies[::-1], spect[::-1])
+		
+		print energies[0], energies[-1]
+		
+		for i in range(41):
+			r=(0.025*i)**2
+			mma=(e0*e1)/(r*e0 + e1 - r*e1)
+			print "%12.6f %12.4e %12.4e %12.4f " % (r, pf(r), mma, 100*(pf(r)-mma)/mma)
+			
