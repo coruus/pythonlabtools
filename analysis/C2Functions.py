@@ -12,9 +12,9 @@ C2Functions can be combined with unary operators (nested functions) or binary op
 Developed by Marcus H. Mendenhall, Vanderbilt University Keck Free Electron Laser Center, Nashville, TN USA
 email: marcus.h.mendenhall@vanderbilt.edu
 Work supported by the US DoD  MFEL program under grant FA9550-04-1-0045
-version $Id: C2Functions.py,v 1.25 2005-08-09 02:29:09 mendenhall Exp $
+version $Id: C2Functions.py,v 1.26 2005-08-09 15:38:21 mendenhall Exp $
 """
-_rcsid="$Id: C2Functions.py,v 1.25 2005-08-09 02:29:09 mendenhall Exp $"
+_rcsid="$Id: C2Functions.py,v 1.26 2005-08-09 15:38:21 mendenhall Exp $"
 
 import math
 import operator
@@ -240,9 +240,9 @@ class C2Function:
 					retvals[i]=left+right
 				else:
 					retvals[i]=(extrap_coef*(left+right) - total) / (extrap_coef-1) #since h fell by 2, h**6=64, and we are extrapolating in h**6
-				if debug==1: print "accepted results at depth ", depth,  "x, dx = %7.3f, %10.6f" % (x1, dx), "scaled error = ", eps/absolute_error_tolerance, eps /(dx**order)
+				if debug==1: print "accepted results at depth ", depth,  "x, dx = %7.3f, %10.6f" % (x1, dx), "scaled error = ", eps/ (abs(total)*relative_error_tolerance)
 			else:
-				if debug==1: print "rejected results at depth ", depth,  "x, dx = %7.3f, %10.6f" % (x1, dx), "scaled error = ", eps/absolute_error_tolerance, eps/(dx**order)
+				if debug==1: print "rejected results at depth ", depth,  "x, dx = %7.3f, %10.6f" % (x1, dx), "scaled error = ", eps/ (abs(total)*relative_error_tolerance)
 				recur_data[0:4]=depth+1, (funcgrid[i], (x1, y1, yp1, ypp1), funcgrid[i+1]), (left, right), absolute_error_tolerance/2
 				l, r =self.partial_integrals(recur_data)
 				retvals[i]=l+r
@@ -728,6 +728,8 @@ class InverseIntegratedDensity(InterpolatingFunction):
 	and then the data are reversed to the result in in increasing X order.  
 	"""
 	
+	IntermediateInterpolator=InterpolatingFunction
+	
 	def __init__(self, bincenters, binheights):
 		np=len(binheights)	
 		be=_numeric.array(bincenters)
@@ -739,36 +741,26 @@ class InverseIntegratedDensity(InterpolatingFunction):
 			be=be[::-1]
 			bh=bh[::-1]
 	
-		temp=LogLogInterpolatingFunction(be, bh)		#// create a temporary InterpolatingFunction to integrate
-	
+		temp=self.IntermediateInterpolator(be, bh)		#// create a temporary InterpolatingFunction to integrate
 		# integrate from first to last bin in original order, leaving results in integral
 		# ask for relative error of 1e-6 on each bin, with absolute error set to 0 (since we don't know the data scale).
-		# since there aren't a lot of linearly independent, meaningful derivatives, select derivs=1
-		# I suspect derivs=0 is really all that is meaningful for interpolating functions, 
-		# since they are cubic & Simpson's rule should be exact when used between any two adjacent knots, which is the case here.
 		integral=[0] + temp.partial_integrals(bincenters, 
-				absolute_error_tolerance=0.0, 
-				relative_error_tolerance=1e-6,
-				derivs=1) 
+				absolute_error_tolerance=0, 
+				relative_error_tolerance=1e-6) 
 	
-		scale=1.0/sum(integral)
-	
-		if reversed:
-			lowerSlope=-1.0/binheights[0]
-			upperSlope=-1.0/binheights[-1]
-		else:
-			lowerSlope=1.0/binheights[0]
-			upperSlope=1.0/binheights[-1]
-					
+		scale=1.0/sum(integral)	
+
 		for i in range(1,len(integral)):
 			integral[i]=integral[i]*scale + integral[i-1]
-	
+		integral[-1]=1.0 #force exact value on the boundary	
+		
 		InterpolatingFunction.__init__(self, integral, bincenters, 
-							lowerSlope=lowerSlope, upperSlope=upperSlope
+							lowerSlope=1.0/(scale*binheights[0]), upperSlope=1.0/(scale*binheights[-1])
 				) 	# use integral as x axis in inverse function
 
 class LinLogInverseIntegratedDensity(InverseIntegratedDensity):
 	YConversions=LogConversions
+	IntermediateInterpolator=LogLogInterpolatingFunction
 
 if __name__=="__main__":
 	print _rcsid
@@ -962,7 +954,7 @@ if __name__=="__main__":
 	if 1:
 		print "\nTesting LinLogInverseIntegratedDensity"
 		energies=[float(2**(0.5*n)) for n in range(41)]
-		spect=[1.0/(e*e) for e in energies]
+		spect=[10000.0/(e*e) for e in energies]
 		
 		e0=energies[-1]
 		e1=energies[0]
