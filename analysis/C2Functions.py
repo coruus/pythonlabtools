@@ -12,9 +12,9 @@ C2Functions can be combined with unary operators (nested functions) or binary op
 Developed by Marcus H. Mendenhall, Vanderbilt University Keck Free Electron Laser Center, Nashville, TN USA
 email: marcus.h.mendenhall@vanderbilt.edu
 Work supported by the US DoD  MFEL program under grant FA9550-04-1-0045
-version $Id: C2Functions.py,v 1.27 2005-08-11 01:32:21 mendenhall Exp $
+version $Id: C2Functions.py,v 1.28 2005-08-11 21:37:54 mendenhall Exp $
 """
-_rcsid="$Id: C2Functions.py,v 1.27 2005-08-11 01:32:21 mendenhall Exp $"
+_rcsid="$Id: C2Functions.py,v 1.28 2005-08-11 21:37:54 mendenhall Exp $"
 
 import math
 import operator
@@ -42,9 +42,10 @@ class C2Function:
 			self.xMin=max(l.xMin, r.xMin)
 			self.xMax=min(l.xMax, r.xMax)
 		
+		self.sampling_grid=None
 		
 	def __str__(self): return '<%s %s, Domain=[%g, %g]>' % ((self.ClassName, self.name,)+ self.GetDomain())
-	
+				
 	def SetName(self, name): 
 		"set the short name of the function for __str__"
 		self.name=name; return self
@@ -259,6 +260,68 @@ class C2Function:
 		
 		return retvals
 	
+	def SetSamplingGrid(self, grid):
+		"establish a set of 'interesting' points for starting to sample this function"
+		self.sampling_grid=_numeric.array(grid)
+	
+	def GetSamplingGrid(self, xmin, xmax):
+		"get a set of points, including xmin and xmax, which are reasonable points to evaluate the function between them"
+		if not self.sampling_grid or xmin > self.sampling_grid[-1] or xmax < self.sampling_grid[0]:
+			return (xmin, xmax) #don't really have any information on the funciton in this interval.
+		else:
+			sg=self.sampling_grid
+			
+			firstindex, lastindex=_numeric.searchsorted(sg, (xmin, xmax))
+			lastindex=lastindex-1
+						
+			grid=[xmin]+list(sg[firstindex:lastindex+1])+[xmax] #insert points  from source grid to destination into the middle of our grid
+			
+			if len(grid) > 2 : #attempt to clear out points put too close together at the beginning, if we have at least three points
+				x0, x1, x2 = grid[:3]
+				ftol=10.0*(1e-14*(abs(x0)+abs(x1))+1e-300)
+				if (x1-x0) < ftol or (x1-x0) < 0.1*(x2-x0): del grid[1] #remove collision
+			
+			if len(grid) > 2 : #attempt to clear out points put too close together at the end, if we have at least three points
+				x0, x1, x2 = grid[-3:]
+				ftol=10.0*(1e-14*(abs(x0)+abs(x2))+1e-300)
+				if (x2-x1) < ftol or (x2-x1) < 0.1*(x2-x0): del grid[-2] #remove collision
+
+			return grid
+
+	def integral(self, xmin, xmax, **args):
+		"carry out integration using our sampling grid"
+		grid=self.GetSamplingGrid(xmin, xmax)
+		return sum(self.partial_integrals(grid, **args))
+
+	def NormalizedFunction(self, xmin, xmax, norm=1):
+		"return a function whose integral on [xmin, xmax] is norm"
+		intg=self.integral(xmin, xmax)
+		return C2ScaledFunction(self, norm/intg)
+
+	def SquareNormalizedFunction(self, xmin, xmax, weight=None, norm=1):
+		"return a function whose square integral on [xmin, xmax] with optional weight function is norm"
+		mesquared=C2Quadratic(a=1.0)(self)
+		if weight is not None:
+			mesquared=mesquared*weight
+			
+		grid=self.GetSamplingGrid(xmin, xmax)
+		intg=sum(mesquared.partial_integrals(grid))
+		return C2ScaledFunction(self, math.sqrt(norm/intg))
+	
+class C2ScaledFunction(C2Function):
+	"a lightweight class to create a function scaled vertically by a scale factor"
+	ClassName='Scaled'
+	def __init__(self, fn, yscale):
+		C2Function.__init__(self)
+		self.fn=fn
+		self.yscale=yscale
+		self.name=fn.name+'* %g' % yscale
+	
+	def value_with_derivatives(self, x): 
+		y, yp, ypp = fn.value_with_derivatives(x)
+		ys=self.yscale
+		return y*ys, yp*ys, ypp*ys
+
 class C2Constant(C2Function):
 	"a constant and its derivatives"
 	ClassName='Constant'
@@ -869,7 +932,7 @@ if __name__=="__main__":
 			print ("%6.2f %6.2f %6d %6d %6d "+3*"%20.15f ") % (order, x, n1, n2, n3, v1, v2, v3 )
 		
 
-	if 1:
+	if 0:
 		print "\nLogarithms  by integration"
 		
 		pc=3
@@ -989,4 +1052,35 @@ if __name__=="__main__":
 			mma=e0*(e1/e0)**r
 			
 			print "%12.6f %12.4e %12.4e %12.4e " % (r, pf(r), mma, 100*(pf(r)-mma)/mma)
+
+	if 1:
+		fn=C2sin *2.0 #make a new function
+		print "\nInitial sampling grid =", 
+		grid=(0., 3., 6., 9., 12.)
+		for i in range(len(grid)): print grid[i],
+		print
+		
+		fn.SetSamplingGrid(grid)
+		
+		print "Starting tests of samples from grid"
+		
+		for xmin,xmax in ( (-10,-1), (20,30), (-3, 15), (-3, 2), (-3, 7), (5.0, 5.5), (1., 7.), (5.99, 10), (2, 9.01), (5., 20.) ):
+			v=fn.GetSamplingGrid(xmin,xmax)
+			print "%10.3f %10.3f: " %(xmin, xmax),  
+			for i in range(len(v)): print v[i],
+			print
+			
+		sn=fn.NormalizedFunction(0., math.pi)
+		
+		print "integral of non-normalized and normalized function ", fn.integral(0., math.pi), sn.integral(0., math.pi)
+		
+		gn=fn.SquareNormalizedFunction(0., 4.0*math.pi)
+		
+		fn2=fn*fn
+		fn2.SetSamplingGrid((0., math.pi, 2.0*math.pi, 3.0*math.pi, 4.0*math.pi))
+		gn2=gn*gn
+		gn2.SetSamplingGrid((0., math.pi, 2.0*math.pi, 3.0*math.pi, 4.0*math.pi))
+		
+		print "integral of square of non-normalized and square-normalized function ", fn2.integral(0., 4.0*math.pi), gn2.integral(0., 4.0*math.pi)
+		
 	
