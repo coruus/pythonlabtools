@@ -12,9 +12,9 @@ C2Functions can be combined with unary operators (nested functions) or binary op
 Developed by Marcus H. Mendenhall, Vanderbilt University Keck Free Electron Laser Center, Nashville, TN USA
 email: marcus.h.mendenhall@vanderbilt.edu
 Work supported by the US DoD  MFEL program under grant FA9550-04-1-0045
-version $Id: C2Functions.py,v 1.26 2005-08-09 15:38:21 mendenhall Exp $
+version $Id: C2Functions.py,v 1.27 2005-08-11 01:32:21 mendenhall Exp $
 """
-_rcsid="$Id: C2Functions.py,v 1.26 2005-08-09 15:38:21 mendenhall Exp $"
+_rcsid="$Id: C2Functions.py,v 1.27 2005-08-11 01:32:21 mendenhall Exp $"
 
 import math
 import operator
@@ -222,11 +222,11 @@ class C2Function:
 
 			if derivs==2:
 				#use ninth-order estimates for each side, from full set of all values (!) (Thanks, Mathematica!)
-				left=	( ( (169*ypp0 + 1024*ypp1 - 41*ypp2)*dx2+ (2727*yp0 - 5040*yp1 + 423*yp2) )*dx2 + (17007*y0 + 24576*y1 - 1263*y2) )* (dx2/40320.0)
-				right=	( ( (-41*ypp0 + 1024*ypp1 + 169*ypp2)*dx2+ (-423*yp0 + 5040*yp1 - 2727*yp2) )*dx2 + (-1263*y0 + 24576*y1 + 17007*y2) )* (dx2/40320.0)			
+				left=	( ( (169*ypp0 + 1024*ypp1 - 41*ypp2)*dx2 + (2727*yp0 - 5040*yp1 + 423*yp2) )*dx2 + (17007*y0 + 24576*y1 - 1263*y2) )* (dx2/40320.0)
+				right=	( ( (169*ypp2 + 1024*ypp1 - 41*ypp0)*dx2 - (2727*yp2 - 5040*yp1 + 423*yp0) )*dx2 + (17007*y2 + 24576*y1 - 1263*y0) )* (dx2/40320.0)
 			elif derivs==1:
 				left= 	( (202*y0 + 256*y1 + 22*y2) + dx*(13*yp0 - 40*yp1 - 3*yp2) ) * dx /960.
-				right= 	( (22*y0 + 256*y1 + 202*y2) + dx *(3*yp0 + 40*yp1 - 13*yp2) ) * dx /960.
+				right= 	( (202*y2 + 256*y1 + 22*y0) - dx*(13*yp2 - 40*yp1 - 3*yp0) ) * dx /960.
 			else:
 				left=	(5*y0 + 8*y1 - y2)*dx/24.
 				right=	(5*y2 + 8*y1 - y0)*dx/24.
@@ -486,6 +486,7 @@ class InterpolatingFunction(C2Function):
 	XConversions=None
 	name='data'
 	ClassName='InterpolatingFunction'
+		
 	def __init__(self, x, y, lowerSlope=None, upperSlope=None, XConversions=None, YConversions=None):
 		C2Function.__init__(self) #just on general principle, right now this does nothing
 		self.SetDomain(min(x), max(x))
@@ -522,7 +523,7 @@ class InterpolatingFunction(C2Function):
 				self.F=self.F[::-1]
 				self.xInverted=True
 				lowerSlope, upperSlope=upperSlope, lowerSlope
-
+			
 		if not self.xInverted:
 			self.SetLowerExtrapolation=self.SetLeftExtrapolation
 			self.SetUpperExtrapolation=self.SetRightExtrapolation
@@ -731,17 +732,22 @@ class InverseIntegratedDensity(InterpolatingFunction):
 	IntermediateInterpolator=InterpolatingFunction
 	
 	def __init__(self, bincenters, binheights):
-		np=len(binheights)	
-		be=_numeric.array(bincenters)
-		bh=_numeric.array(binheights)
+		
+		if not isinstance(binheights, C2Function): #must be a data table, create interpolator
+			np=len(binheights)	
+			be=_numeric.array(bincenters)
+			bh=_numeric.array(binheights)
+				
+			reversed = be[1] < be[0]	#// check for backwards  channels
+		
+			if reversed:
+				be=be[::-1]
+				bh=bh[::-1]
+		
+			temp=self.IntermediateInterpolator(be, bh)		#// create a temporary InterpolatingFunction to integrate
+		else:
+			temp=binheights
 			
-		reversed = be[1] < be[0]	#// check for backwards  channels
-	
-		if reversed:
-			be=be[::-1]
-			bh=bh[::-1]
-	
-		temp=self.IntermediateInterpolator(be, bh)		#// create a temporary InterpolatingFunction to integrate
 		# integrate from first to last bin in original order, leaving results in integral
 		# ask for relative error of 1e-6 on each bin, with absolute error set to 0 (since we don't know the data scale).
 		integral=[0] + temp.partial_integrals(bincenters, 
@@ -755,7 +761,7 @@ class InverseIntegratedDensity(InterpolatingFunction):
 		integral[-1]=1.0 #force exact value on the boundary	
 		
 		InterpolatingFunction.__init__(self, integral, bincenters, 
-							lowerSlope=1.0/(scale*binheights[0]), upperSlope=1.0/(scale*binheights[-1])
+							lowerSlope=1.0/(scale*temp(bincenters[0])), upperSlope=1.0/(scale*temp(bincenters[-1]))
 				) 	# use integral as x axis in inverse function
 
 class LinLogInverseIntegratedDensity(InverseIntegratedDensity):
@@ -863,7 +869,7 @@ if __name__=="__main__":
 			print ("%6.2f %6.2f %6d %6d %6d "+3*"%20.15f ") % (order, x, n1, n2, n3, v1, v2, v3 )
 		
 
-	if 0:
+	if 1:
 		print "\nLogarithms  by integration"
 		
 		pc=3
@@ -951,8 +957,8 @@ if __name__=="__main__":
 		pp=f0.partial_integrals(_numeric.array(range(11), _numeric.Float)*0.1 + 20)
 		print pp, sum(pp)
 	
-	if 1:
-		print "\nTesting LinLogInverseIntegratedDensity"
+	if 0:
+		print "\nTesting LinLogInverseIntegratedDensity for 1/e^2"
 		energies=[float(2**(0.5*n)) for n in range(41)]
 		spect=[10000.0/(e*e) for e in energies]
 		
@@ -967,4 +973,20 @@ if __name__=="__main__":
 			r=(0.025*i)**2
 			mma=(e0*e1)/(r*e0 + e1 - r*e1)
 			print "%12.6f %12.4e %12.4e %12.4f " % (r, pf(r), mma, 100*(pf(r)-mma)/mma)
+		
+		print "\nTesting LinLogInverseIntegratedDensity for 1/e using a C2Function instead of a table"
+		energies=[float(2.0**n) for n in range(21)]
+		
+		e0=energies[-1]
+		e1=energies[0]
+				
+		pf=LinLogInverseIntegratedDensity(energies[::-1], C2PowerLaw(a=1000.0, b=-1))
+		
+		print energies[0], energies[-1]
+		
+		for i in range(41):
+			r=(0.025*i)**2
+			mma=e0*(e1/e0)**r
 			
+			print "%12.6f %12.4e %12.4e %12.4e " % (r, pf(r), mma, 100*(pf(r)-mma)/mma)
+	
