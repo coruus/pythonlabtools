@@ -12,9 +12,9 @@ C2Functions can be combined with unary operators (nested functions) or binary op
 Developed by Marcus H. Mendenhall, Vanderbilt University Keck Free Electron Laser Center, Nashville, TN USA
 email: marcus.h.mendenhall@vanderbilt.edu
 Work supported by the US DoD  MFEL program under grant FA9550-04-1-0045
-version $Id: C2Functions.py,v 1.28 2005-08-11 21:37:54 mendenhall Exp $
+version $Id: C2Functions.py,v 1.29 2005-08-12 00:07:12 mendenhall Exp $
 """
-_rcsid="$Id: C2Functions.py,v 1.28 2005-08-11 21:37:54 mendenhall Exp $"
+_rcsid="$Id: C2Functions.py,v 1.29 2005-08-12 00:07:12 mendenhall Exp $"
 
 import math
 import operator
@@ -272,9 +272,8 @@ class C2Function:
 			sg=self.sampling_grid
 			
 			firstindex, lastindex=_numeric.searchsorted(sg, (xmin, xmax))
-			lastindex=lastindex-1
 						
-			grid=[xmin]+list(sg[firstindex:lastindex+1])+[xmax] #insert points  from source grid to destination into the middle of our grid
+			grid=[xmin]+list(sg[firstindex:lastindex])+[xmax] #insert points  from source grid to destination into the middle of our grid
 			
 			if len(grid) > 2 : #attempt to clear out points put too close together at the beginning, if we have at least three points
 				x0, x1, x2 = grid[:3]
