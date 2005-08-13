@@ -12,9 +12,9 @@ C2Functions can be combined with unary operators (nested functions) or binary op
 Developed by Marcus H. Mendenhall, Vanderbilt University Keck Free Electron Laser Center, Nashville, TN USA
 email: marcus.h.mendenhall@vanderbilt.edu
 Work supported by the US DoD  MFEL program under grant FA9550-04-1-0045
-version $Id: C2Functions.py,v 1.29 2005-08-12 00:07:12 mendenhall Exp $
+version $Id: C2Functions.py,v 1.30 2005-08-13 16:49:10 mendenhall Exp $
 """
-_rcsid="$Id: C2Functions.py,v 1.29 2005-08-12 00:07:12 mendenhall Exp $"
+_rcsid="$Id: C2Functions.py,v 1.30 2005-08-13 16:49:10 mendenhall Exp $"
 
 import math
 import operator
@@ -830,6 +830,117 @@ class LinLogInverseIntegratedDensity(InverseIntegratedDensity):
 	YConversions=LogConversions
 	IntermediateInterpolator=LogLogInterpolatingFunction
 
+
+class C2LHopitalRatio(C2Ratio):
+	"""C2LHopitalRatio(a,b) returns a new C2Function which evaluates as a/b with special care near zeros of the denominator.
+		It caches coefficients once it has found a zero, and evaluates very quickly afterwards near that point.
+	"""
+	name='/'
+	
+	#these are tuning parameters.  Mostly, epsx1 is the touchiest, to get the right second derivative at the crossing
+	#eps0 sets the range around a denominator zero which triggers L'Hopital's rule.  If abs(dx) < eps0*x, the rule is used
+	epsx1=1e-4
+	epsx2=1e-4
+	eps0=1e-5
+	eps1=1e-14
+	dblmin=2e-308
+	cache=None
+	
+	def dxsolve(self, x, y, yp, ypp):
+		"find a very nearby zero of a function based on its derivatives"
+		a=ypp/2	#second derivative is 2*a
+		b=yp
+		c=y
+		
+		disc=b*b-4*a*c
+		if disc >= 0:
+			if b>=0:
+				q=-0.5*(b+math.sqrt(disc))
+			else:
+				q=-0.5*(b-math.sqrt(disc))
+
+			if q*q > abs(a*c): delta=c/q	#since x1=q/a, x2=c/q, x1/x2=q^2/ac, this picks smaller step first
+			else: delta=q/a
+		else:
+			raise C2Exception("Thought a root should be near x= %g, didn't find one" % x)
+		
+		return delta
+	
+	def ratio(self, y0, y1, yp0, yp1, ypp0, ypp1):
+		return y0/y1, (yp0*y1-y0*yp1)/(y1*y1), (y1*y1*ypp0+y0*(2*yp1*yp1-y1*ypp1)-2*y1*yp0*yp1)/(y1*y1*y1)
+		
+
+	def combine(self, x):
+		
+		cache=self.cache
+		if cache is None or x < cache[0] or x > cache[2]:  #can't get it out of cahce, must compute something
+			y0, yp0, ypp0=self.left.value_with_derivatives(x)
+			y1, yp1, ypp1=self.right.value_with_derivatives(x)
+			
+			if  ( abs(y1) < self.eps0*abs(yp1)*(abs(x)+self.dblmin) ): # paranoid check for relative proximity to a simple denominator zero
+				dx0=self.dxsolve(x, y0, yp0, ypp0)
+				dx1=self.dxsolve(x, y1, yp1, ypp1)
+									
+				if abs(dx1-dx0) > self.eps1*abs(x):
+					raise C2Functions.C2Exception("y/0 found at x=%g in LHopitalRatio" % x)
+						
+				dx=abs(x)*self.epsx1+self.epsx2
+				
+				#compute the walls of the region to be fixed with l'Hopital
+				x1=x+dx1
+				x0=x1-dx
+				x2=x1+dx 
+		
+				y0, yp0, ypp0=C2Ratio.combine(self, x0) #get left wall values from conventional computation
+				y2, yp2, ypp2=C2Ratio.combine(self, x2) #get right wall values						
+				
+				yy0, yyp0, yypp0=self.left.value_with_derivatives(x1)
+				yy1, yyp1, yypp1=self.right.value_with_derivatives(x1)
+				#now use L'Hopital's rule to find function at the center
+				y1=yyp0/yyp1
+								
+				#scale derivs to put function on [-1,1] since mma  solution is done this way
+				yp0*=dx
+				yp2*=dx
+				ypp0*=dx*dx
+				ypp2*=dx*dx
+				
+				#y[x_] = y1 + x (a x-b) + (x-1) x (x+1) (c + d x + e x^2 + f x^3)
+				coefs=( y1, 
+					(y0 - 2*y1 + y2)/2.,
+					(y0 - y2)/2.,
+					(7*y0 - 7*y2 + 7*yp0 + 7*yp2 + ypp0 - ypp2)/16.,
+					(-16*y0 + 32*y1 - 16*y2 - 9*yp0 + 9*yp2 - ypp0 - ypp2)/16.,
+					(-3*y0 + 3*y2 - 3*yp0 - 3*yp2 - ypp0 + ypp2)/16.,
+					(8*y0 - 16*y1 + 8*y2 + 5*yp0 - 5*yp2 + ypp0 + ypp2)/16.
+				)
+				#y'[x] = -b + 2 a x + (3x^2 - 1)   (c + d x + e x^2 + f x^3) + (x-1) x (x+1) (d + 2 e x + 3 f x^2 )
+				#y''[x] = 2a + (x-1) x (x+1) (2 e + 6 f x) + 2 (3 x^2 -1) (d + 2 e x + 3 f x^2 ) + 6 x (c + d x + e x^2 + f x^3)
+				
+				self.cache=x0,x1,x2, coefs
+				
+			else: #not close to a zero of the denominator... compute conventional answer for ratio
+				return y0/y1, (yp0*y1-y0*yp1)/(y1*y1), (y1*y1*ypp0+y0*(2*yp1*yp1-y1*ypp1)-2*y1*yp0*yp1)/(y1*y1*y1)
+
+		#if we get here, the poly coefficients are ready to go. 
+		x0, x1, x2, (y1, a,b,c,d,e,f)=self.cache
+		
+		dx0=x1-x0
+		dx=(x-x1)/dx0
+		
+		q1=c + dx*(d + dx*(e + dx*f))
+		q2 =d + dx*(2*e + dx*3*f)	
+		q3=2*e+6*f*dx
+		
+		xp1=(dx-1)*(dx+1)*dx
+		xp2=(3*dx*dx-1)
+		
+		y= y1 + dx*(a*dx-b) + xp1*q1
+		yp=-b + 2*a*dx + xp2*q1 + xp1*q2
+		ypp=2*a+xp1*q3+2*xp2*q2+6*x*q1
+			
+		return y, yp/dx0, ypp/dx0/dx0
+
 if __name__=="__main__":
 	print _rcsid
 	def as(x): return _numeric.array_str(x, precision=3)
@@ -1052,7 +1163,7 @@ if __name__=="__main__":
 			
 			print "%12.6f %12.4e %12.4e %12.4e " % (r, pf(r), mma, 100*(pf(r)-mma)/mma)
 
-	if 1:
+	if 0:
 		fn=C2sin *2.0 #make a new function
 		print "\nInitial sampling grid =", 
 		grid=(0., 3., 6., 9., 12.)
@@ -1082,4 +1193,18 @@ if __name__=="__main__":
 		
 		print "integral of square of non-normalized and square-normalized function ", fn2.integral(0., 4.0*math.pi), gn2.integral(0., 4.0*math.pi)
 		
+	
+	if 1:
+		import math
+		print "\nL'Hopital's rule test"
+		for fn, fn0 in (
+			(C2LHopitalRatio(C2sin, C2Linear(y0=-math.pi) ) , lambda x: math.sin(x)/ (x-math.pi) ),
+			(C2LHopitalRatio(C2sin, C2Linear(y0=-math.pi)/C2Linear()), lambda x: math.sin(x)/ (x-math.pi) * x),
+			(C2LHopitalRatio(C2Linear()*C2sin, C2Linear(y0=-math.pi)), lambda x: math.sin(x)/ (x-math.pi) * x),	
+		):
+			print
+			for x in (0.1, 1, math.pi-0.1, math.pi-0.001, math.pi-1e-6, math.pi+1e-14, math.pi+1e-12):
+				y, yp, ypp=fn.value_with_derivatives(x)
+				print 5*"%22.15f" % ( x, y, yp, ypp, fn0(x) )
+			
 	
