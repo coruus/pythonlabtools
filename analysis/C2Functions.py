@@ -12,9 +12,9 @@ C2Functions can be combined with unary operators (nested functions) or binary op
 Developed by Marcus H. Mendenhall, Vanderbilt University Keck Free Electron Laser Center, Nashville, TN USA
 email: marcus.h.mendenhall@vanderbilt.edu
 Work supported by the US DoD  MFEL program under grant FA9550-04-1-0045
-version $Id: C2Functions.py,v 1.31 2005-08-13 17:01:43 mendenhall Exp $
+version $Id: C2Functions.py,v 1.32 2005-08-13 17:58:36 mendenhall Exp $
 """
-_rcsid="$Id: C2Functions.py,v 1.31 2005-08-13 17:01:43 mendenhall Exp $"
+_rcsid="$Id: C2Functions.py,v 1.32 2005-08-13 17:58:36 mendenhall Exp $"
 
 import math
 import operator
@@ -472,13 +472,10 @@ class C2BinaryFunction(C2Function):
 		else: p1, p2='', ''
 		self.name=p1+self.left.name+p2+self.name+self.right.name #put on parentheses to kepp hierachy obvious
 		
-	def value_with_derivatives(self, x):
-		return self.combine(x);
-
 class C2Sum(C2BinaryFunction):
 	"C2Sum(a,b) returns a new C2Function which evaluates as a+b"
 	name='+'
-	def combine(self, x):
+	def value_with_derivatives(self, x):
 		y0, yp0, ypp0=self.left.value_with_derivatives(x)
 		y1, yp1, ypp1=self.right.value_with_derivatives(x)
 		return y0+y1, yp0+yp1, ypp0+ypp1
@@ -486,7 +483,7 @@ class C2Sum(C2BinaryFunction):
 class C2Diff(C2BinaryFunction):
 	"C2Diff(a,b) returns a new C2Function which evaluates as a-b"
 	name='-'
-	def combine(self, x):
+	def value_with_derivatives(self, x):
 		y0, yp0, ypp0=self.left.value_with_derivatives(x)
 		y1, yp1, ypp1=self.right.value_with_derivatives(x)
 		return y0-y1, yp0-yp1, ypp0-ypp1
@@ -494,7 +491,7 @@ class C2Diff(C2BinaryFunction):
 class C2Product(C2BinaryFunction):
 	"C2Product(a,b) returns a new C2Function which evaluates as a*b"
 	name='*'
-	def combine(self, x):
+	def value_with_derivatives(self, x):
 		y0, yp0, ypp0=self.left.value_with_derivatives(x)
 		y1, yp1, ypp1=self.right.value_with_derivatives(x)
 		return y0*y1, y1*yp0+y0*yp1, ypp0*y1+2.0*yp0*yp1+ypp1*y0
@@ -502,7 +499,7 @@ class C2Product(C2BinaryFunction):
 class C2Ratio(C2BinaryFunction):
 	"C2Ratio(a,b) returns a new C2Function which evaluates as a/b"
 	name='/'
-	def combine(self, x):
+	def value_with_derivatives(self, x):
 		y0, yp0, ypp0=self.left.value_with_derivatives(x)
 		y1, yp1, ypp1=self.right.value_with_derivatives(x)
 		return y0/y1, (yp0*y1-y0*yp1)/(y1*y1), (y1*y1*ypp0+y0*(2*yp1*yp1-y1*ypp1)-2*y1*yp0*yp1)/(y1*y1*y1)
@@ -510,7 +507,7 @@ class C2Ratio(C2BinaryFunction):
 class C2Power(C2BinaryFunction):
 	"C2power(a,b) returns a new C2Function which evaluates as a^b where neither is necessarily constant.  Checks if b is constant, and optimizes if so"
 	name='^'
-	def combine(self, x):
+	def value_with_derivatives(self, x):
 		y0, yp0, ypp0=self.left.value_with_derivatives(x)
 		y1, yp1, ypp1=self.right.value_with_derivatives(x)
 		if isinstance(self.right, C2Constant): #all derivatives of right side are zero, save some time
@@ -866,7 +863,7 @@ class C2LHopitalRatio(C2Ratio):
 		
 		return delta
 	
-	def combine(self, x):
+	def value_with_derivatives(self, x):
 		"combine left and right functions into ratio, being very careful about zeros of the denominator"
 		cache=self.cache
 		if cache is None or x < cache[0] or x > cache[2]:  #can't get it out of cache, must compute something
@@ -887,8 +884,8 @@ class C2LHopitalRatio(C2Ratio):
 				x0=x1-dx
 				x2=x1+dx 
 		
-				y0, yp0, ypp0=C2Ratio.combine(self, x0) #get left wall values from conventional computation
-				y2, yp2, ypp2=C2Ratio.combine(self, x2) #get right wall values						
+				y0, yp0, ypp0=C2Ratio.value_with_derivatives(self, x0) #get left wall values from conventional computation
+				y2, yp2, ypp2=C2Ratio.value_with_derivatives(self, x2) #get right wall values						
 				
 				yy0, yyp0, yypp0=self.left.value_with_derivatives(x1)
 				yy1, yyp1, yypp1=self.right.value_with_derivatives(x1)
