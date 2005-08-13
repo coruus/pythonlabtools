@@ -12,9 +12,9 @@ C2Functions can be combined with unary operators (nested functions) or binary op
 Developed by Marcus H. Mendenhall, Vanderbilt University Keck Free Electron Laser Center, Nashville, TN USA
 email: marcus.h.mendenhall@vanderbilt.edu
 Work supported by the US DoD  MFEL program under grant FA9550-04-1-0045
-version $Id: C2Functions.py,v 1.30 2005-08-13 16:49:10 mendenhall Exp $
+version $Id: C2Functions.py,v 1.31 2005-08-13 17:01:43 mendenhall Exp $
 """
-_rcsid="$Id: C2Functions.py,v 1.30 2005-08-13 16:49:10 mendenhall Exp $"
+_rcsid="$Id: C2Functions.py,v 1.31 2005-08-13 17:01:43 mendenhall Exp $"
 
 import math
 import operator
@@ -866,14 +866,10 @@ class C2LHopitalRatio(C2Ratio):
 		
 		return delta
 	
-	def ratio(self, y0, y1, yp0, yp1, ypp0, ypp1):
-		return y0/y1, (yp0*y1-y0*yp1)/(y1*y1), (y1*y1*ypp0+y0*(2*yp1*yp1-y1*ypp1)-2*y1*yp0*yp1)/(y1*y1*y1)
-		
-
 	def combine(self, x):
-		
+		"combine left and right functions into ratio, being very careful about zeros of the denominator"
 		cache=self.cache
-		if cache is None or x < cache[0] or x > cache[2]:  #can't get it out of cahce, must compute something
+		if cache is None or x < cache[0] or x > cache[2]:  #can't get it out of cache, must compute something
 			y0, yp0, ypp0=self.left.value_with_derivatives(x)
 			y1, yp1, ypp1=self.right.value_with_derivatives(x)
 			
