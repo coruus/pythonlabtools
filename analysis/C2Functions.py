@@ -12,9 +12,9 @@ C2Functions can be combined with unary operators (nested functions) or binary op
 Developed by Marcus H. Mendenhall, Vanderbilt University Keck Free Electron Laser Center, Nashville, TN USA
 email: marcus.h.mendenhall@vanderbilt.edu
 Work supported by the US DoD  MFEL program under grant FA9550-04-1-0045
-version $Id: C2Functions.py,v 1.32 2005-08-13 17:58:36 mendenhall Exp $
+version $Id: C2Functions.py,v 1.33 2005-08-17 20:03:55 mendenhall Exp $
 """
-_rcsid="$Id: C2Functions.py,v 1.32 2005-08-13 17:58:36 mendenhall Exp $"
+_rcsid="$Id: C2Functions.py,v 1.33 2005-08-17 20:03:55 mendenhall Exp $"
 
 import math
 import operator
@@ -898,17 +898,17 @@ class C2LHopitalRatio(C2Ratio):
 				ypp0*=dx*dx
 				ypp2*=dx*dx
 				
-				#y[x_] = y1 + x (a x-b) + (x-1) x (x+1) (c + d x + e x^2 + f x^3)
+				#y[x_] = y1 + x (a + b x) + (x-1) x (x+1) (c + d x + e x^2 + f x^3)
 				coefs=( y1, 
+					-(y0 - y2)/2.,
 					(y0 - 2*y1 + y2)/2.,
-					(y0 - y2)/2.,
 					(7*y0 - 7*y2 + 7*yp0 + 7*yp2 + ypp0 - ypp2)/16.,
 					(-16*y0 + 32*y1 - 16*y2 - 9*yp0 + 9*yp2 - ypp0 - ypp2)/16.,
 					(-3*y0 + 3*y2 - 3*yp0 - 3*yp2 - ypp0 + ypp2)/16.,
 					(8*y0 - 16*y1 + 8*y2 + 5*yp0 - 5*yp2 + ypp0 + ypp2)/16.
 				)
-				#y'[x] = -b + 2 a x + (3x^2 - 1)   (c + d x + e x^2 + f x^3) + (x-1) x (x+1) (d + 2 e x + 3 f x^2 )
-				#y''[x] = 2a + (x-1) x (x+1) (2 e + 6 f x) + 2 (3 x^2 -1) (d + 2 e x + 3 f x^2 ) + 6 x (c + d x + e x^2 + f x^3)
+				#y'[x] = a + 2 b x + (3x^2 - 1)   (c + d x + e x^2 + f x^3) + (x-1) x (x+1) (d + 2 e x + 3 f x^2 )
+				#y''[x] = 2b + (x-1) x (x+1) (2 e + 6 f x) + 2 (3 x^2 -1) (d + 2 e x + 3 f x^2 ) + 6 x (c + d x + e x^2 + f x^3)
 				
 				self.cache=x0,x1,x2, coefs
 				
@@ -929,8 +929,8 @@ class C2LHopitalRatio(C2Ratio):
 		xp2=(3*dx*dx-1)
 		
 		y= y1 + dx*(a*dx-b) + xp1*q1
-		yp=-b + 2*a*dx + xp2*q1 + xp1*q2
-		ypp=2*a+xp1*q3+2*xp2*q2+6*x*q1
+		yp=a + 2*b*dx + xp2*q1 + xp1*q2
+		ypp=2*b+xp1*q3+2*xp2*q2+6*x*q1
 			
 		return y, yp/dx0, ypp/dx0/dx0
 
