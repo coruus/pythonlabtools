@@ -12,9 +12,9 @@ C2Functions can be combined with unary operators (nested functions) or binary op
 Developed by Marcus H. Mendenhall, Vanderbilt University Keck Free Electron Laser Center, Nashville, TN USA
 email: marcus.h.mendenhall@vanderbilt.edu
 Work supported by the US DoD  MFEL program under grant FA9550-04-1-0045
-version $Id: C2Functions.py,v 1.33 2005-08-17 20:03:55 mendenhall Exp $
+version $Id: C2Functions.py,v 1.34 2005-08-24 15:58:39 mendenhall Exp $
 """
-_rcsid="$Id: C2Functions.py,v 1.33 2005-08-17 20:03:55 mendenhall Exp $"
+_rcsid="$Id: C2Functions.py,v 1.34 2005-08-24 15:58:39 mendenhall Exp $"
 
 import math
 import operator
@@ -22,8 +22,6 @@ import types
 
 import Numeric as _numeric #makes it easy to change to NumArray later
 _myfuncs=_numeric #can change to math for (possibly greater) speed (?) but no vectorized evaluation
-
-from analysis import spline as _spline #also for later flexibility
 
 class C2Exception(Exception):
 	pass
@@ -526,7 +524,126 @@ class C2Power(C2BinaryFunction):
 			yp=ab1*(yp0*y1+y0*yp1*loga)
 			ypp=ab2*(y1*(y1-1)*yp0*yp0+2*y0*yp0*yp1*(1.0+y1*loga)+y0*(y1*ypp0+y0*(ypp1+yp1*yp1*loga)*loga))
 			return ab, yp, ypp
+
+#the following spline utilities are directly from pythonlabtools.analysis.spline, version "spline.py,v 1.23 2005/07/13 14:24:58 mendenhall Release-20050805"
+#and are copied here to reduce paxckage interdependency
+
+def _spline(x, y, yp1=None, ypn=None):
+	"""y2 = spline(x_vals,y_vals, yp1=None, ypn=None) 
+	returns the y2 table for the spline as needed by splint()"""
+
+	n=len(x)
+	u=_numeric.zeros(n,Float)
+	y2=_numeric.zeros(n,Float)
 	
+	x=_numeric.asarray(x, Float)
+	y=_numeric.asarray(y, Float)
+	
+	dx=x[1:]-x[:-1]
+	dxi=1.0/dx
+	dx2i=1.0/(x[2:]-x[:-2])
+	dy=(y[1:]-y[:-1])
+	siga=dx[:-1]*dx2i
+	dydx=dy*dxi
+	
+	# u[i]=(y[i+1]-y[i])/float(x[i+1]-x[i]) - (y[i]-y[i-1])/float(x[i]-x[i-1])
+	u[1:-1]=dydx[1:]-dydx[:-1] #this is an incomplete rendering of u... the rest requires recursion in the loop
+	
+	if yp1 is None:
+		y2[0]=u[0]=0.0
+	else:
+		y2[0]= -0.5
+		u[0]=(3.0*dxi[0])*(dy[0]*dxi[0] -yp1)
+
+	for i in range(1,n-1):
+		sig=siga[i-1]
+		p=sig*y2[i-1]+2.0
+		y2[i]=(sig-1.0)/p
+		u[i]=(6.0*u[i]*dx2i[i-1] - sig*u[i-1])/p
+
+	if ypn is None:
+		qn=un=0.0
+	else:
+		qn= 0.5
+		un=(3.0*dxi[-1])*(ypn- dy[-1]*dxi[-1] )
+		
+	y2[-1]=(un-qn*u[-2])/(qn*y2[-2]+1.0)
+	for k in range(n-2,-1,-1):
+		y2[k]=y2[k]*y2[k+1]+u[k]
+
+	return y2
+
+def _spline_extension(x, y, y2, xmin=None, xmax=None):
+	"""x, y, y2 = spline_extension(x_vals,y_vals, y2vals, xmin=None, xmax=None) 
+	returns the x, y, y2 table for the spline as needed by splint() with adjustments to allow quadratic extrapolation 
+	outside the range x[0]-x[-1], from xmin (or x[0] if xmin is None) to xmax (or x[-1] if xmax is None),
+	working from x, y, y2 from an already-created spline"""
+
+	xl=[x]
+	yl=[y]
+	y2l=[y2]
+	
+	if xmin is not None:
+		h0=x[1]-x[0]
+		h1=xmin-x[0]
+		yextrap=y[0]+((y[1]-y[0])/h0 - h0*(y2[0]+2.0*y2[1])/6.0)*h1+y2[0]*h1*h1/2.0
+		yl.insert(0, (yextrap,))
+		xl.insert(0, (xmin,))
+		y2l.insert(0, (y2[0],))
+
+	if xmax is not None:
+		h0=x[-1]-x[-2]
+		h1=xmax-x[-1]
+		yextrap=y[-1]+((y[-1]-y[-2])/h0 + h0*(2.0*y2[-2]+y2[-1])/6.0)*h1+y2[-1]*h1*h1/2.0
+		yl.append((yextrap,))
+		xl.append((xmax,))
+		y2l.append((y2[-1],))
+
+	return _numeric.concatenate(xl), Numeric.concatenate(yl), Numeric.concatenate(y2l)
+
+import types
+
+def _splint(xa, ya, y2a, x, derivs=False):
+	"""returns the interpolated from from the spline
+	x can either be a scalar or a listable item, in which case a Numeric Float array will be
+	returned and the multiple interpolations will be done somewhat more efficiently.
+	If derivs is not False, return y, y', y'' instead of just y."""
+	if type(x) is types.IntType or type(x) is types.FloatType: 
+		if (x<xa[0] or x>xa[-1]):
+			raise RangeError, "%f not in range (%f, %f) in splint()" % (x, xa[0], xa[-1])
+			 
+		khi=max(_numeric.searchsorted(xa,x),1)
+		klo=khi-1
+		h=float(xa[khi]-xa[klo])
+		a=(xa[khi]-x)/h; b=1.0-a
+		ylo=ya[klo]; yhi=ya[khi]; y2lo=y2a[klo]; y2hi=y2a[khi]
+	else:
+		#if we got here, we are processing a list, and should do so more efficiently
+		if (min(x)<xa[0] or max(x)>xa[-1]):
+			raise RangeError, "(%f, %f) not in range (%f, %f) in splint()" % (min(x), max(x), xa[0], xa[-1])
+	
+		npoints=len(x)
+		khi=_numeric.clip(_numeric.searchsorted(xa,x),1,len(xa)) 
+		
+		klo=khi-1
+		xhi=_numeric.take(xa, khi)
+		xlo=_numeric.take(xa, klo)
+		yhi=_numeric.take(ya, khi)
+		ylo=_numeric.take(ya, klo)
+		y2hi=_numeric.take(y2a, khi)
+		y2lo=_numeric.take(y2a, klo)
+		
+		h=(xhi-xlo).astype(Float)
+		a=(xhi-x)/h
+		b=1.0-a
+		
+	y=a*ylo+b*yhi+((a*a*a-a)*y2lo+(b*b*b-b)*y2hi)*(h*h)/6.0
+	if derivs:
+		return y, (yhi-ylo)/h+((3*b*b-1)*y2hi-(3*a*a-1)*y2lo)*h/6.0, b*y2hi+a*y2lo
+	else:
+		return y
+
+
 class InterpolatingFunction(C2Function):
 	"""An InterpolatingFunction stores a cubic spline representation of a set of x,y pairs.
 		It can also transform the variable on input and output, so that the underlying spline may live in log-log space, 
@@ -596,11 +713,11 @@ class InterpolatingFunction(C2Function):
 				_numeric.array_str(self.X))
 			
 
-		self.y2=_spline.spline(self.X, self.F, yp1=lowerSlope, ypn=upperSlope)
+		self.y2=_spline(self.X, self.F, yp1=lowerSlope, ypn=upperSlope)
 
 	def value_with_derivatives(self, x): 
 		if self.xNonLin or self.yNonLin: #skip this if this is a completely untransformed spline
-			y0, yp0, ypp0=_spline.splint(self.X, self.F, self.y2, self.fXin(x), derivs=True)
+			y0, yp0, ypp0=_splint(self.X, self.F, self.y2, self.fXin(x), derivs=True)
 			y=self.fYout(y0)
 			fpi=1.0/self.fYinP(y)
 			gp=self.fXinP(x)
@@ -613,7 +730,7 @@ class InterpolatingFunction(C2Function):
 			yprimeprime=(gp*gp*ypp0 + yp0*gpp - gp*gp*yp0*yp0*fpp*fpi*fpi)*fpi; 
 			return y, yprime, yprimeprime
 		else:
-			return _spline.splint(self.X, self.F, self.y2, x, derivs=True)
+			return _splint(self.X, self.F, self.y2, x, derivs=True)
 
 	def SetLeftExtrapolation(self, bound):
 		"""Set extrapolation on left end of data set.  
@@ -624,7 +741,7 @@ class InterpolatingFunction(C2Function):
 			raise C2Exception("Attempting to extrapolate spline within its current range: bound = %g, bounds [%g, %g]" % 
 				((bound,) + self.GetDomain()) )
 		
-		self.X, self.F, self.y2=_spline.spline_extension(self.X, self.F, self.y2, xmin=xmin)
+		self.X, self.F, self.y2=_spline_extension(self.X, self.F, self.y2, xmin=xmin)
 		self.Xraw=_numeric.concatenate(((bound, ), self.Xraw))
 		self.SetDomain(min(self.Xraw), max(self.Xraw))
 		
@@ -637,7 +754,7 @@ class InterpolatingFunction(C2Function):
 			raise C2Exception("Attempting to extrapolate spline within its current range: bound = %g, bounds [%g, %g]" % 
 				((bound,) + self.GetDomain()) )
 
-		self.X, self.F, self.y2=_spline.spline_extension(self.X, self.F, self.y2, xmax=xmax)
+		self.X, self.F, self.y2=_spline_extension(self.X, self.F, self.y2, xmax=xmax)
 		self.Xraw=_numeric.concatenate((self.Xraw, (bound, )))
 		self.SetDomain(min(self.Xraw), max(self.Xraw))
 
@@ -875,7 +992,7 @@ class C2LHopitalRatio(C2Ratio):
 				dx1=self.dxsolve(x, y1, yp1, ypp1)
 									
 				if abs(dx1-dx0) > self.eps1*abs(x):
-					raise C2Functions.C2Exception("y/0 found at x=%g in LHopitalRatio" % x)
+					raise C2Exception("y/0 found at x=%g in LHopitalRatio" % x)
 						
 				dx=abs(x)*self.epsx1+self.epsx2
 				
@@ -928,7 +1045,7 @@ class C2LHopitalRatio(C2Ratio):
 		xp1=(dx-1)*(dx+1)*dx
 		xp2=(3*dx*dx-1)
 		
-		y= y1 + dx*(a*dx-b) + xp1*q1
+		y= y1 + dx*(a+b*dx) + xp1*q1
 		yp=a + 2*b*dx + xp2*q1 + xp1*q2
 		ypp=2*b+xp1*q3+2*xp2*q2+6*x*q1
 			
@@ -1196,6 +1313,7 @@ if __name__=="__main__":
 			(C2LHopitalRatio(C2Linear()*C2sin, C2Linear(y0=-math.pi)), lambda x: math.sin(x)/ (x-math.pi) * x),	
 		):
 			print
+			print fn
 			for x in (0.1, 1, math.pi-0.1, math.pi-0.001, math.pi-1e-6, math.pi+1e-14, math.pi+1e-12):
 				y, yp, ypp=fn.value_with_derivatives(x)
 				print 5*"%22.15f" % ( x, y, yp, ypp, fn0(x) )
