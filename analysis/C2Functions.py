@@ -12,9 +12,9 @@ C2Functions can be combined with unary operators (nested functions) or binary op
 Developed by Marcus H. Mendenhall, Vanderbilt University Keck Free Electron Laser Center, Nashville, TN USA
 email: marcus.h.mendenhall@vanderbilt.edu
 Work supported by the US DoD  MFEL program under grant FA9550-04-1-0045
-version $Id: C2Functions.py,v 1.34 2005-08-24 15:58:39 mendenhall Exp $
+version $Id: C2Functions.py,v 1.35 2005-12-31 15:24:59 mendenhall Exp $
 """
-_rcsid="$Id: C2Functions.py,v 1.34 2005-08-24 15:58:39 mendenhall Exp $"
+_rcsid="$Id: C2Functions.py,v 1.35 2005-12-31 15:24:59 mendenhall Exp $"
 
 import math
 import operator
@@ -533,11 +533,11 @@ def _spline(x, y, yp1=None, ypn=None):
 	returns the y2 table for the spline as needed by splint()"""
 
 	n=len(x)
-	u=_numeric.zeros(n,Float)
-	y2=_numeric.zeros(n,Float)
+	u=_numeric.zeros(n,_numeric.Float)
+	y2=_numeric.zeros(n,_numeric.Float)
 	
-	x=_numeric.asarray(x, Float)
-	y=_numeric.asarray(y, Float)
+	x=_numeric.asarray(x, _numeric.Float)
+	y=_numeric.asarray(y, _numeric.Float)
 	
 	dx=x[1:]-x[:-1]
 	dxi=1.0/dx
