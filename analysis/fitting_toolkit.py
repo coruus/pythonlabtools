@@ -110,7 +110,7 @@ If analytic derivatives are desired, do, e.g.
 
 """
 
-_rcsid="$Id: fitting_toolkit.py,v 1.9 2003-10-03 17:45:40 mendenhall Exp $"
+_rcsid="$Id: fitting_toolkit.py,v 1.10 2005-12-31 15:03:22 mendenhall Exp $"
 
 import Numeric
 import random
@@ -405,6 +405,7 @@ class fit:
 			
 		save_chi2=self.chi2
 		save_params=self.funcparams
+		save_vals=self.funcvals
 		self.hessian_compute_fit(self.lm_lambda)
 		self.lm_lambda_recipe(save_chi2, self.chi2)
 		if save_chi2 < self.chi2: #ouch, bad step, back up
@@ -412,6 +413,7 @@ class fit:
 				print "rejected step: old chi2=%.3e, new chi2=%.3e, lambda=%.3e" % (save_chi2, self.chi2, self.lm_lambda)
 				print "params =", self.funcparams
 			self.funcparams=save_params
+			self.funcvals=save_vals
 			self.chi2=save_chi2
 			return 1 #flag rejected step
 		else:
@@ -445,8 +447,11 @@ class fit:
 			
 		save_chi2=self.chi2
 		save_params=self.funcparams
+		save_vals=self.funcvals
 		try:
 			self.svd_hessian_compute_fit(self.svd_damping)
+		except KeyboardInterrupt:
+			raise
 		except:
 			self.chi2=2.0*save_chi2 #just consider a failure to be a bad step
 		self.svd_damping_recipe(save_chi2, self.chi2)
@@ -456,6 +461,7 @@ class fit:
 				print "params =", self.funcparams
 			self.funcparams=save_params
 			self.chi2=save_chi2
+			self.funcvals=save_vals
 			return 1 #flag rejected step
 		else:
 			if trace:
@@ -474,7 +480,7 @@ class linear_combination_fit(fit):
 		if self.firstpass: #first call from hessian_fit is meaningless, all coefficients zero, save time
 			return 0.0
 
-		sumarray=Numeric.zeros(len(x), self.atype)
+		sumarray=Numeric.zeros(x.shape[-1], self.atype)
 		for i in range(self.param_count):
 			sumarray+=p[i]*self.basis[i](i, x)
 		return sumarray
