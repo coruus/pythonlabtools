@@ -4,7 +4,7 @@ diffraction gratings, etc., and run a laser beam through it.
 It correctly handles off-axis optics of most types (tilted lenses & mirrors, e.g.).
 It has been used to model a 10 Joule Nd:Glass CPA system at Vanderbilt University, for example
 """
-_rcsid="$Id: general_optics.py,v 1.10 2005-07-01 14:02:47 mendenhall Exp $"
+_rcsid="$Id: general_optics.py,v 1.11 2006-01-05 18:27:42 mendenhall Exp $"
 
 from math import *
 import math
@@ -454,7 +454,7 @@ class beam:
 			qiprime=dot(xyt, dot(qi.qit, tr(xyt)))
 			return qiprime[0,0], qiprime[1,1]
 
-class general_optic:
+class general_optic(object):
 	"general_optic a a class which provides coordinate-system and transport support for many 'atomic' optics types such as thin lenses, mirrors, and gratings"
 	def __init__(self, name, center=(0,0,0), angle=0, **extras):
 		"set up our name, center position, and angle, and any extra keyword, value pairs.  See general_optic.reset_angle for the meaning of the angle"
@@ -554,8 +554,13 @@ class general_optic:
 		dx, dy, dz=tuple(self.beam.local_x0) #dz should always be zero in these coordinates
 		x1,xp1, y1, yp1 =self.abcd_transform((dx, xp, dy, yp))
 		sx=-(xp1-xp) #this is sort of a sine of a rotation angle of x about y, with the right sign
+		if abs(sx) > 0.25:
+			raise ValueError("x-angle is too big to by paraxial... %.3f" % sx)
+			
 		cx=math.sqrt(1-sx*sx)
 		sy=-(yp1-yp) #this is sort of a sine of a rotation angle of y about x, with the right sign
+		if abs(sy) > 0.25:
+			raise ValueError("y-angle is too big to by paraxial... %.3f" % sy)
 		cy=math.sqrt(1-sy*sy)
 		rot=dot(ar(((cx, 0, -sx),(0,1,0),(sx,0,cx))),ar(((1,0,0),(0,cy,-sy),(0,sy,cy))))
 		self.beam.transform(self.globalize_transform(rot))
@@ -1021,9 +1026,9 @@ class spherical_mirror(reflector, base_lens):
 		if not hasattr(self,'width'): self.width=0.0254
 		if not hasattr(self,'height'): self.height=0.0254
 		
-	def local_transform(self, beam):
+	def local_transform(self):
 		general_optic.local_transform(self) #pick up our abcd transform for the lens
-		reflector.local_transform(self) #and do the reflection
+		base_reflector.local_transform(self) #and do the reflection
 	
 	def __str__(self):
 		return self.format_name()+self.reflector_info+" "+self.base_lens_info+" "+self.format_geometry()
