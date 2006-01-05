@@ -4,7 +4,7 @@ diffraction gratings, etc., and run a laser beam through it.
 It correctly handles off-axis optics of most types (tilted lenses & mirrors, e.g.).
 It has been used to model a 10 Joule Nd:Glass CPA system at Vanderbilt University, for example
 """
-_rcsid="$Id: general_optics.py,v 1.11 2006-01-05 18:27:42 mendenhall Exp $"
+_rcsid="$Id: general_optics.py,v 1.12 2006-01-05 19:44:08 mendenhall Exp $"
 
 from math import *
 import math
@@ -1029,6 +1029,10 @@ class spherical_mirror(reflector, base_lens):
 	def local_transform(self):
 		general_optic.local_transform(self) #pick up our abcd transform for the lens
 		base_reflector.local_transform(self) #and do the reflection
+
+	def q_transform(self):
+		"apply our q-transform to a localized beam, making sure this is found at the right level by general_optic"
+		self.beam.q.focus(self.strength) #it's easy!
 	
 	def __str__(self):
 		return self.format_name()+self.reflector_info+" "+self.base_lens_info+" "+self.format_geometry()
