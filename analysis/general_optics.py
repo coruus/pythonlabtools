@@ -4,7 +4,7 @@ diffraction gratings, etc., and run a laser beam through it.
 It correctly handles off-axis optics of most types (tilted lenses & mirrors, e.g.).
 It has been used to model a 10 Joule Nd:Glass CPA system at Vanderbilt University, for example
 """
-_rcsid="$Id: general_optics.py,v 1.12 2006-01-05 19:44:08 mendenhall Exp $"
+_rcsid="$Id: general_optics.py,v 1.13 2006-01-10 21:42:52 mendenhall Exp $"
 
 from math import *
 import math
@@ -256,7 +256,7 @@ class qtens:
 
 	def clone(self, newname=None):
 		"make a complete clone of ourself"
-		q=copy.deepcopy(self)
+		q=copy.copy(self)
 		if newname is not None:
 			q.name=newname
 		return q
@@ -318,9 +318,9 @@ class beam:
 	def free_drift(self, distance):
 		"allow the beam to step forward a specified distance, and set some variables which can be recorded in a marker, if desired" 
 		self.q.drift(distance)
-		self.total_drift+=distance
-		self.x0+=self.direction()*distance
-		self.total_drift_time+=distance*self.q.medium_index
+		self.total_drift=self.total_drift+distance
+		self.x0=self.x0+self.direction()*distance
+		self.total_drift_time=self.total_drift_time+distance*self.q.medium_index
 		self.incoming_q=self.q.clone()
 		self.footprint_q=self.q.clone()
 		return self
@@ -384,8 +384,10 @@ class beam:
 	
 	def clone(self):
 		"make a complete clone of the beam"
-		return copy.deepcopy(self)
-	
+		b=copy.copy(self)
+		b.q=copy.copy(self.q) #copy q a little deeper
+		return b
+		
 	def clone_no_marks(self):
 		"make a clone of the beam without any marks.  This is used by the marks system to embed non-recursive snapshots of the beam into the marks array"
 		marks=self.marks
@@ -764,7 +766,7 @@ class general_optic(object):
 		return self
 		
 	def clone(self, newname=None):
-		a=copy.deepcopy(self)
+		a=copy.copy(self)
 		if newname is not None:
 			a.name=newname
 		return a
