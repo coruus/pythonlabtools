@@ -4,7 +4,7 @@ diffraction gratings, etc., and run a laser beam through it.
 It correctly handles off-axis optics of most types (tilted lenses & mirrors, e.g.).
 It has been used to model a 10 Joule Nd:Glass CPA system at Vanderbilt University, for example
 """
-_rcsid="$Id: general_optics.py,v 1.13 2006-01-10 21:42:52 mendenhall Exp $"
+_rcsid="general_optics.py,v 1.13 2006/01/10 21:42:52 mendenhall Exp"
 
 from math import *
 import math
@@ -368,7 +368,9 @@ class beam:
 		"transform the beam into a new coordinate system"
 		ar=Numeric.array
 		dot=Numeric.dot
-		self.matrix_to_global=dot(matrix, self.matrix_to_global)
+		mat=dot(matrix, self.matrix_to_global)
+		matl=[x/vec_mag(x) for x in mat] #make sure unit vectors stay that way!
+		self.matrix_to_global=Numeric.array(matl)
 			
 	def update_q(self, optic):
 		"update our q parameter for a given optic.  See qtens.qw for more info"
