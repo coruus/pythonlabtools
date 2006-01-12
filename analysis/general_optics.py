@@ -4,7 +4,7 @@ diffraction gratings, etc., and run a laser beam through it.
 It correctly handles off-axis optics of most types (tilted lenses & mirrors, e.g.).
 It has been used to model a 10 Joule Nd:Glass CPA system at Vanderbilt University, for example
 """
-_rcsid="general_optics.py,v 1.13 2006/01/10 21:42:52 mendenhall Exp"
+_rcsid="$Id: general_optics.py,v 1.15 2006-01-12 20:42:42 mendenhall Exp $"
 
 from math import *
 import math
