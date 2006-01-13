@@ -4,7 +4,7 @@ diffraction gratings, etc., and run a laser beam through it.
 It correctly handles off-axis optics of most types (tilted lenses & mirrors, e.g.).
 It has been used to model a 10 Joule Nd:Glass CPA system at Vanderbilt University, for example
 """
-_rcsid="$Id: general_optics.py,v 1.15 2006-01-12 20:42:42 mendenhall Exp $"
+_rcsid="$Id: general_optics.py,v 1.16 2006-01-13 15:12:13 mendenhall Exp $"
 
 from math import *
 import math
@@ -1018,8 +1018,9 @@ class dielectric_interface(general_optic, base_lens):
 			self.beam.q.focus(self.strength*(-self.medium_index/self.ambient_index))
 			
 
-class spherical_mirror(reflector, base_lens):
+class paraxial_spherical_mirror(reflector, base_lens):
 	"""spherical_mirror is a reflector which focuses.  
+	This is a paraxial approximation, and only makes sense for flairly 'flat' mirrors, for which the intersection can be computed by planar geometry.
 	Since base_lens (q.v.) also handles optics with different x&y strengths, this can represent cylinders and ellipses, too.
 	"""
 	def post_init(self):
@@ -1040,6 +1041,100 @@ class spherical_mirror(reflector, base_lens):
 	
 	def __str__(self):
 		return self.format_name()+self.reflector_info+" "+self.base_lens_info+" "+self.format_geometry()
+
+class spherical_mirror(reflector, base_lens):
+	"""spherical_mirror is a reflector which focuses.  This solves the exact intersection of a beam with the spherical surface, and is right even
+		for tilted mirrors and strong curvature.  For these mirrors, the width and height are assumed to be the same, and are important
+		since the decision about where the beam hits the mirror depends on these.  This logic is not fully implemented yet...
+		This is also a useful base class for other highly curved surfaces, since transform() handles dynamic geometry.
+	"""
+	def post_init(self):
+		base_lens.post_init(self)
+		#default lens draws as 1" diameter x 5 mm thick
+		if not hasattr(self,'thickness'): self.thickness=0.005
+		if not hasattr(self,'width'): self.width=0.0254
+		if not hasattr(self,'height'): self.height=0.0254
+		
+	def __str__(self):
+		return self.format_name()+self.reflector_info+" "+self.base_lens_info+" "+self.format_geometry()
+
+	def intersect(self, from_point, from_direction):
+		"""find the intersection of a beam coming from from_point, going in from_direction, with our center. Raise an exception if beam won't hit center going that way."""
+		
+		# t=-(a,b,c).(x1,y1,z1) +- sqrt( ( (a,b,c).(x1,y1,z1) )^2 - (x1,y1,z1)^2 + r^2 ) from Mathematica for line (a,b,c)*t+(x1,y1,z1) and sphere of radius r at origin
+		#the center of curvature of the mirror is derived from the apex position (our location) and the rotation matrix
+				
+		radius=self.f*2.0 #radius of curvature
+		
+		centerpos=self.center-self.matrix_to_global[:,2]*radius #position of center of sphere		
+		from0=from_point-centerpos
+		abcxyz=Numeric.dot(from0, from_direction)
+		disc=abcxyz*abcxyz - Numeric.dot(from0, from0) + radius*radius
+		if disc < 0:
+			raise OpticDirectionError, ("beam misses sphere: "+str(self)+" incoming (x,y,z)="+
+				Numeric.array_str(from_point, precision=3, suppress_small=1)+" cosines="+
+				Numeric.array_str(from_direction, precision=3, suppress_small=1) )
+					
+		tvals =[ t for t in (-abcxyz - math.sqrt(disc), -abcxyz + math.sqrt(disc)) if t > 1e-9] #select only forward solutions
+
+		if not tvals:
+			raise OpticDirectionError, ( "Optic found on backwards side of beam: "+str(self)+" incoming (x,y,z)="+
+			Numeric.array_str(from_point, precision=3, suppress_small=1)+" cosines="+
+			Numeric.array_str(from_direction, precision=3, suppress_small=1)  )
+			
+		solns = [ (t, from_point+from_direction*t) for t in tvals]
+		
+		solns=[ (t,xx) for t,xx in solns if Numeric.dot(xx-centerpos, from_direction)*radius > 0] #pick solution with surface pointing the right way
+		#there will always only be one of the solutions which passes this test, at most
+
+		if not solns:
+			raise OpticDirectionError, ( "Only interaction with spherical mirror is on wrong side: "+str(self)+" incoming (x,y,z)="+
+			Numeric.array_str(from_point, precision=3, suppress_small=1)+" cosines="+
+			Numeric.array_str(from_direction, precision=3, suppress_small=1)  )
+	
+		soln=solns[0]
+		self.intersection_zhat=(soln[1]-centerpos)/radius  #unit surface normal in general direction of beam, useful later
+		return soln #this is the only possible solution
+
+	def transform(self, beam, backwards=0):
+		"transform(beam, backwards) set up local coordinates, calls local_transform on the beam, and resets it to global coordinates.  Returns self for chaining."
+		self.beam=beam
+		self.backwards=backwards #in case anyone needs to know (e.g. dielectric interfaces)
+		ml=self.matrix_to_local
+		mg=self.matrix_to_global
+		self.matrix_to_local=self.get_dynamic_matrix_to_local(beam.matrix_to_global) #do optics with exact local matrix
+		self.matrix_to_global=Numeric.transpose(self.matrix_to_local) #do optics with exact local matrix
+		beam.localize(self)
+		self.check_hit_optic()
+		self.local_transform()
+		beam.globalize(self)
+		self.matrix_to_local=ml
+		self.matrix_to_global=mg
+		del self.beam, self.backwards #get it out of our dictionary so it is an error if not localized
+		return self
+
+	def get_dynamic_matrix_to_local(self, matrix_to_global):
+		"""return the transformation to the exact coordinates for the intersection point last found by intersect() and optimizing based on beam's matrix.
+		In this case, the beam matrix is not used, since our x,y are sensible choices since in the future, they are likely to be principal axes of an ellipsoid"""
+		zhat=self.intersection_zhat
+		xhat=cross(self.matrix_to_global[:,1], zhat) #use our real yhat x our zhat to generate xhat
+		xmag=math.sqrt(Numeric.dot(xhat, xhat))
+		if xmag < 0.707: #bad guess for basis... mirror normal is very close to our yhat, use our xhat instead (they can't BOTH be bad!)
+			yhat=cross( zhat, self.matrix_to_global[:,0]) #use our zhat x our real xhat to generate yhat (swapped to keep handedness)
+			ymag=math.sqrt(Numeric.dot(yhat, yhat))
+			yhat/=ymag
+			xhat=cross(yhat, zhat) #xhat is automatically a unit vector
+		else:
+			xhat /= xmag
+			yhat=cross(zhat, xhat) #yhat is automatically a unit vector
+		
+		return Numeric.array((xhat,yhat,zhat))
+
+	def local_transform(self):
+		self.beam.transform(self.globalize_transform(Numeric.array(((1.0,0,0),(0,1.0,0),(0,0,-1.0))))) #reflect along local z axis
+		self.beam.q.focus(self.strength) #it's easy!
+
+
 if 0:
 	print "\n\n****start mirror tests"
 	mir1=reflector("reflector1", center=(0,0,1))
