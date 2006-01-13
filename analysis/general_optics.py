@@ -4,7 +4,7 @@ diffraction gratings, etc., and run a laser beam through it.
 It correctly handles off-axis optics of most types (tilted lenses & mirrors, e.g.).
 It has been used to model a 10 Joule Nd:Glass CPA system at Vanderbilt University, for example
 """
-_rcsid="$Id: general_optics.py,v 1.16 2006-01-13 15:12:13 mendenhall Exp $"
+_rcsid="$Id: general_optics.py,v 1.17 2006-01-13 20:27:55 mendenhall Exp $"
 
 from math import *
 import math
@@ -202,12 +202,12 @@ class qtens:
 			return -max((qxr, qyr)) #the least negative one is the first waist, or no waist if both positive
 		
 	def rwstr(self, qi):
-		"format ourself as a nice string givien r, w and the distance dz to the next waist"
+		"format ourself as a nice string given r, w and the distance dz to the next waist"
 		r,w=self.rw(qi)
 		if r is not Infinity:
-			r="%.2f" % r
+			r="%.5g" % r
 		dz=(1.0/qi).real
-		return ("r=%s w=%.3e dz=%.3f" % (r,w, dz)) # +" qi=("+str(qi)+")"
+		return ("r=%s w=%.5g dz=%.4f" % (r,w, dz)) # +" qi=("+str(qi)+")"
 		
 	def __str__(self):
 		theta, q0, q1=self.qi_moments()
@@ -216,7 +216,7 @@ class qtens:
 		else: 
 			s=""
 			
-		if abs(q0-q1) < 1e-8:
+		if abs(q0-q1)/(abs(q0)+abs(q1)) < 1e-2:
 			s=s+"q={"+self.rwstr(q0)+"}"
 		else:
 			s=s+"qxx={"+self.rwstr(q0)+"}, qyy={"+self.rwstr(q1)+"}"
@@ -377,7 +377,7 @@ class beam:
 		self.q.qw(optic)
 			
 	def __str__(self):
-		return "beam: x0=%s, dir=%s, q=%s" % (Numeric.array_str(self.x0, precision=3, suppress_small=1),
+		return "beam: x0=%s, dir=%s, %s" % (Numeric.array_str(self.x0, precision=3, suppress_small=1),
 				Numeric.array_str(self.direction(), precision=3, suppress_small=1),
 				str(self.q))
 
