@@ -12,9 +12,9 @@ C2Functions can be combined with unary operators (nested functions) or binary op
 Developed by Marcus H. Mendenhall, Vanderbilt University Keck Free Electron Laser Center, Nashville, TN USA
 email: marcus.h.mendenhall@vanderbilt.edu
 Work supported by the US DoD  MFEL program under grant FA9550-04-1-0045
-version $Id: C2Functions.py,v 1.35 2005-12-31 15:24:59 mendenhall Exp $
+version $Id: C2Functions.py,v 1.36 2006-03-07 17:08:26 mendenhall Exp $
 """
-_rcsid="$Id: C2Functions.py,v 1.35 2005-12-31 15:24:59 mendenhall Exp $"
+_rcsid="$Id: C2Functions.py,v 1.36 2006-03-07 17:08:26 mendenhall Exp $"
 
 import math
 import operator
@@ -25,7 +25,10 @@ _myfuncs=_numeric #can change to math for (possibly greater) speed (?) but no ve
 
 class C2Exception(Exception):
 	pass
-	
+
+class RangeError(IndexError):
+	"X out of input range in splint()"
+
 class C2Function:
 	"if f is a C2Function, f(x) returns the value at x, and f.value_with_derivatives returns y(x), y'(x), y''(x)"
 	ClassName='C2Function'
