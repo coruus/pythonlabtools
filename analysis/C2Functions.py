@@ -12,9 +12,9 @@ C2Functions can be combined with unary operators (nested functions) or binary op
 Developed by Marcus H. Mendenhall, Vanderbilt University Keck Free Electron Laser Center, Nashville, TN USA
 email: marcus.h.mendenhall@vanderbilt.edu
 Work supported by the US DoD  MFEL program under grant FA9550-04-1-0045
-version $Id: C2Functions.py,v 1.36 2006-03-07 17:08:26 mendenhall Exp $
+version $Id: C2Functions.py,v 1.37 2006-03-16 16:35:38 mendenhall Exp $
 """
-_rcsid="$Id: C2Functions.py,v 1.36 2006-03-07 17:08:26 mendenhall Exp $"
+_rcsid="$Id: C2Functions.py,v 1.37 2006-03-16 16:35:38 mendenhall Exp $"
 
 import math
 import operator
@@ -29,7 +29,7 @@ class C2Exception(Exception):
 class RangeError(IndexError):
 	"X out of input range in splint()"
 
-class C2Function:
+class C2Function(object):
 	"if f is a C2Function, f(x) returns the value at x, and f.value_with_derivatives returns y(x), y'(x), y''(x)"
 	ClassName='C2Function'
 	name='Unnamed'
@@ -602,7 +602,7 @@ def _spline_extension(x, y, y2, xmin=None, xmax=None):
 		xl.append((xmax,))
 		y2l.append((y2[-1],))
 
-	return _numeric.concatenate(xl), Numeric.concatenate(yl), Numeric.concatenate(y2l)
+	return _numeric.concatenate(xl), _numeric.concatenate(yl), _numeric.concatenate(y2l)
 
 import types
 
@@ -636,7 +636,7 @@ def _splint(xa, ya, y2a, x, derivs=False):
 		y2hi=_numeric.take(y2a, khi)
 		y2lo=_numeric.take(y2a, klo)
 		
-		h=(xhi-xlo).astype(Float)
+		h=(xhi-xlo).astype(_numeric.Float)
 		a=(xhi-x)/h
 		b=1.0-a
 		
@@ -646,6 +646,12 @@ def _splint(xa, ya, y2a, x, derivs=False):
 	else:
 		return y
 
+#these are functions to bypass the need for lambdas in the conversion functions.  This is compatible with pickling. 
+def _identity(x): return x
+def _one(x): return 1.0
+def _zero(x): return 0.0
+def _recip(x): return 1.0/x
+def _recip2(x): return 1.0/(x*x)
 
 class InterpolatingFunction(C2Function):
 	"""An InterpolatingFunction stores a cubic spline representation of a set of x,y pairs.
@@ -674,7 +680,7 @@ class InterpolatingFunction(C2Function):
 		
 		if YConversions is not None: self.YConversions=YConversions #inherit from class if not passed		
 		if self.YConversions is None:
-			self.fYin, self.fYinP, self.fYinPP, self.fYout = self.YConversions = lambda x: x, lambda x: 1, lambda x: 0, lambda x : x
+			self.fYin, self.fYinP, self.fYinPP, self.fYout = self.YConversions = _identity, _one, _zero, _identity
 			self.yNonLin=False
 			F=self.F=_numeric.array(y)
 		else:
@@ -686,7 +692,7 @@ class InterpolatingFunction(C2Function):
 
 		if XConversions is not None: self.XConversions=XConversions #inherit from class if not passed		
 		if self.XConversions is None:
-			self.fXin, self.fXinP, self.fXinPP, self.fXout = self.XConversions =  lambda x: x, lambda x: 1, lambda x: 0, lambda x: x
+			self.fXin, self.fXinP, self.fXinPP, self.fXout = self.XConversions =  _identity, _one, _zero, _identity
 			self.xNonLin=False
 			self.X=_numeric.array(x)
 		else:
@@ -702,14 +708,7 @@ class InterpolatingFunction(C2Function):
 				self.F=self.F[::-1]
 				self.xInverted=True
 				lowerSlope, upperSlope=upperSlope, lowerSlope
-			
-		if not self.xInverted:
-			self.SetLowerExtrapolation=self.SetLeftExtrapolation
-			self.SetUpperExtrapolation=self.SetRightExtrapolation
-		else:
-			self.SetLowerExtrapolation=self.SetRightExtrapolation
-			self.SetUpperExtrapolation=self.SetLeftExtrapolation
-		
+					
 		dx=self.X[1:]-self.X[:-1]
 		if min(dx) <  0 or min(self.X) < self.X[0] or max(self.X) > self.X[-1]:
 			raise C2Exception("monotonicity error in X values for interpolating function: "  + 
@@ -761,6 +760,18 @@ class InterpolatingFunction(C2Function):
 		self.Xraw=_numeric.concatenate((self.Xraw, (bound, )))
 		self.SetDomain(min(self.Xraw), max(self.Xraw))
 
+	def SetLowerExtrapolation(self, bound):
+		if not self.xInverted:
+			self.SetLeftExtrapolation(bound)
+		else:
+			self.SetRightExtrapolation(bound)
+			 
+	def SetUpperExtrapolation(self, bound):
+		if self.xInverted:
+			self.SetLeftExtrapolation(bound)
+		else:
+			self.SetRightExtrapolation(bound)
+
 	def YtoX(self):
 		"returns a new InterpolatingFunction with our current grid of Y values as the X values"
 		
@@ -802,7 +813,7 @@ class InterpolatingFunction(C2Function):
 	def __div__(self, right):
 		return self.BinaryOperator(right, C2Ratio)
 
-LogConversions=_myfuncs.log, lambda x: 1.0/x, lambda x: -1.0/(x*x), _myfuncs.exp
+LogConversions=_myfuncs.log, _recip, _recip2, _myfuncs.exp
 
 class LogLinInterpolatingFunction(InterpolatingFunction):
 	"An InterpolatingFunction which stores log(x) vs. y"
@@ -1058,7 +1069,7 @@ if __name__=="__main__":
 	print _rcsid
 	def as(x): return _numeric.array_str(x, precision=3)
 	
-	if 0:
+	if 1:
 		ag=ag1=LinearInterpolatingGrid(1, 1.0,4)	
 		print ag	
 		try:
@@ -1123,7 +1134,7 @@ if __name__=="__main__":
 			if sample==10: print _numeric.array_str(partials, precision=8, suppress_small=False, max_line_width=10000)
 			sumsum=sum(partials)
 			yg=sna(xg)
-			simp=sum(sna.simpson_partial_integrals(xg[::2])) #sparsify grid by 2 to be fair since Simpsons fills in extra points
+			simp=sum(sna.partial_integrals(xg, derivs=1)) 
 			exact=0.804776489343756110
 			print ("%3d "+6*"%18.10g") %  (sample, 
 				simp, simp-exact, (exact-simp)*sample**4, 
