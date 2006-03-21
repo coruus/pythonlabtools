@@ -12,9 +12,9 @@ C2Functions can be combined with unary operators (nested functions) or binary op
 Developed by Marcus H. Mendenhall, Vanderbilt University Keck Free Electron Laser Center, Nashville, TN USA
 email: marcus.h.mendenhall@vanderbilt.edu
 Work supported by the US DoD  MFEL program under grant FA9550-04-1-0045
-version $Id: C2Functions.py,v 1.37 2006-03-16 16:35:38 mendenhall Exp $
+version $Id: C2Functions.py,v 1.38 2006-03-21 22:56:49 mendenhall Exp $
 """
-_rcsid="$Id: C2Functions.py,v 1.37 2006-03-16 16:35:38 mendenhall Exp $"
+_rcsid="$Id: C2Functions.py,v 1.38 2006-03-21 22:56:49 mendenhall Exp $"
 
 import math
 import operator
@@ -958,6 +958,25 @@ class LinLogInverseIntegratedDensity(InverseIntegratedDensity):
 	YConversions=LogConversions
 	IntermediateInterpolator=LogLogInterpolatingFunction
 
+class C2InverseFunction(C2Function):
+	"""C2inverseFunction creates a C2Function h(x) which is the solution to g(h)=x.  It is different than just finding the 
+	root, because it provides the derivatives, so it is a first-class C2Function"""
+	
+	def __init__(self, sourceFunction):
+		self.fn=sourceFunction
+		l,r=sourceFunction.GetDomain()
+		self.start_hint=(l+r)*0.5
+		self.SetDomain(l,r)
+	
+	def set_start_hint(self, hint):
+		self.start_hint=hint
+		
+	def value_with_derivatives(self, x): 
+		l,r=self.fn.GetDomain()
+		y = self.fn.find_root(l, r, self.start_hint, x)
+		y0, yp, ypp=self.fn.value_with_derivatives(y)
+		self.start_hint=y #always start looking near previous solution, unless value is reset explicitly
+		return y, 1.0/yp, -ypp/yp**3 #appropriate inverse derivs from MMA
 
 class C2LHopitalRatio(C2Ratio):
 	"""C2LHopitalRatio(a,b) returns a new C2Function which evaluates as a/b with special care near zeros of the denominator.
@@ -1331,5 +1350,15 @@ if __name__=="__main__":
 			for x in (0.1, 1, math.pi-0.1, math.pi-0.001, math.pi-1e-6, math.pi+1e-14, math.pi+1e-12):
 				y, yp, ypp=fn.value_with_derivatives(x)
 				print 5*"%22.15f" % ( x, y, yp, ypp, fn0(x) )
-			
+	
+	if 1:
+		import math
+		print "inverse exponential function test"
+		myexp=_fC2exp() #make a private copy of exp so we can change its domain
+		myexp.SetDomain(-10,10)
+		a=C2InverseFunction(myexp)
+		y, yp, ypp=a.value_with_derivatives(3)
+		print y, yp, ypp
+		print myexp(y), math.log(3), (a(3.01)-a(2.99))*50, (a(3.01)+a(2.99)-2.0*a(3))*10000
+		
 	
