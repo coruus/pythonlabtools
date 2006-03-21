@@ -12,9 +12,9 @@ C2Functions can be combined with unary operators (nested functions) or binary op
 Developed by Marcus H. Mendenhall, Vanderbilt University Keck Free Electron Laser Center, Nashville, TN USA
 email: marcus.h.mendenhall@vanderbilt.edu
 Work supported by the US DoD  MFEL program under grant FA9550-04-1-0045
-version $Id: C2Functions.py,v 1.38 2006-03-21 22:56:49 mendenhall Exp $
+version $Id: C2Functions.py,v 1.39 2006-03-21 23:06:09 mendenhall Exp $
 """
-_rcsid="$Id: C2Functions.py,v 1.38 2006-03-21 22:56:49 mendenhall Exp $"
+_rcsid="$Id: C2Functions.py,v 1.39 2006-03-21 23:06:09 mendenhall Exp $"
 
 import math
 import operator
@@ -959,19 +959,21 @@ class LinLogInverseIntegratedDensity(InverseIntegratedDensity):
 	IntermediateInterpolator=LogLogInterpolatingFunction
 
 class C2InverseFunction(C2Function):
-	"""C2inverseFunction creates a C2Function h(x) which is the solution to g(h)=x.  It is different than just finding the 
+	"""C2InverseFunction creates a C2Function h(x) which is the solution to g(h)=x.  It is different than just finding the 
 	root, because it provides the derivatives, so it is a first-class C2Function"""
 	
 	def __init__(self, sourceFunction):
+		"create the C2InverseFunction from the given function, and set the initial search to be from the center of the domain"
 		self.fn=sourceFunction
 		l,r=sourceFunction.GetDomain()
 		self.start_hint=(l+r)*0.5
-		self.SetDomain(l,r)
 	
 	def set_start_hint(self, hint):
+		"set a hint for where to start looking for the inverse solution.  Each time a solutions is found, this is automatically updated"
 		self.start_hint=hint
 		
 	def value_with_derivatives(self, x): 
+		"return the sought value, and update the start_hint so evaluations at nearby points will be very fast"
 		l,r=self.fn.GetDomain()
 		y = self.fn.find_root(l, r, self.start_hint, x)
 		y0, yp, ypp=self.fn.value_with_derivatives(y)
