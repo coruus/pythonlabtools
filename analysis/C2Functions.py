@@ -12,9 +12,9 @@ C2Functions can be combined with unary operators (nested functions) or binary op
 Developed by Marcus H. Mendenhall, Vanderbilt University Keck Free Electron Laser Center, Nashville, TN USA
 email: marcus.h.mendenhall@vanderbilt.edu
 Work supported by the US DoD  MFEL program under grant FA9550-04-1-0045
-version $Id: C2Functions.py,v 1.39 2006-03-21 23:06:09 mendenhall Exp $
+version $Id: C2Functions.py,v 1.40 2006-03-22 00:27:47 mendenhall Exp $
 """
-_rcsid="$Id: C2Functions.py,v 1.39 2006-03-21 23:06:09 mendenhall Exp $"
+_rcsid="$Id: C2Functions.py,v 1.40 2006-03-22 00:27:47 mendenhall Exp $"
 
 import math
 import operator
@@ -967,7 +967,12 @@ class C2InverseFunction(C2Function):
 		self.fn=sourceFunction
 		l,r=sourceFunction.GetDomain()
 		self.start_hint=(l+r)*0.5
-	
+		# compute our domain assuming the function is monotonic so its values on its domain boundaries are our domain
+		ly=sourceFunction(l)
+		ry=sourceFunction(r)
+		if ly>ry: ly, ry = ry, ly 
+		self.SetDomain(ly, ry)
+
 	def set_start_hint(self, hint):
 		"set a hint for where to start looking for the inverse solution.  Each time a solutions is found, this is automatically updated"
 		self.start_hint=hint
@@ -1362,5 +1367,5 @@ if __name__=="__main__":
 		y, yp, ypp=a.value_with_derivatives(3)
 		print y, yp, ypp
 		print myexp(y), math.log(3), (a(3.01)-a(2.99))*50, (a(3.01)+a(2.99)-2.0*a(3))*10000
-		
+		print a.GetDomain()		
 	
