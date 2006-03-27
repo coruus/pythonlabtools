@@ -12,9 +12,9 @@ C2Functions can be combined with unary operators (nested functions) or binary op
 Developed by Marcus H. Mendenhall, Vanderbilt University Keck Free Electron Laser Center, Nashville, TN USA
 email: marcus.h.mendenhall@vanderbilt.edu
 Work supported by the US DoD  MFEL program under grant FA9550-04-1-0045
-version $Id: C2Functions.py,v 1.40 2006-03-22 00:27:47 mendenhall Exp $
+version $Id: C2Functions.py,v 1.41 2006-03-27 04:47:35 mendenhall Exp $
 """
-_rcsid="$Id: C2Functions.py,v 1.40 2006-03-22 00:27:47 mendenhall Exp $"
+_rcsid="$Id: C2Functions.py,v 1.41 2006-03-27 04:47:35 mendenhall Exp $"
 
 import math
 import operator
@@ -651,7 +651,7 @@ def _identity(x): return x
 def _one(x): return 1.0
 def _zero(x): return 0.0
 def _recip(x): return 1.0/x
-def _recip2(x): return 1.0/(x*x)
+def _mrecip2(x): return -1.0/(x*x)
 
 class InterpolatingFunction(C2Function):
 	"""An InterpolatingFunction stores a cubic spline representation of a set of x,y pairs.
@@ -813,7 +813,7 @@ class InterpolatingFunction(C2Function):
 	def __div__(self, right):
 		return self.BinaryOperator(right, C2Ratio)
 
-LogConversions=_myfuncs.log, _recip, _recip2, _myfuncs.exp
+LogConversions=_myfuncs.log, _recip, _mrecip2, _myfuncs.exp
 
 class LogLinInterpolatingFunction(InterpolatingFunction):
 	"An InterpolatingFunction which stores log(x) vs. y"
