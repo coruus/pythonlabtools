@@ -12,9 +12,9 @@ C2Functions can be combined with unary operators (nested functions) or binary op
 Developed by Marcus H. Mendenhall, Vanderbilt University Keck Free Electron Laser Center, Nashville, TN USA
 email: marcus.h.mendenhall@vanderbilt.edu
 Work supported by the US DoD  MFEL program under grant FA9550-04-1-0045
-version $Id: C2Functions.py,v 1.41 2006-03-27 04:47:35 mendenhall Exp $
+version $Id: C2Functions.py,v 1.42 2006-04-05 14:06:13 mendenhall Exp $
 """
-_rcsid="$Id: C2Functions.py,v 1.41 2006-03-27 04:47:35 mendenhall Exp $"
+_rcsid="$Id: C2Functions.py,v 1.42 2006-04-05 14:06:13 mendenhall Exp $"
 
 import math
 import operator
@@ -449,6 +449,29 @@ class C2PowerLaw(C2Function):
 	def value_with_derivatives(self, x):
 		xp=self.a*x**self.b2
 		return xp*x*x, self.b*xp*x, self.bb1*xp
+
+class C2Polynomial(C2Function):
+	"poly(x)"
+	
+	def __init__(self, coefs, xcenter=0.0):
+		"initialize the polynomial with coefficients specified, expanding around xcenter.  Constant coefficient is coefs[0]"
+		
+		self.coefs=tuple(coefs)
+		self.rcoefs=tuple(enumerate(self.coefs))[::-1] #record power index with coef
+		self.xcenter=xcenter
+	
+	def value_with_derivatives(self, x):
+		x-=self.xcenter
+		xsum=0.0
+		for n,c in self.rcoefs: xsum=xsum*x+c
+		xpsum=0.0
+		for n,c in self.rcoefs[:-1]: xpsum=xpsum*x+c*n
+		xp2sum=0.0
+		for n,c in self.rcoefs[:-2]: xp2sum=xp2sum*x+c*n*(n-1)
+		
+		return xsum, xpsum, xp2sum
+
+		
 
 class C2ComposedFunction(C2Function):
 	"create a composed function outer(inner(...)).  The functions can either be unbound class names or class instances"
