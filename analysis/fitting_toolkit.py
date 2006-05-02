@@ -111,7 +111,7 @@ If analytic derivatives are desired, do, \e e.g.
 
 """
 
-_rcsid="$Id: fitting_toolkit.py,v 1.13 2006-05-02 21:35:10 mendenhall Exp $"
+_rcsid="$Id: fitting_toolkit.py,v 1.14 2006-05-02 21:57:36 mendenhall Exp $"
 
 import Numeric
 import random
@@ -418,13 +418,24 @@ class fit:
 	
 	##
 	## This prepares the fitter for doing resampling (bootstrapping) to estimate the true shape of the chi^2 surface.
+	# Makes shadow copies of the main data arrays so they resampled data
 	def setup_resampling(self):
 		"setup_resampling() caches the 'real' arrays of x and y, so they can be resampled for bootstrapping, and seeds a random generator"
 		assert not hasattr(self, "saved_xarray"), "Don't even think of initializing the resampling more than once!"
-		self.saved_xarray=self.xarray[:,:self.pointcount]
-		self.saved_yarray=self.yarray[:self.pointcount]
+		self.saved_xarray=Numeric.array(self.xarray[:,:self.pointcount]) #these must be copies, not slices!
+		self.saved_yarray=Numeric.array(self.yarray[:self.pointcount]) 
 		self.initialize_random_generator()
 	
+	##
+	## This resets the fitter back to non-resampling mode so all the original data are available.
+	# Removes shadow copies of the main data arrays so they resampled data
+	def clear_resampling(self):
+		"clear_resampling() removes resampling machinery"
+		self.xarray=self.saved_xarray
+		self.yarray=self.saved_yarray
+		self.firstpass=1
+		del self.saved_xarray, self.saved_yarray
+
 	##
 	## Initialize the random number generator to be used in resampling.  Override this for non-default radnom generators.
 	def initialize_random_generator(self):
@@ -439,7 +450,7 @@ class fit:
 		return Numeric.array([r() for i in range(count)])
 	
 	##
-	## Initialize the fitter for resampling/bootstrappin g.  Makes shadow copies of the main data arrays so they resampled data
+	## Take a new sample of the data for  resampling/bootstrapping.  
 	## can be put in the main arrays.
 	def resample(self):
 		"resample() randomly draws a set of points equal in size to the original set from the cached data for bootstrapping"
