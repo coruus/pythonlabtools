@@ -111,7 +111,7 @@ If analytic derivatives are desired, do, \e e.g.
 
 """
 
-_rcsid="$Id: fitting_toolkit.py,v 1.11 2006-05-02 20:07:10 mendenhall Exp $"
+_rcsid="$Id: fitting_toolkit.py,v 1.12 2006-05-02 21:24:15 mendenhall Exp $"
 
 import Numeric
 import random
@@ -786,11 +786,22 @@ class polynomial_fit(fit):
 
 find_peak_fitter=polynomial_fit(2, pointhint=100) #save this for reuse, so find_peak can be called vey quickly
 
+##
+##Find a positive peak in a data set, using a robust parabolic fitter.
+#
+#This looks for the highest channel in \a data and then fits a parabola to the half-height points around it.  This tends to be
+# a very stable way to find a peak, even on a somewhat sloping background, and with little knowledge of the real shape.
+# It does require that the peak be wide enough that at least 3 points fit between its half-height points.
+#
+#\param data either a list of ordinates (abscissas assumed to be integers starting at 0) or a list of x,y pairs.
 def find_peak(data):
-	"""find a positive peak in data, assuming the background is 0.  Data can either be a list of (x,y) or just a list of y, in which case integer x is assumed.
+	"""find a positive peak in data, assuming the background is 0.  
+	Data can either be a list of (x,y) or just a list of y, in which case integer x is assumed.
 	find_peak returns xcenter, hwhm, height.  
-	Algorithm is parabolic fit to data between half-height points around max of data.  This makes sense if hwhm > 1 channel, so at least 3 points
-	get included in the fit.  It breaks for peaks narrower than this, but in that case, using the highest point is about the best one can do, anyway. 
+	Algorithm is parabolic fit to data between half-height points around max of data.  
+	This makes sense if hwhm > 1 channel, so at least 3 points
+	get included in the fit.  It breaks for peaks narrower than this, 
+	but in that case, using the highest point is about the best one can do, anyway. 
 	"""
 	da=Numeric.array(data, Numeric.Float) #put it in a well-known format
 	if type(data[0]) is type(1.0):
@@ -810,13 +821,14 @@ def find_peak(data):
 	
 	#f=polynomial_fit(2, xcenter=x[topchan])
 	f=find_peak_fitter
-	f.fit_data(x[startx:endx+1], y[startx:endx+1], xcenter=x[topchan]) #this clears the fitter and does a new fit
+	f.fit_data(x[startx:endx+1], y[startx:endx+1], xcenter=x[topchan]) #clears the fitter and does  fit
 	c,b,a=f.funcparams #a*(x-x0)^2+b*(x-x0)+c
 	x0=-b/(2.0*a)+x[topchan]
 	hwhm=math.sqrt(-c/(2.0*a))
 	return x0, hwhm, c #returns center, hwhm, height
 			
-
+##
+##Fit y0+a*exp( -(x-xmu)**2/(2*xsig**2) ) to a data set
 class gauss_fit(fit):
 	"fit a constant baseline + gaussian y=y0+a*exp( -(x-xmu)**2/(2*xsig**2) )"
 	def function(self, p, r):
@@ -844,6 +856,8 @@ class gauss_fit(fit):
 		
 		return dd	
 
+##
+## Fit z0+a*exp( -(x-xmu)**2/(2*xsig**2) -(y-ymu)**2/(2.0*ysig**2)), an elliptical Gaussian
 class gauss_fit_2d(fit):
 	"fit a constant baseline + gaussian z=z0+a*exp( -(x-xmu)**2/(2*xsig**2) -(y-ymu)**2/(2.0*ysig**2))"
 	def function(self, p, r):
@@ -877,19 +891,26 @@ class gauss_fit_2d(fit):
 		dd[:,5]= (-2.0*ysigi/ysigma)*(dy2*z)
 		
 		return dd	
-
+##
+## Fit z0+(a*hwhm**2)/((x-xmu)**2+hwhm**2)
+#
+#This is a sample of a minimal fitting class which uses numerical derivatives, so all it has to declare is the function.
 class cauchy_fit(fit):
 	"Since class cauchy_fit provides no analytic derivatives, automatic numeric differentiation will be used.  This is a minimal fitter example"
 	def function(self, p, x):
 		z0, a, xmu, hwhm = p
 		return z0+(a*hwhm**2)/((x-xmu)**2+hwhm**2)
-
+##
+## Fit z0+(a*hwhm**2)/((x-xmu)**2+hwhm**2)**(n/2) where n=2 fits a normal Cauchy/Lorentz
+#
 class generalized_cauchy_fit(fit):
 	"generalized_cauchy_fit fits a cauchy-like distribution with a variable exponent in the tails.  exponent=2 is true cauchy."
 	def function(self, p, x):
 		z0, a, xmu, hwhm, exponent = p
 		return z0+a*(hwhm**2/((x-xmu)**2+hwhm**2))**(0.5*exponent)
 
+##
+## Sample/test code for this module
 if __name__=="__main__":
 	class myfit(fit):
 		def function(self, params, x):
