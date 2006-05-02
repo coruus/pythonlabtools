@@ -111,7 +111,7 @@ If analytic derivatives are desired, do, \e e.g.
 
 """
 
-_rcsid="$Id: fitting_toolkit.py,v 1.12 2006-05-02 21:24:15 mendenhall Exp $"
+_rcsid="$Id: fitting_toolkit.py,v 1.13 2006-05-02 21:35:10 mendenhall Exp $"
 
 import Numeric
 import random
@@ -124,6 +124,7 @@ from LinearAlgebra import solve_linear_equations, inverse as matinverse, singula
 import copy
 import exceptions
 
+##\package analysis.fitting_toolkit
 ## Hessian and Levenberg-Marquardt Curve Fitting Package with resampling capability.
 #
 #This is loosely derived from the information in 'Numerical Recipes' 2nd Ed. by Press, Flannery, Teukolsky and Vetterling.
@@ -140,7 +141,7 @@ import exceptions
 #		def function(self, params, x):
 #			return params[0]+params[1]*x+params[2]*x*x
 #\endcode
-#This function takes a Numeric array of parameters 'params', and a Numeric array of independent variable values 'x'.  If the 
+#This function takes a Numeric array of parameters \a params, and a Numeric array of independent variable values \a x.  If the 
 #independent variable is a scalar, the function will be passed a 1-d array.  If the independent variable is a vector,
 #the function will be passed a 2-d array with each _row_ holding one component of the vector, so x[0] would be x, x[1] would be y, etc.
 #
@@ -235,6 +236,8 @@ import exceptions
 #			return dd	
 #\endcode
 
+##
+##The main class which is the host for all the fitting techniques
 class fit:
 	## Create the fitter, and give it a hint as to the size blocks to allocate for data arrays.
 	def __init__(self, pointhint=1000):
@@ -909,9 +912,9 @@ class generalized_cauchy_fit(fit):
 		z0, a, xmu, hwhm, exponent = p
 		return z0+a*(hwhm**2/((x-xmu)**2+hwhm**2))**(0.5*exponent)
 
-##
-## Sample/test code for this module
 if __name__=="__main__":
+	##
+	## Sample/test code for this module
 	class myfit(fit):
 		def function(self, params, x):
 			return params[0]+params[1]*x+params[2]*x**params[3]
@@ -944,6 +947,8 @@ if __name__=="__main__":
 	print x.funcparams, x.funcvals, sqrt(x.reduced_chi2)
 
 	print "\n\n***Start svd polynomial test fit with funny weights ***" 
+	##
+	## More sample/test code for this module
 	class my_svd_fit(polynomial_fit):
 		def compute_fit(self, lm_lambda=None):
 			self.svd_hessian_compute_fit(lm_lambda)
@@ -961,6 +966,8 @@ if __name__=="__main__":
 	print Numeric.array_str(x.funcparams, precision=5), Numeric.array_str(x.funcvals, precision=3), sqrt(x.reduced_chi2)
 
 	print "\n\n***Start svd degenerate function nonlinear test fit ***" 
+	##
+	## More sample/test code for this module
 	class my_svd_bad_fit(fit):
 		def function(self, p, x):
 			return p[0]*Numeric.exp(-p[1]+p[2]*x) #p[0] and p[1] are degenerate
