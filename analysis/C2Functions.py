@@ -12,9 +12,9 @@ C2Functions can be combined with unary operators (nested functions) or binary op
 Developed by Marcus H. Mendenhall, Vanderbilt University Keck Free Electron Laser Center, Nashville, TN USA
 email: marcus.h.mendenhall@vanderbilt.edu
 Work supported by the US DoD  MFEL program under grant FA9550-04-1-0045
-version $Id: C2Functions.py,v 1.43 2006-05-03 00:56:20 mendenhall Exp $
+version $Id: C2Functions.py,v 1.44 2006-05-03 12:18:13 mendenhall Exp $
 """
-_rcsid="$Id: C2Functions.py,v 1.43 2006-05-03 00:56:20 mendenhall Exp $"
+_rcsid="$Id: C2Functions.py,v 1.44 2006-05-03 12:18:13 mendenhall Exp $"
 
 ##\package analysis.C2Functions
 #A group of classes which make it easy to manipulate smooth functions, including cubic splines. 
@@ -31,7 +31,7 @@ _rcsid="$Id: C2Functions.py,v 1.43 2006-05-03 00:56:20 mendenhall Exp $"
 #Developed by Marcus H. Mendenhall, Vanderbilt University Keck Free Electron Laser Center, Nashville, TN USA
 #email: marcus.h.mendenhall@vanderbilt.edu
 #Work supported by the US DoD  MFEL program under grant FA9550-04-1-0045
-#version $Id: C2Functions.py,v 1.43 2006-05-03 00:56:20 mendenhall Exp $
+#version $Id: C2Functions.py,v 1.44 2006-05-03 12:18:13 mendenhall Exp $
 
 
 import math
@@ -218,20 +218,37 @@ class	C2Function(object):
 		"a**b returns a new C2Function which represents the power law, with a optimization for numerical powers"
 		return C2Power(self, right)
 
+	## For points in \a recur_data, compute {\f$ \int_{x_i}^{x_{i+1}} f(x) dx \f$} 
+	# Note that the length of the return is one less than the length of \a recur_data. 
+	# partial_integrals() uses a method with an error O(dx**10) with full  information from the derivatives
+	#
+	# the integration is adaptive, starting from the grid provided, and returning data in the intervals
+	# between the grid points. 
+	# \param recur_data grid defining the subdomains over which the integral is computed, and hints for the adaptive algorithm (on initial call)
+	# \param absolute_error_tolerance total absolute error allowed on each explicit subdomain
+	# \param relative_error_tolerance total relative error allowed on each explicit subdomain
+	# \param derivs how much continuity?  derivs=2 => full method, 1 => less smooth function, 0 => Simpson's rule
+	# \param allow_recursion allow adaptive behavior if true, otherwise just use subdomains provided
+	# \param extrapolate carry out simple Richardson-Romberg extrapolation if true
+	# \return  vector in which results from subdomains are returned.
+   
 	def partial_integrals(self, recur_data, **args):
 		"""def partial_integrals(self, xgrid, relative_error_tolerance=1e-12, derivs=2, 
 			absolute_error_tolerance=1e-12, depth=0, debug=0, extrapolate=1, allow_recursion=True)
-			Return the integrals of a function between the sampling points xgrid.  The sum is the definite integral.
+			Return the integrals of a function between the sampling points xgrid.  
+			The sum is the definite integral.
 			The choices for derivs are 0, 1 or 2, anything else is an error.
 			The derivs parameter is used as follows: 
-				derivs=0 uses Simpson's rule (no derivative information).   
+				derivs=0 uses Simpsons rule (no derivative information).   
 				derivs=1 uses a 6th order technique based the first derivatives, but no second derivatives
-				derivs=2 uses a 9th (really 10th, since the 9th order error vanishes by symmetry) order tehcnique based the first and second derivatives.
-				Be very aware that the 9th order method will only really benefit with very smooth functions, but then it is magic!
+				derivs=2 uses a 9th (really 10th, since the 9th order error vanishes by symmetry) 
+					order tehcnique based the first and second derivatives.
+				Be very aware that the 9th order method will only really benefit with very smooth functions, 
+					but then it is magic!
 		"""
 	
 		if type(recur_data[1]) is not tuple:	#this is an initialization call, set everything up
-			funcgrid=[ ( (x, )+ self.value_with_derivatives(x) ) for x in recur_data ] #convert x list to full function list
+			funcgrid=[ ( (x, )+ self.value_with_derivatives(x) ) for x in recur_data ] 
 			self.total_func_evals=len(recur_data)
 			
 			derivs= args.get('derivs', 2)
@@ -243,7 +260,7 @@ class	C2Function(object):
 				eps_scale, extrap_coef = 0.01, 1024.0
 			
 			else:
-				raise C2Exception("Illegal derivs passed to adaptivePartial_integrals, must be 0, 1 or 2, got %d" % derivs)
+				raise C2Exception("derivs passed to partial_integrals, must be 0, 1 or 2, got %d" % derivs)
 
 			allow_rec= args.get('allow_recursion', True)
 			extrapolate = args.get('extrapolate', True) and allow_rec #can only extrapolate after recursion
@@ -255,7 +272,8 @@ class	C2Function(object):
 					extrapolate, derivs, eps_scale, extrap_coef, allow_rec
 				]			
 		
-		depth, funcgrid, old_integrals, absolute_error_tolerance, relative_error_tolerance, debug, extrapolate, derivs, eps_scale, extrap_coef, allow_rec=recur_data
+		(depth, funcgrid, old_integrals, absolute_error_tolerance, relative_error_tolerance, 
+				debug, extrapolate, derivs, eps_scale, extrap_coef, allow_rec)=recur_data
 		
 		retvals=[0.0]*(len(funcgrid)-1)
 		
@@ -270,9 +288,11 @@ class	C2Function(object):
 
 			#check for underflow on step size, which prevents us from achieving specified accuracy. 
 			if abs(dx) < abs(x1)*relative_error_tolerance:
-				raise C2Exception("Step size underflow in partial_integrals, depth = %d, x = %.4f" % (depth, x1))
+				raise C2Exception("Step size underflow in partial_integrals, depth = %d, x = %.4f" %
+						(depth, x1))
 			
-			#if we are below the top level, the previous term is already computed.  Otherwise, compute it to one lower order
+			#if we are below the top level, the previous term is already computed.  
+			# Otherwise, compute it to one lower order
 			if  old_integrals:
 				total=old_integrals[i]
 			elif derivs==2:
@@ -284,9 +304,11 @@ class	C2Function(object):
 				total=0.5*(y0+y2)*dx
 
 			if derivs==2:
-				#use ninth-order estimates for each side, from full set of all values (!) (Thanks, Mathematica!)
-				left=	( ( (169*ypp0 + 1024*ypp1 - 41*ypp2)*dx2 + (2727*yp0 - 5040*yp1 + 423*yp2) )*dx2 + (17007*y0 + 24576*y1 - 1263*y2) )* (dx2/40320.0)
-				right=	( ( (169*ypp2 + 1024*ypp1 - 41*ypp0)*dx2 - (2727*yp2 - 5040*yp1 + 423*yp0) )*dx2 + (17007*y2 + 24576*y1 - 1263*y0) )* (dx2/40320.0)
+				#use ninth-order estimates for each side. (Thanks, Mathematica!)
+				left=	( ( (169*ypp0 + 1024*ypp1 - 41*ypp2)*dx2 + (2727*yp0 - 5040*yp1 + 423*yp2) )*dx2 + 
+						(17007*y0 + 24576*y1 - 1263*y2) )* (dx2/40320.0)
+				right=	( ( (169*ypp2 + 1024*ypp1 - 41*ypp0)*dx2 - (2727*yp2 - 5040*yp1 + 423*yp0) )*dx2 + 
+						(17007*y2 + 24576*y1 - 1263*y0) )* (dx2/40320.0)
 			elif derivs==1:
 				left= 	( (202*y0 + 256*y1 + 22*y2) + dx*(13*yp0 - 40*yp1 - 3*yp2) ) * dx /960.
 				right= 	( (202*y2 + 256*y1 + 22*y0) - dx*(13*yp2 - 40*yp1 - 3*yp0) ) * dx /960.
@@ -294,31 +316,41 @@ class	C2Function(object):
 				left=	(5*y0 + 8*y1 - y2)*dx/24.
 				right=	(5*y2 + 8*y1 - y0)*dx/24.
 
-			eps= abs(total-(left+right))*eps_scale #the real error should be 2**order times smaller on this iteration, be conservative
+			eps= abs(total-(left+right))*eps_scale 
+			#the real error should be 2**order times smaller on this iteration, be conservative
 			if extrapolate:
-				eps=eps*eps_scale #gain another factor of 2**order if extrapolating (typical), but be conservative
+				eps=eps*eps_scale 
+				#gain another factor of 2**order if extrapolating (typical), but be conservative
 				
 			if  (not allow_rec) or eps < absolute_error_tolerance or eps < abs(total)*relative_error_tolerance:
 				if not extrapolate:
 					retvals[i]=left+right
 				else:
-					retvals[i]=(extrap_coef*(left+right) - total) / (extrap_coef-1) #since h fell by 2, h**6=64, and we are extrapolating in h**6
-				if debug==1: print "accepted results at depth ", depth,  "x, dx = %7.3f, %10.6f" % (x1, dx), "scaled error = ", eps/ (abs(total)*relative_error_tolerance)
+					retvals[i]=(extrap_coef*(left+right) - total) / (extrap_coef-1) 
+					#since h fell by 2, h**6=64, and we are extrapolating in h**6
+				if debug==1: 
+					print "accepted results at depth ", depth,  "x, dx = %7.3f, %10.6f" % (x1, dx), 
+					print "scaled error = ", eps/ (abs(total)*relative_error_tolerance)
 			else:
-				if debug==1: print "rejected results at depth ", depth,  "x, dx = %7.3f, %10.6f" % (x1, dx), "scaled error = ", eps/ (abs(total)*relative_error_tolerance)
-				recur_data[0:4]=depth+1, (funcgrid[i], (x1, y1, yp1, ypp1), funcgrid[i+1]), (left, right), absolute_error_tolerance/2
+				if debug==1: 
+					print "rejected results at depth ", depth,  "x, dx = %7.3f, %10.6f" % (x1, dx), 
+					print "scaled error = ", eps/ (abs(total)*relative_error_tolerance)
+				recur_data[0:4]=(depth+1, (funcgrid[i], (x1, y1, yp1, ypp1), funcgrid[i+1]), 
+						(left, right), absolute_error_tolerance/2 )
 				l, r =self.partial_integrals(recur_data)
 				retvals[i]=l+r
 		
 		if debug ==2:
-			print "\n integrating at depth ", depth
+			print 
+			print "integrating at depth ", depth
 			print xgrid
 			print funcgrid
 			import operator
 			print retvals
 			if old_integrals: 
 				print map(operator.sub, old_integrals, retvals)
-			print "\n returning from depth ", depth
+			print
+			print "returning from depth ", depth
 		
 		return retvals
 	
