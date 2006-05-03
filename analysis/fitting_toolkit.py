@@ -111,7 +111,7 @@ If analytic derivatives are desired, do, \e e.g.
 
 """
 
-_rcsid="$Id: fitting_toolkit.py,v 1.15 2006-05-03 00:56:20 mendenhall Exp $"
+_rcsid="$Id: fitting_toolkit.py,v 1.16 2006-05-03 15:12:23 mendenhall Exp $"
 
 import Numeric
 import random
@@ -124,9 +124,11 @@ from LinearAlgebra import solve_linear_equations, inverse as matinverse, singula
 import copy
 import exceptions
 
+##\file
+## Provides the analysis.fitting_toolkit package.
 ##\package analysis.fitting_toolkit
 ## Hessian and Levenberg-Marquardt Curve Fitting Package with resampling capability.
-#
+#\verbatim version $Id: fitting_toolkit.py,v 1.16 2006-05-03 15:12:23 mendenhall Exp $ \endverbatim
 #This is loosely derived from the information in 'Numerical Recipes' 2nd Ed. by Press, Flannery, Teukolsky and Vetterling.
 #Implementation by Marcus H. Mendenhall, Vanderbilt University Free Electron Laser Center, Nashville, TN, USA
 #Implemented around 3 December, 2002.

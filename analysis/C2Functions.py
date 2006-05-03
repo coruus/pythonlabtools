@@ -10,29 +10,33 @@ The two primary classes are
 C2Functions can be combined with unary operators (nested functions) or binary operators (+-*/ etc.)
 
 Developed by Marcus H. Mendenhall, Vanderbilt University Keck Free Electron Laser Center, Nashville, TN USA
-email: marcus.h.mendenhall@vanderbilt.edu
+email: mendenhall@users.sourceforge.net
 Work supported by the US DoD  MFEL program under grant FA9550-04-1-0045
-version $Id: C2Functions.py,v 1.44 2006-05-03 12:18:13 mendenhall Exp $
+version $Id: C2Functions.py,v 1.45 2006-05-03 15:12:23 mendenhall Exp $
 """
-_rcsid="$Id: C2Functions.py,v 1.44 2006-05-03 12:18:13 mendenhall Exp $"
+_rcsid="$Id: C2Functions.py,v 1.45 2006-05-03 15:12:23 mendenhall Exp $"
 
+##\file
+##Provides the analysis.C2Functions package.
 ##\package analysis.C2Functions
 #A group of classes which make it easy to manipulate smooth functions, including cubic splines. 
-#
-#C2Functions know how to keep track of the first and second derivatives of functions, and to use this information in, for example, find_root()
+#\verbatim version $Id: C2Functions.py,v 1.45 2006-05-03 15:12:23 mendenhall Exp $ \endverbatim
+#C2Functions know how to keep track of the first and second derivatives of functions, and to use this information in, for example, C2Function.find_root() and 
+#C2Function.partial_integrals()
 #to allow much more efficient solutions to problems for which the general solution may be expensive.
 #
 #The two primary classes are 
-#	class C2Function which represents an unevaluted function and its derivatives, and 
+#	C2Function which represents an unevaluated function and its derivatives, and 
 #	InterpolatingFunction which represent a cubic spline of provided data.
 #
-#C2Functions can be combined with unary operators (nested functions) or binary operators (+-*/ etc.)
+#C2Functions can be combined with unary operators (nested/composed functions) or binary operators (+-*/ etc.)
 #
 #Developed by Marcus H. Mendenhall, Vanderbilt University Keck Free Electron Laser Center, Nashville, TN USA
-#email: marcus.h.mendenhall@vanderbilt.edu
+#
+#email: mendenhall@users.sourceforge.net
+#
 #Work supported by the US DoD  MFEL program under grant FA9550-04-1-0045
-#version $Id: C2Functions.py,v 1.44 2006-05-03 12:18:13 mendenhall Exp $
-
+#
 
 import math
 import operator
@@ -52,7 +56,7 @@ class	RangeError(IndexError):
 	pass
 
 ##
-## The C2Function class provides support for the entire C2Function hierarchy
+## Provides support for the entire C2Function hierarchy
 #
 class	C2Function(object):
 	"if f is a C2Function, f(x) returns the value at x, and f.value_with_derivatives returns y(x), y'(x), y''(x)"	
