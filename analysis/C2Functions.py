@@ -12,9 +12,27 @@ C2Functions can be combined with unary operators (nested functions) or binary op
 Developed by Marcus H. Mendenhall, Vanderbilt University Keck Free Electron Laser Center, Nashville, TN USA
 email: marcus.h.mendenhall@vanderbilt.edu
 Work supported by the US DoD  MFEL program under grant FA9550-04-1-0045
-version $Id: C2Functions.py,v 1.42 2006-04-05 14:06:13 mendenhall Exp $
+version $Id: C2Functions.py,v 1.43 2006-05-03 00:56:20 mendenhall Exp $
 """
-_rcsid="$Id: C2Functions.py,v 1.42 2006-04-05 14:06:13 mendenhall Exp $"
+_rcsid="$Id: C2Functions.py,v 1.43 2006-05-03 00:56:20 mendenhall Exp $"
+
+##\package analysis.C2Functions
+#A group of classes which make it easy to manipulate smooth functions, including cubic splines. 
+#
+#C2Functions know how to keep track of the first and second derivatives of functions, and to use this information in, for example, find_root()
+#to allow much more efficient solutions to problems for which the general solution may be expensive.
+#
+#The two primary classes are 
+#	class C2Function which represents an unevaluted function and its derivatives, and 
+#	InterpolatingFunction which represent a cubic spline of provided data.
+#
+#C2Functions can be combined with unary operators (nested functions) or binary operators (+-*/ etc.)
+#
+#Developed by Marcus H. Mendenhall, Vanderbilt University Keck Free Electron Laser Center, Nashville, TN USA
+#email: marcus.h.mendenhall@vanderbilt.edu
+#Work supported by the US DoD  MFEL program under grant FA9550-04-1-0045
+#version $Id: C2Functions.py,v 1.43 2006-05-03 00:56:20 mendenhall Exp $
+
 
 import math
 import operator
@@ -23,16 +41,29 @@ import types
 import Numeric as _numeric #makes it easy to change to NumArray later
 _myfuncs=_numeric #can change to math for (possibly greater) speed (?) but no vectorized evaluation
 
-class C2Exception(Exception):
+##
+## Our own exception class
+class	C2Exception(Exception):
 	pass
 
-class RangeError(IndexError):
-	"X out of input range in splint()"
+##
+##Raised if an abscissa is out of range
+class	RangeError(IndexError):
+	pass
 
-class C2Function(object):
-	"if f is a C2Function, f(x) returns the value at x, and f.value_with_derivatives returns y(x), y'(x), y''(x)"
+##
+## The C2Function class provides support for the entire C2Function hierarchy
+#
+class	C2Function(object):
+	"if f is a C2Function, f(x) returns the value at x, and f.value_with_derivatives returns y(x), y'(x), y''(x)"	
 	ClassName='C2Function'
 	name='Unnamed'
+	##
+	##Construct a new C2Function.  
+	#\param args The default (no args) constructs with a range of (1e-308, 1e308).  
+	#Otherwise,  C2Function(\a another_C2Function) copies the range.  \n
+	# or \n
+	#C2Function( \a first_C2, \a second_C2) sets the range to the intersection of the ranges
 	def __init__(self, *args) : 
 		if not args:
 			self.xMin, self.xMax=-1e308, 1e308
@@ -44,26 +75,51 @@ class C2Function(object):
 			self.xMax=min(l.xMax, r.xMax)
 		
 		self.sampling_grid=None
-		
-	def __str__(self): return '<%s %s, Domain=[%g, %g]>' % ((self.ClassName, self.name,)+ self.GetDomain())
-				
+	
+	##
+	##Return our name	
+	def __str__(self): 
+		return '<%s %s, Domain=[%g, %g]>' % ((self.ClassName, self.name,)+ self.GetDomain())
+	
+	##
+	## Set the name of this function to be returned by str()	
+	#\param name the string to set the name to		
 	def SetName(self, name): 
 		"set the short name of the function for __str__"
 		self.name=name; return self
 	
+	##
+	## get f(val) if val is numeric, otherwise generate the composed fonction f(val())
+	#\param arg the independent variable, if numeric, otherise the inner function
 	def __call__(self, arg): 
 		"f(x) evaluates f(arg) without derivatives if arg is numeric, otherwise returns the composed function f(arg())"
 		if isinstance(arg, C2Function): return C2ComposedFunction(self, arg)
 		else: return self.value_with_derivatives(arg)[0] 
-
+	
+	##
+	## Create a new interpolating function which is the evaluated composition of this with the original
+	#\param interpolator an InterpolatingFunction object
 	def apply(self, interpolator):
 		"creates a new InterpolatingFunction which has this function applied to the original interpolater"
 		return interpolator.UnaryOperator(self)
 
-	def find_root(self, lower_bracket, upper_bracket, start, value, trace=False): # solve f(x)=value
+	##
+	## solve f(x)==value very efficiently, with explicit knowledge of derivatives of the function
+	# find_root solves by iterated inverse quadratic extrapolation for a solution to f(x)=y.  It
+	# includes checks against bad convergence, so it should never be able to fail.  Unlike typical
+	# secant method or fancier Brent's method finders, this does not depend in any strong wasy on the
+	# brackets, unless the finder has to resort to successive approximations to close in on a root.
+	# Often, it is possible to make the brackets equal to the domain of the function, if there is
+	# any clue as to where the root lies, as given by the parameter \a start.  
+	# \param lower_bracket the lower bound which is ever permitted in the search.
+	# \param upper_bracket the upper bound. Note that the function have opposite signs at these two points
+	# \param start an initial guess for where to start the search
+	# \param value the target value of the function
+  
+	def find_root(self, lower_bracket, upper_bracket, start, value, trace=False): 
 		"solve f(x)==value very efficiently, with explicit knowledge of derivatives of the function"
-		#find f(x)=value within the brackets, using the guarantees of smoothness associated with a C2Function
-		# can use local f(x)=a*x**2 + b*x + c and solve quadratic to find root, then iterate
+		# can use local f(x)=a*x**2 + b*x + c 
+		# and solve quadratic to find root, then iterate
 
 		ftol=(5e-16*abs(value)+2e-308);
 		xtol=(5e-16*(abs(upper_bracket)+abs(lower_bracket))+2e-308);
@@ -78,7 +134,8 @@ class C2Function(object):
 
 		if cupper*clower >0:
 			# argh, no sign change in here!
-			raise C2Exception("unbracketed root in find_root at xlower=%g, xupper=%g, bailing" %(lower_bracket, upper_bracket))
+			raise C2Exception("unbracketed root in find_root at xlower=%g, xupper=%g, bailing" %
+					(lower_bracket, upper_bracket))
 
 		delta=upper_bracket-lower_bracket	#first error step
 		c, b, ypp=self.value_with_derivatives(root) # compute initial values
@@ -93,11 +150,13 @@ class C2Function(object):
 				else:
 					q=-0.5*(b-math.sqrt(disc))
 
-				if q*q > abs(a*c): delta=c/q	#since x1=q/a, x2=c/q, x1/x2=q^2/ac, this picks smaller step
+				if q*q > abs(a*c):
+					delta=c/q	#since x1=q/a, x2=c/q, x1/x2=q^2/ac, this picks smaller step
 				else: delta=q/a
 				root+=delta;
 
-			if disc < 0 or root<lower_bracket or root>upper_bracket:	#if we jump out of the bracket, bisect
+			if disc < 0 or root<lower_bracket or root>upper_bracket:	
+				#if we jump out of the bracket, bisect
 				root=0.5*(lower_bracket+upper_bracket)	
 				delta=upper_bracket-lower_bracket
 
@@ -106,9 +165,11 @@ class C2Function(object):
 
 			if trace: 
 				import sys
-				print >> sys.stderr, "find_root x, dx, c, b, a", (5*"%10.4g ") % (root, delta, c, b, ypp/2)
+				print >> sys.stderr, "find_root x, dx, c, b, a", ( (5*"%10.4g ") % 
+					(root, delta, c, b, ypp/2) )
 				
-			if abs(c) < ftol or abs(c) < xtol*abs(b):	return root		#got it close enough
+			if abs(c) < ftol or abs(c) < xtol*abs(b):	
+				return root	#got it close enough
 
 			# now, close in bracket on whichever side this still brackets
 			if c*clower < 0.0:
@@ -268,12 +329,14 @@ class C2Function(object):
 	def GetSamplingGrid(self, xmin, xmax):
 		"get a set of points, including xmin and xmax, which are reasonable points to evaluate the function between them"
 		if not self.sampling_grid or xmin > self.sampling_grid[-1] or xmax < self.sampling_grid[0]:
-			return (xmin, xmax) #don't really have any information on the funciton in this interval.
+			pass
+			return (xmin, xmax) #dont really have any information on the funciton in this interval.
 		else:
+
 			sg=self.sampling_grid
 			
 			firstindex, lastindex=_numeric.searchsorted(sg, (xmin, xmax))
-						
+	
 			grid=[xmin]+list(sg[firstindex:lastindex])+[xmax] #insert points  from source grid to destination into the middle of our grid
 			
 			if len(grid) > 2 : #attempt to clear out points put too close together at the beginning, if we have at least three points
@@ -285,9 +348,9 @@ class C2Function(object):
 				x0, x1, x2 = grid[-3:]
 				ftol=10.0*(1e-14*(abs(x0)+abs(x2))+1e-300)
 				if (x2-x1) < ftol or (x2-x1) < 0.1*(x2-x0): del grid[-2] #remove collision
-
+		
 			return grid
-
+	
 	def integral(self, xmin, xmax, **args):
 		"carry out integration using our sampling grid"
 		grid=self.GetSamplingGrid(xmin, xmax)
@@ -307,7 +370,9 @@ class C2Function(object):
 		grid=self.GetSamplingGrid(xmin, xmax)
 		intg=sum(mesquared.partial_integrals(grid))
 		return C2ScaledFunction(self, math.sqrt(norm/intg))
-	
+
+##
+# Create a function which is a simple scalar multiple of another
 class C2ScaledFunction(C2Function):
 	"a lightweight class to create a function scaled vertically by a scale factor"
 	ClassName='Scaled'
@@ -676,6 +741,21 @@ def _zero(x): return 0.0
 def _recip(x): return 1.0/x
 def _mrecip2(x): return -1.0/(x*x)
 
+##
+##\class InterpolatingFunction
+#
+#An InterpolatingFunction stores a cubic spline representation of a set of x,y pairs.
+#	It can also transform the variable on input and output, so that the underlying spline may live in log-log space, 
+#	but such transforms are transparent to the setup and use of the function.  This makes it possible to
+#	store splines of, e.g., data which are very close to a power law, as a LogLogInterpolatingFunction, and
+#	to then have very accurate interpolation and extrapolation, since the curvature of such a function is small in log-log space.
+#	
+#	InterpolatingFunction(x, y, lowerSlope, upperSlope, XConversions, YConversions) sets up a spline.  
+#	If lowerSlope or upperSlope is None, the corresponding boundary is set to 'natural', with zero second derivative.
+#	XConversions is a list of g, g', g'' to evaluate for transforming the X axis.  
+#	YConversions is a list of f, f', f'', f(-1) to evaluate for transforming the Y axis.
+#		Note that the y transform f and f(-1) MUST be exact inverses, or the system will melt.
+#	
 class InterpolatingFunction(C2Function):
 	"""An InterpolatingFunction stores a cubic spline representation of a set of x,y pairs.
 		It can also transform the variable on input and output, so that the underlying spline may live in log-log space, 
@@ -694,7 +774,15 @@ class InterpolatingFunction(C2Function):
 	XConversions=None
 	name='data'
 	ClassName='InterpolatingFunction'
-		
+	
+	##
+	## create the InterpolatingFunction
+	#\param x the array of abscissas
+	#\param y the array of ordinates
+	#\param lowerSlope if not None, the slope at the lower end of the spline.  If None, use 'natural' spline with zero second derivative
+	#\param upperSlope if not None, the slope at the lower end of the spline.  If None, use 'natural' spline with zero second derivative
+	#\param XConversions a list of functions used for transforming the abscissa
+	#\param YConversions a list of functions used for tranforming the ordinate
 	def __init__(self, x, y, lowerSlope=None, upperSlope=None, XConversions=None, YConversions=None):
 		C2Function.__init__(self) #just on general principle, right now this does nothing
 		self.SetDomain(min(x), max(x))

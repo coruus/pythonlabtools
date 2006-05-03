@@ -111,7 +111,7 @@ If analytic derivatives are desired, do, \e e.g.
 
 """
 
-_rcsid="$Id: fitting_toolkit.py,v 1.14 2006-05-02 21:57:36 mendenhall Exp $"
+_rcsid="$Id: fitting_toolkit.py,v 1.15 2006-05-03 00:56:20 mendenhall Exp $"
 
 import Numeric
 import random
@@ -270,9 +270,9 @@ class fit:
 	
 	##
 	## Define the step sizes to be used by auto_derivs()
-	# \params deriv_step an indexable object with the same number of elements as free parameters.
+	# \param deriv_step an indexable object with the same number of elements as free parameters.
 	#										
-	def auto_deriv_steps(self,deriv_step):
+	def auto_deriv_steps(self, deriv_step):
 		"set the step sizes used for each parameter if numerical derivatives are to be used"
 		self.deriv_step=Numeric.array(deriv_step, self.atype)
 
@@ -411,7 +411,7 @@ class fit:
 	#This method should be overridden if anything fancy is being done with weights (correlated fits, etc.) 
 	def weight_func(self):
 		"default weight is 1 or, if explicit_weightlist exists, that is returned"
-		if not hasattr(self,"explicit_weightlist") or self.explicit_weightlist is None:
+		if not hasattr(self, "explicit_weightlist") or self.explicit_weightlist is None:
 			return 1.0
 		else:
 			return self.explicit_weightlist
