@@ -1,11 +1,11 @@
 """generate voigt functions and their derivatives with respect to parameters"""
-_rcsid="$Id: voigt_profile.py,v 1.1 2006-07-10 15:15:54 mendenhall Exp $"
+_rcsid="$Id: voigt_profile.py,v 1.2 2006-07-10 16:06:42 mendenhall Exp $"
 
 ##\file
 ##Provides the analysis.voigt_profile package.
 ##\package analysis.voigt_profile
 #This is a function which efficiently computes Voigt profiles (convolutions of Lorentzian and Gaussian functions) which are useful for many types of spectroscopy.
-#\verbatim version $Id: voigt_profile.py,v 1.1 2006-07-10 15:15:54 mendenhall Exp $ \endverbatim
+#\verbatim version $Id: voigt_profile.py,v 1.2 2006-07-10 16:06:42 mendenhall Exp $ \endverbatim
 #
 #Developed by Marcus H. Mendenhall, Vanderbilt University Keck Free Electron Laser Center, Nashville, TN USA
 #
@@ -37,13 +37,13 @@ class Voigt_calculator:
 	## \param alpha The half-width of the Lorentzian, i.e. y=1/(alpha^2 + x^2), suitably normalized
 	## \param k_points The number of points in k-space to compute.  If it is None, autorange based on kexptail (see below)
 	## \param xfullwidth The maximum value of X for which the function is calculated.  The domain is (-xfullwidth, xfullwidth)
-	## \param kexptail The number of exponential decrements to compute in k-space.  kexptai=25 gives about 10^-11 amplitude at the Nyquist frequency.  
+	## \param kexptail The number of exponential decrements to compute in k-space.  kexptail=25 gives about 10^-11 amplitude at the Nyquist frequency.  
 	##	Larger values give finer sampling of the peak in x-space.
 	##
-	## \return xvals The grid of x values on which the function is computed.
-	## \return yft The array of function values corresponding to the xvals given.  The function is normalized so that sum(yft*dx)=1
-	## \return dsig The derivative of the Voigt function with respect to sigma
-	## \return dalpha The derivative of the Voigt function with respect to alpha.
+	## \retval xvals The grid of x values on which the function is computed.
+	## \retval yft The array of function values corresponding to the xvals given.  The function is normalized so that sum(yft*dx)=1
+	## \retval dsig The derivative of the Voigt function with respect to sigma
+	## \retval dalpha The derivative of the Voigt function with respect to alpha.
 	##
 	def voigt_with_derivs(self, sigma, alpha, k_points=None, xfullwidth=10.0, kexptail=25):
 		"""return an x grid, voigt function with specified params, and d/dsigma and d/dalpha of this.  
@@ -119,7 +119,9 @@ def voigt_with_derivs(*args, **kwargs):
 	return _voigt_instance.voigt_with_derivs(*args, **kwargs)
 ##
 
-
+##
+##\cond NEVER
+##
 if __name__=='__main__':
 	from graceplot import GracePlot
 	
@@ -230,5 +232,8 @@ if __name__=='__main__':
 			tick=GracePlot.Tick(major=10, minorticks=9))
 
 	graceSession.send_commands('hardcopy device "PDF"', 'print to "voigt_errors.pdf"')
-	
+
+##
+##\endcond
+##
 		
