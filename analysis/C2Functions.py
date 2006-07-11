@@ -12,15 +12,15 @@ C2Functions can be combined with unary operators (nested functions) or binary op
 Developed by Marcus H. Mendenhall, Vanderbilt University Keck Free Electron Laser Center, Nashville, TN USA
 email: mendenhall@users.sourceforge.net
 Work supported by the US DoD  MFEL program under grant FA9550-04-1-0045
-version $Id: C2Functions.py,v 1.46 2006-05-15 13:28:31 mendenhall Exp $
+version $Id: C2Functions.py,v 1.47 2006-07-11 21:02:09 mendenhall Exp $
 """
-_rcsid="$Id: C2Functions.py,v 1.46 2006-05-15 13:28:31 mendenhall Exp $"
+_rcsid="$Id: C2Functions.py,v 1.47 2006-07-11 21:02:09 mendenhall Exp $"
 
 ##\file
 ##Provides the analysis.C2Functions package.
 ##\package analysis.C2Functions
 #A group of classes which make it easy to manipulate smooth functions, including cubic splines. 
-#\verbatim version $Id: C2Functions.py,v 1.46 2006-05-15 13:28:31 mendenhall Exp $ \endverbatim
+#\verbatim version $Id: C2Functions.py,v 1.47 2006-07-11 21:02:09 mendenhall Exp $ \endverbatim
 #C2Functions know how to keep track of the first and second derivatives of functions, and to use this information in, for example, C2Function.find_root() and 
 #C2Function.partial_integrals()
 #to allow much more efficient solutions to problems for which the general solution may be expensive.
@@ -655,50 +655,107 @@ class C2Power(C2BinaryFunction):
 #the following spline utilities are directly from pythonlabtools.analysis.spline, version "spline.py,v 1.23 2005/07/13 14:24:58 mendenhall Release-20050805"
 #and are copied here to reduce paxckage interdependency
 
-def _spline(x, y, yp1=None, ypn=None):
-	"""y2 = spline(x_vals,y_vals, yp1=None, ypn=None) 
-	returns the y2 table for the spline as needed by splint()"""
-
-	n=len(x)
-	u=_numeric.zeros(n,_numeric.Float)
-	y2=_numeric.zeros(n,_numeric.Float)
+try:
+	#if we have scipy support, use a fast tridiagonal algorithm and numpy arrays internally
+	from scipy import linalg as _linalg
+	import numpy as _numpy
+	def _spline(x, y, yp1=None, ypn=None):
+		"""y2 = spline(x_vals,y_vals, yp1=None, ypn=None) 
+		returns the y2 table for the spline as needed by splint()"""
 	
-	x=_numeric.asarray(x, _numeric.Float)
-	y=_numeric.asarray(y, _numeric.Float)
-	
-	dx=x[1:]-x[:-1]
-	dxi=1.0/dx
-	dx2i=1.0/(x[2:]-x[:-2])
-	dy=(y[1:]-y[:-1])
-	siga=dx[:-1]*dx2i
-	dydx=dy*dxi
-	
-	# u[i]=(y[i+1]-y[i])/float(x[i+1]-x[i]) - (y[i]-y[i-1])/float(x[i]-x[i-1])
-	u[1:-1]=dydx[1:]-dydx[:-1] #this is an incomplete rendering of u... the rest requires recursion in the loop
-	
-	if yp1 is None:
-		y2[0]=u[0]=0.0
-	else:
-		y2[0]= -0.5
-		u[0]=(3.0*dxi[0])*(dy[0]*dxi[0] -yp1)
-
-	for i in range(1,n-1):
-		sig=siga[i-1]
-		p=sig*y2[i-1]+2.0
-		y2[i]=(sig-1.0)/p
-		u[i]=(6.0*u[i]*dx2i[i-1] - sig*u[i-1])/p
-
-	if ypn is None:
-		qn=un=0.0
-	else:
-		qn= 0.5
-		un=(3.0*dxi[-1])*(ypn- dy[-1]*dxi[-1] )
+		n=len(x)
+		u=_numpy.zeros(n,_numpy.Float)
 		
-	y2[-1]=(un-qn*u[-2])/(qn*y2[-2]+1.0)
-	for k in range(n-2,-1,-1):
-		y2[k]=y2[k]*y2[k+1]+u[k]
+		x=_numpy.asarray(x, _numpy.Float)
+		y=_numpy.asarray(y, _numpy.Float)
+		
+		dx=x[1:]-x[:-1]
+		dx2=(x[2:]-x[:-2])
+		dy=(y[1:]-y[:-1])
+		dydx=dy/dx
+		
+		# u[i]=(y[i+1]-y[i])/float(x[i+1]-x[i]) - (y[i]-y[i-1])/float(x[i]-x[i-1])
+		u[1:-1]=dydx[1:]
+		u[1:-1]-=dydx[:-1] #this is an incomplete rendering of u... the rest requires recursion in the loop
 
-	return y2
+		trimat=_numpy.zeros((3, n), _numpy.Float)
+
+		trimat[0, 1:]=dx
+		trimat[1, 1:-1]=dx2
+		trimat[2, :-1]=dx
+		trimat[0] *= (1.0/6.0)
+		trimat[1] *= (1.0/3.0)
+		trimat[2] *= (1.0/6.0)
+
+		if yp1 is None:
+			u[0]=0.0
+			trimat[1,0]=1
+			trimat[0,1]=0
+		else:
+			u[0]=dydx[0]-yp1
+			trimat[1,0] = dx[0]/(3.0)
+			#trimat[0,1] = dx[0]/(6.0)
+			
+		if ypn is None:
+			u[-1]=0.0
+			trimat[1,-1]=1
+			trimat[2,-2]=0
+		else:
+			u[-1]=ypn-dydx[-1]
+			trimat[1,-1] = dx[-1]/(3.0)
+			#trimat[2,-2] = dx[-1]/(6.0)
+		
+		y2=_linalg.solve_banded((1,1), trimat, u, debug=1)
+		return _numeric.asarray(y2, _numeric.Float)
+	
+except:
+	import traceback
+	traceback.print_exc()	
+	def _spline(x, y, yp1=None, ypn=None):
+		"""y2 = spline(x_vals,y_vals, yp1=None, ypn=None) 
+		returns the y2 table for the spline as needed by splint()"""
+	
+		n=len(x)
+		u=_numeric.zeros(n,_numeric.Float)
+		y2=_numeric.zeros(n,_numeric.Float)
+		
+		x=_numeric.asarray(x, _numeric.Float)
+		y=_numeric.asarray(y, _numeric.Float)
+		
+		dx=x[1:]-x[:-1]
+		dxi=1.0/dx
+		dx2i=1.0/(x[2:]-x[:-2])
+		dy=(y[1:]-y[:-1])
+		siga=dx[:-1]*dx2i
+		dydx=dy*dxi
+		
+		# u[i]=(y[i+1]-y[i])/float(x[i+1]-x[i]) - (y[i]-y[i-1])/float(x[i]-x[i-1])
+		u[1:-1]=dydx[1:]
+		u[1:-1]-=dydx[:-1] #this is an incomplete rendering of u... the rest requires recursion in the loop
+		
+		if yp1 is None:
+			y2[0]=u[0]=0.0
+		else:
+			y2[0]= -0.5
+			u[0]=(3.0*dxi[0])*(dy[0]*dxi[0] -yp1)
+	
+		for i in range(1,n-1):
+			sig=siga[i-1]
+			p=sig*y2[i-1]+2.0
+			y2[i]=(sig-1.0)/p
+			u[i]=(6.0*u[i]*dx2i[i-1] - sig*u[i-1])/p
+	
+		if ypn is None:
+			qn=un=0.0
+		else:
+			qn= 0.5
+			un=(3.0*dxi[-1])*(ypn- dy[-1]*dxi[-1] )
+			
+		y2[-1]=(un-qn*u[-2])/(qn*y2[-2]+1.0)
+		for k in range(n-2,-1,-1):
+			y2[k]=y2[k]*y2[k+1]+u[k]
+	
+		return y2
 
 def _spline_extension(x, y, y2, xmin=None, xmax=None):
 	"""x, y, y2 = spline_extension(x_vals,y_vals, y2vals, xmin=None, xmax=None) 
@@ -862,9 +919,8 @@ class InterpolatingFunction(C2Function):
 		if min(dx) <  0 or min(self.X) < self.X[0] or max(self.X) > self.X[-1]:
 			raise C2Exception("monotonicity error in X values for interpolating function: "  + 
 				_numeric.array_str(self.X))
-			
-
 		self.y2=_spline(self.X, self.F, yp1=lowerSlope, ypn=upperSlope)
+		
 
 	def value_with_derivatives(self, x): 
 		if self.xNonLin or self.yNonLin: #skip this if this is a completely untransformed spline
