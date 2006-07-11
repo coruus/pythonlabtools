@@ -12,15 +12,15 @@ C2Functions can be combined with unary operators (nested functions) or binary op
 Developed by Marcus H. Mendenhall, Vanderbilt University Keck Free Electron Laser Center, Nashville, TN USA
 email: mendenhall@users.sourceforge.net
 Work supported by the US DoD  MFEL program under grant FA9550-04-1-0045
-version $Id: C2Functions.py,v 1.47 2006-07-11 21:02:09 mendenhall Exp $
+version $Id: C2Functions.py,v 1.48 2006-07-11 21:17:32 mendenhall Exp $
 """
-_rcsid="$Id: C2Functions.py,v 1.47 2006-07-11 21:02:09 mendenhall Exp $"
+_rcsid="$Id: C2Functions.py,v 1.48 2006-07-11 21:17:32 mendenhall Exp $"
 
 ##\file
 ##Provides the analysis.C2Functions package.
 ##\package analysis.C2Functions
 #A group of classes which make it easy to manipulate smooth functions, including cubic splines. 
-#\verbatim version $Id: C2Functions.py,v 1.47 2006-07-11 21:02:09 mendenhall Exp $ \endverbatim
+#\verbatim version $Id: C2Functions.py,v 1.48 2006-07-11 21:17:32 mendenhall Exp $ \endverbatim
 #C2Functions know how to keep track of the first and second derivatives of functions, and to use this information in, for example, C2Function.find_root() and 
 #C2Function.partial_integrals()
 #to allow much more efficient solutions to problems for which the general solution may be expensive.
@@ -705,7 +705,7 @@ try:
 			trimat[1,-1] = dx[-1]/(3.0)
 			#trimat[2,-2] = dx[-1]/(6.0)
 		
-		y2=_linalg.solve_banded((1,1), trimat, u, debug=1)
+		y2=_linalg.solve_banded((1,1), trimat, u, debug=0)
 		return _numeric.asarray(y2, _numeric.Float)
 	
 except:
