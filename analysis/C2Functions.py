@@ -12,15 +12,15 @@ C2Functions can be combined with unary operators (nested functions) or binary op
 Developed by Marcus H. Mendenhall, Vanderbilt University Keck Free Electron Laser Center, Nashville, TN USA
 email: mendenhall@users.sourceforge.net
 Work supported by the US DoD  MFEL program under grant FA9550-04-1-0045
-version $Id: C2Functions.py,v 1.53 2006-08-07 16:20:54 mendenhall Exp $
+version $Id: C2Functions.py,v 1.54 2006-08-07 20:32:10 mendenhall Exp $
 """
-_rcsid="$Id: C2Functions.py,v 1.53 2006-08-07 16:20:54 mendenhall Exp $"
+_rcsid="$Id: C2Functions.py,v 1.54 2006-08-07 20:32:10 mendenhall Exp $"
 
 ##\file
 ##Provides the analysis.C2Functions package.
 ##\package analysis.C2Functions
 #A group of classes which make it easy to manipulate smooth functions, including cubic splines. 
-#\verbatim version $Id: C2Functions.py,v 1.53 2006-08-07 16:20:54 mendenhall Exp $ \endverbatim
+#\verbatim version $Id: C2Functions.py,v 1.54 2006-08-07 20:32:10 mendenhall Exp $ \endverbatim
 #C2Functions know how to keep track of the first and second derivatives of functions, and to use this information in, for example, C2Function.find_root() and 
 #C2Function.partial_integrals()
 #to allow much more efficient solutions to problems for which the general solution may be expensive.
@@ -45,7 +45,7 @@ import operator
 import types
 
 try:
-	#prefer numpy over Numeric since it knows how to handle Numeric arrays, too
+	#prefer numpy over Numeric since it knows how to handle Numeric arrays, too (maybe, but not reliably!)
 	import numpy as _numeric 
 except:
 	import Numeric as _numeric
@@ -795,17 +795,19 @@ def _splint(xa, ya, y2a, x, derivs=False):
 	x can either be a scalar or a listable item, in which case a Numeric Float array will be
 	returned and the multiple interpolations will be done somewhat more efficiently.
 	If derivs is not False, return y, y', y'' instead of just y."""
-	try:
+	if not operator.isSequenceType(x):
 		x=float(x) #this will throw an exception if x is an array!
 		if (x<xa[0] or x>xa[-1]):
 			raise RangeError, "%f not in range (%f, %f) in splint()" % (x, xa[0], xa[-1])
 			 
 		khi=max(_numeric.searchsorted(xa,x),1)
 		klo=khi-1
+		#convert everything which came out of an array to a float, since numpy arrays return numpy scalars, rather than native scalars
+		#this speeds things up, and makes sure numbers coming back fro here are native
 		h=float(xa[khi]-xa[klo])
-		a=(xa[khi]-x)/h; b=1.0-a
-		ylo=ya[klo]; yhi=ya[khi]; y2lo=y2a[klo]; y2hi=y2a[khi]
-	except:
+		a=float(xa[khi]-x)/h; b=1.0-a
+		ylo=float(ya[klo]); yhi=float(ya[khi]); y2lo=float(y2a[klo]); y2hi=float(y2a[khi]) 
+	else:
 		#if we got here, we are processing a list, and should do so more efficiently
 		if (min(x)<xa[0] or max(x)>xa[-1]):
 			raise RangeError, "(%f, %f) not in range (%f, %f) in splint()" % (min(x), max(x), xa[0], xa[-1])
@@ -938,8 +940,11 @@ class InterpolatingFunction(C2Function):
 			fpp=self.fYinPP(y)
 			gpp=self.fXinPP(x)
 			#also from Mathematica Dt[InverseFunction[f][g[y[x]]], {x,2}]
-			yprimeprime=(gp*gp*ypp0 + yp0*gpp - gp*gp*yp0*yp0*fpp*fpi*fpi)*fpi; 
-			return y, yprime, yprimeprime
+			yprimeprime=(gp*gp*ypp0 + yp0*gpp - gp*gp*yp0*yp0*fpp*fpi*fpi)*fpi
+			if not operator.isSequenceType(x):
+				return float(y), float(yprime), float(yprimeprime) #native scalars always!
+			else:
+				return y, yprime, yprimeprime
 		else:
 			return _splint(self.X, self.F, self.y2, x, derivs=True)
 

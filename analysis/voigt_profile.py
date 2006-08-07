@@ -1,11 +1,11 @@
 """generate voigt functions and their derivatives with respect to parameters"""
-_rcsid="$Id: voigt_profile.py,v 1.2 2006-07-10 16:06:42 mendenhall Exp $"
+_rcsid="$Id: voigt_profile.py,v 1.3 2006-08-07 20:32:10 mendenhall Exp $"
 
 ##\file
 ##Provides the analysis.voigt_profile package.
 ##\package analysis.voigt_profile
 #This is a function which efficiently computes Voigt profiles (convolutions of Lorentzian and Gaussian functions) which are useful for many types of spectroscopy.
-#\verbatim version $Id: voigt_profile.py,v 1.2 2006-07-10 16:06:42 mendenhall Exp $ \endverbatim
+#\verbatim version $Id: voigt_profile.py,v 1.3 2006-08-07 20:32:10 mendenhall Exp $ \endverbatim
 #
 #Developed by Marcus H. Mendenhall, Vanderbilt University Keck Free Electron Laser Center, Nashville, TN USA
 #
@@ -14,9 +14,16 @@ _rcsid="$Id: voigt_profile.py,v 1.2 2006-07-10 16:06:42 mendenhall Exp $"
 #Work supported by the US DoD  MFEL program under grant FA9550-04-1-0045
 #
 
-import Numeric
+try:
+	import numpy as Numeric
+	from numpy import dft
+	from numpy.dft import irefft as inverse_real_fft
+	
+except ImportError:	
+	import Numeric
+	from FFT import inverse_real_fft
+
 import math
-import FFT
 
 ## 
 ## the class allows one to set up multiple instances of the Voigt function calculator, each with its own private cache
@@ -72,7 +79,7 @@ class Voigt_calculator:
 			
 		yvals=Numeric.exp(Numeric.clip((-0.5*sigma*sigma)*k2 - alpha*kvals, -690, 0))
 		yvals[1::2]*=-1.0 #modulate phase to put peak in center for convenience
-		yft=FFT.inverse_real_fft(yvals)
+		yft=inverse_real_fft(yvals)
 		yft *= 0.5/dx #scale to unit area
 	
 		#apply periodic boundary correction to function
@@ -91,7 +98,7 @@ class Voigt_calculator:
 		
 		#transform of df/d(alpha) = d(transform of f)/d(alpha) = -k*transform	
 		yvals*=kvals
-		dalpha=FFT.inverse_real_fft(yvals)
+		dalpha=inverse_real_fft(yvals)
 		dalpha*= -0.5/dx
 		
 		#apply periodicity correction to d/dalpha
@@ -102,7 +109,7 @@ class Voigt_calculator:
 		
 		#transform of df/d(sigma) = d(transform of f)/d(sigma) = -k*k*sigma*transform	
 		yvals*=kvals
-		dsig=FFT.inverse_real_fft(yvals)
+		dsig=inverse_real_fft(yvals)
 		dsig*= -0.5*sigma/dx
 		
 		#d/dsigma is very localized... no correction needed
@@ -194,7 +201,7 @@ if __name__=='__main__':
 			ll.set_width(alpha0)
 			gg.set_width(sigma0)
 			for x in xvals1:
-				ll.set_center(x)
+				ll.set_center(float(x)) #need to cast to float if numpy is used to avod horrible numpy-objects as the float
 				convlist.append(prod.integral(-10.0*sigma0, 10.0*sigma0, relative_error_tolerance=1e-13, absolute_error_tolerance=1e-16))
 			
 			t2=time.time()
