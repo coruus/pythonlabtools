@@ -1,11 +1,11 @@
 """generate voigt functions and their derivatives with respect to parameters"""
-_rcsid="$Id: voigt_profile.py,v 1.3 2006-08-07 20:32:10 mendenhall Exp $"
+_rcsid="$Id: voigt_profile.py,v 1.4 2006-08-07 21:11:43 mendenhall Exp $"
 
 ##\file
 ##Provides the analysis.voigt_profile package.
 ##\package analysis.voigt_profile
 #This is a function which efficiently computes Voigt profiles (convolutions of Lorentzian and Gaussian functions) which are useful for many types of spectroscopy.
-#\verbatim version $Id: voigt_profile.py,v 1.3 2006-08-07 20:32:10 mendenhall Exp $ \endverbatim
+#\verbatim version $Id: voigt_profile.py,v 1.4 2006-08-07 21:11:43 mendenhall Exp $ \endverbatim
 #
 #Developed by Marcus H. Mendenhall, Vanderbilt University Keck Free Electron Laser Center, Nashville, TN USA
 #
@@ -18,10 +18,12 @@ try:
 	import numpy as Numeric
 	from numpy import dft
 	from numpy.dft import irefft as inverse_real_fft
+	_numeric_float=Numeric.float64
 	
 except ImportError:	
 	import Numeric
 	from FFT import inverse_real_fft
+	_numeric_float=_numeric_float64
 
 import math
 
@@ -65,9 +67,9 @@ class Voigt_calculator:
 			
 		if self.saved_params[:2] != (k_points, xfullwidth):
 			kmax=math.pi*k_points/(xfullwidth)
-			kvals=Numeric.array(range(k_points+1), Numeric.Float)*(kmax/k_points)
+			kvals=Numeric.array(range(k_points+1), _numeric_float)*(kmax/k_points)
 			dx=xfullwidth/(2.0*k_points)
-			xvals=Numeric.array(range(2*k_points), Numeric.Float)*(xfullwidth/float(k_points))-xfullwidth
+			xvals=Numeric.array(range(2*k_points), _numeric_float)*(xfullwidth/float(k_points))-xfullwidth
 			k2=kvals*kvals
 			x2=xvals*xvals
 			cosarray=Numeric.cos((math.pi/xfullwidth)*xvals)
@@ -77,7 +79,7 @@ class Voigt_calculator:
 			kmax=math.pi*k_points/(xfullwidth)
 			dx=xfullwidth/(2.0*k_points)
 			
-		yvals=Numeric.exp(Numeric.clip((-0.5*sigma*sigma)*k2 - alpha*kvals, -690, 0))
+		yvals=Numeric.exp(Numeric.clip((-0.5*sigma*sigma)*k2 - alpha*kvals, -100, 0))
 		yvals[1::2]*=-1.0 #modulate phase to put peak in center for convenience
 		yft=inverse_real_fft(yvals)
 		yft *= 0.5/dx #scale to unit area
