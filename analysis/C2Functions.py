@@ -12,15 +12,15 @@ C2Functions can be combined with unary operators (nested functions) or binary op
 Developed by Marcus H. Mendenhall, Vanderbilt University Keck Free Electron Laser Center, Nashville, TN USA
 email: mendenhall@users.sourceforge.net
 Work supported by the US DoD  MFEL program under grant FA9550-04-1-0045
-version $Id: C2Functions.py,v 1.51 2006-08-07 12:52:23 mendenhall Exp $
+version $Id: C2Functions.py,v 1.52 2006-08-07 15:43:06 mendenhall Exp $
 """
-_rcsid="$Id: C2Functions.py,v 1.51 2006-08-07 12:52:23 mendenhall Exp $"
+_rcsid="$Id: C2Functions.py,v 1.52 2006-08-07 15:43:06 mendenhall Exp $"
 
 ##\file
 ##Provides the analysis.C2Functions package.
 ##\package analysis.C2Functions
 #A group of classes which make it easy to manipulate smooth functions, including cubic splines. 
-#\verbatim version $Id: C2Functions.py,v 1.51 2006-08-07 12:52:23 mendenhall Exp $ \endverbatim
+#\verbatim version $Id: C2Functions.py,v 1.52 2006-08-07 15:43:06 mendenhall Exp $ \endverbatim
 #C2Functions know how to keep track of the first and second derivatives of functions, and to use this information in, for example, C2Function.find_root() and 
 #C2Function.partial_integrals()
 #to allow much more efficient solutions to problems for which the general solution may be expensive.
@@ -371,7 +371,7 @@ class	C2Function(object):
 	
 	def GetSamplingGrid(self, xmin, xmax):
 		"get a set of points, including xmin and xmax, which are reasonable points to evaluate the function between them"
-		if not self.sampling_grid or xmin > self.sampling_grid[-1] or xmax < self.sampling_grid[0]:
+		if self.sampling_grid is None or xmin > self.sampling_grid[-1] or xmax < self.sampling_grid[0]:
 			pass
 			return (xmin, xmax) #dont really have any information on the funciton in this interval.
 		else:
@@ -795,8 +795,8 @@ def _splint(xa, ya, y2a, x, derivs=False):
 	x can either be a scalar or a listable item, in which case a Numeric Float array will be
 	returned and the multiple interpolations will be done somewhat more efficiently.
 	If derivs is not False, return y, y', y'' instead of just y."""
-	if operator.isNumberType(x):
-		x=float(x) 
+	try:
+		x=float(x) #this will throw an exception if x is an array!
 		if (x<xa[0] or x>xa[-1]):
 			raise RangeError, "%f not in range (%f, %f) in splint()" % (x, xa[0], xa[-1])
 			 
@@ -805,7 +805,7 @@ def _splint(xa, ya, y2a, x, derivs=False):
 		h=float(xa[khi]-xa[klo])
 		a=(xa[khi]-x)/h; b=1.0-a
 		ylo=ya[klo]; yhi=ya[khi]; y2lo=y2a[klo]; y2hi=y2a[khi]
-	else:
+	except:
 		#if we got here, we are processing a list, and should do so more efficiently
 		if (min(x)<xa[0] or max(x)>xa[-1]):
 			raise RangeError, "(%f, %f) not in range (%f, %f) in splint()" % (min(x), max(x), xa[0], xa[-1])
