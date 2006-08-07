@@ -12,15 +12,15 @@ C2Functions can be combined with unary operators (nested functions) or binary op
 Developed by Marcus H. Mendenhall, Vanderbilt University Keck Free Electron Laser Center, Nashville, TN USA
 email: mendenhall@users.sourceforge.net
 Work supported by the US DoD  MFEL program under grant FA9550-04-1-0045
-version $Id: C2Functions.py,v 1.50 2006-07-12 00:17:00 mendenhall Exp $
+version $Id: C2Functions.py,v 1.51 2006-08-07 12:52:23 mendenhall Exp $
 """
-_rcsid="$Id: C2Functions.py,v 1.50 2006-07-12 00:17:00 mendenhall Exp $"
+_rcsid="$Id: C2Functions.py,v 1.51 2006-08-07 12:52:23 mendenhall Exp $"
 
 ##\file
 ##Provides the analysis.C2Functions package.
 ##\package analysis.C2Functions
 #A group of classes which make it easy to manipulate smooth functions, including cubic splines. 
-#\verbatim version $Id: C2Functions.py,v 1.50 2006-07-12 00:17:00 mendenhall Exp $ \endverbatim
+#\verbatim version $Id: C2Functions.py,v 1.51 2006-08-07 12:52:23 mendenhall Exp $ \endverbatim
 #C2Functions know how to keep track of the first and second derivatives of functions, and to use this information in, for example, C2Function.find_root() and 
 #C2Function.partial_integrals()
 #to allow much more efficient solutions to problems for which the general solution may be expensive.
@@ -44,8 +44,13 @@ import math
 import operator
 import types
 
-import Numeric as _numeric #makes it easy to change to NumArray later
-_myfuncs=_numeric #can change to math for (possibly greater) speed (?) but no vectorized evaluation
+try:
+	#prefer numpy over Numeric since it knows how to handle Numeric arrays, too
+	import numpy as _numeric 
+except:
+	import Numeric as _numeric
+
+_myfuncs=_numeric
 
 ##
 ## Our own exception class
@@ -696,7 +701,6 @@ try:
 		else:
 			u[0]=dydx[0]-yp1
 			trimat[1,0] = dx[0]/(3.0)
-			#trimat[0,1] = dx[0]/(6.0)
 			
 		if ypn is None:
 			u[-1]=0.0
@@ -705,7 +709,6 @@ try:
 		else:
 			u[-1]=ypn-dydx[-1]
 			trimat[1,-1] = dx[-1]/(3.0)
-			#trimat[2,-2] = dx[-1]/(6.0)
 		
 		y2=_linalg.solve_banded((1,1), trimat, u, debug=0)
 		return _numeric.asarray(y2, _numeric.Float)
@@ -785,14 +788,15 @@ def _spline_extension(x, y, y2, xmin=None, xmax=None):
 
 	return _numeric.concatenate(xl), _numeric.concatenate(yl), _numeric.concatenate(y2l)
 
-import types
+import operator
 
 def _splint(xa, ya, y2a, x, derivs=False):
 	"""returns the interpolated from from the spline
 	x can either be a scalar or a listable item, in which case a Numeric Float array will be
 	returned and the multiple interpolations will be done somewhat more efficiently.
 	If derivs is not False, return y, y', y'' instead of just y."""
-	if type(x) is types.IntType or type(x) is types.FloatType: 
+	if operator.isNumberType(x):
+		x=float(x) 
 		if (x<xa[0] or x>xa[-1]):
 			raise RangeError, "%f not in range (%f, %f) in splint()" % (x, xa[0], xa[-1])
 			 
