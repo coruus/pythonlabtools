@@ -12,15 +12,15 @@ C2Functions can be combined with unary operators (nested functions) or binary op
 Developed by Marcus H. Mendenhall, Vanderbilt University Keck Free Electron Laser Center, Nashville, TN USA
 email: mendenhall@users.sourceforge.net
 Work supported by the US DoD  MFEL program under grant FA9550-04-1-0045
-version $Id: C2Functions.py,v 1.54 2006-08-07 20:32:10 mendenhall Exp $
+version $Id: C2Functions.py,v 1.55 2006-08-07 21:28:41 mendenhall Exp $
 """
-_rcsid="$Id: C2Functions.py,v 1.54 2006-08-07 20:32:10 mendenhall Exp $"
+_rcsid="$Id: C2Functions.py,v 1.55 2006-08-07 21:28:41 mendenhall Exp $"
 
 ##\file
 ##Provides the analysis.C2Functions package.
 ##\package analysis.C2Functions
 #A group of classes which make it easy to manipulate smooth functions, including cubic splines. 
-#\verbatim version $Id: C2Functions.py,v 1.54 2006-08-07 20:32:10 mendenhall Exp $ \endverbatim
+#\verbatim version $Id: C2Functions.py,v 1.55 2006-08-07 21:28:41 mendenhall Exp $ \endverbatim
 #C2Functions know how to keep track of the first and second derivatives of functions, and to use this information in, for example, C2Function.find_root() and 
 #C2Function.partial_integrals()
 #to allow much more efficient solutions to problems for which the general solution may be expensive.
@@ -47,8 +47,10 @@ import types
 try:
 	#prefer numpy over Numeric since it knows how to handle Numeric arrays, too (maybe, but not reliably!)
 	import numpy as _numeric 
+	_numeric_float=_numeric.float64
 except:
 	import Numeric as _numeric
+	_numeric_float=_numeric.Float64
 
 _myfuncs=_numeric
 
@@ -711,7 +713,7 @@ try:
 			trimat[1,-1] = dx[-1]/(3.0)
 		
 		y2=_linalg.solve_banded((1,1), trimat, u, debug=0)
-		return _numeric.asarray(y2, _numeric.Float)
+		return _numeric.asarray(y2, _numeric_float)
 	
 except:
 	def _spline(x, y, yp1=None, ypn=None):
@@ -719,11 +721,11 @@ except:
 		returns the y2 table for the spline as needed by splint()"""
 	
 		n=len(x)
-		u=_numeric.zeros(n,_numeric.Float)
-		y2=_numeric.zeros(n,_numeric.Float)
+		u=_numeric.zeros(n,_numeric_float)
+		y2=_numeric.zeros(n,_numeric_float)
 		
-		x=_numeric.asarray(x, _numeric.Float)
-		y=_numeric.asarray(y, _numeric.Float)
+		x=_numeric.asarray(x, _numeric_float)
+		y=_numeric.asarray(y, _numeric_float)
 		
 		dx=x[1:]-x[:-1]
 		dxi=1.0/dx
@@ -823,7 +825,7 @@ def _splint(xa, ya, y2a, x, derivs=False):
 		y2hi=_numeric.take(y2a, khi)
 		y2lo=_numeric.take(y2a, klo)
 		
-		h=(xhi-xlo).astype(_numeric.Float)
+		h=(xhi-xlo).astype(_numeric_float)
 		a=(xhi-x)/h
 		b=1.0-a
 		
@@ -1093,8 +1095,8 @@ class AccumulatedHistogram(InterpolatingFunction):
 	ClassName='AccumulatedHistogram'
 
 	def __init__(self, binedges, binheights, normalize=False, inverse_function=False, drop_zeros=True, **args):
-		be=_numeric.array(binedges, _numeric.Float)
-		bh=_numeric.array(binheights, _numeric.Float)
+		be=_numeric.array(binedges, _numeric_float)
+		bh=_numeric.array(binheights, _numeric_float)
 
 		if drop_zeros or inverse_function: #invese functions cannot have any zero bins or they have vertical sections
 		
@@ -1369,7 +1371,7 @@ if __name__=="__main__":
 		print "\nIntegration tests"
 		sna=C2sin(C2PowerLaw(1,2)) #integrate sin(x**2)
 		for sample in (5, 11, 21, 41, 101):
-			xg=_numeric.array(range(sample), _numeric.Float)*(2.0/(sample-1))
+			xg=_numeric.array(range(sample), _numeric_float)*(2.0/(sample-1))
 			partials=sna.partial_integrals(xg)
 			if sample==10: print _numeric.array_str(partials, precision=8, suppress_small=False, max_line_width=10000)
 			sumsum=sum(partials)
@@ -1390,13 +1392,13 @@ if __name__=="__main__":
 		def bessj(n, z, point_density=2):
 			f=C2cos(C2Linear(slope=n) - C2Constant(z) * C2sin)
 			pc=int((abs(z)+abs(n)+2)*point_density)
-			g=_numeric.array(range(pc), _numeric.Float)*(math.pi/(pc-1))
+			g=_numeric.array(range(pc), _numeric_float)*(math.pi/(pc-1))
 			return sum(f.partial_integrals(g, allow_recursion=False))/math.pi, f.total_func_evals
 		
 		def bessj_adaptive(n, z, derivs=1):
 			f=C2cos(C2Linear(slope=n) - C2Constant(z) * C2sin)
 			pc=8
-			g=_numeric.array(range(pc), _numeric.Float)*(math.pi/(pc-1))
+			g=_numeric.array(range(pc), _numeric_float)*(math.pi/(pc-1))
 			return sum(f.partial_integrals(g, absolute_error_tolerance=1e-14, relative_error_tolerance=1e-14, debug=0, derivs=derivs))/math.pi, f.total_func_evals
 
 		for order, x in ( (0, 0.1), (0,5.5), (2,3.7), (2,30.5)):
@@ -1413,7 +1415,7 @@ if __name__=="__main__":
 		for lv in (0.1, 1.0, 2.0, 5.0, 10.0):
 			b=math.exp(lv)
 			np=int(pc*b)+4
-			g=_numeric.array(range(np), _numeric.Float)*(b-1)/(np-1)+1
+			g=_numeric.array(range(np), _numeric_float)*(b-1)/(np-1)+1
 
 			v0=C2recip.partial_integrals(g, allow_recursion=False)
 			n0=C2recip.total_func_evals
@@ -1443,7 +1445,7 @@ if __name__=="__main__":
 		for lv in (0.1, 1.0, 2.0, 5.0, 10.0):
 			b=1.0+lv
 			np=int(pc*b)+4
-			g=_numeric.array(range(np), _numeric.Float)*(b-1)/(np-1)+1
+			g=_numeric.array(range(np), _numeric_float)*(b-1)/(np-1)+1
 
 			v0=fn.partial_integrals(g, allow_recursion=False)
 			n0=fn.total_func_evals
@@ -1467,7 +1469,7 @@ if __name__=="__main__":
 
 	if 0:
 		print "\nAccumulatedHistogram tests"
-		xg=(_numeric.array(range(21), _numeric.Float)-10.0)*0.25
+		xg=(_numeric.array(range(21), _numeric_float)-10.0)*0.25
 		yy=_numeric.exp(-xg[:-1]*xg[:-1])
 		yy[3]=yy[8]=yy[9]=0
 		ah=AccumulatedHistogram(xg[::-1], yy[::-1], normalize=True)
@@ -1491,7 +1493,7 @@ if __name__=="__main__":
 		print partials, sum(partials)
 		partials=f.log_log_partial_integrals(_numeric.array([1.,2.,3.,4., 5., 10., 20., 21.]), debug=False)
 		print partials, sum(partials)
-		pp=f0.partial_integrals(_numeric.array(range(11), _numeric.Float)*0.1 + 20)
+		pp=f0.partial_integrals(_numeric.array(range(11), _numeric_float)*0.1 + 20)
 		print pp, sum(pp)
 	
 	if 0:
