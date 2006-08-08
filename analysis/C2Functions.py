@@ -12,15 +12,15 @@ C2Functions can be combined with unary operators (nested functions) or binary op
 Developed by Marcus H. Mendenhall, Vanderbilt University Keck Free Electron Laser Center, Nashville, TN USA
 email: mendenhall@users.sourceforge.net
 Work supported by the US DoD  MFEL program under grant FA9550-04-1-0045
-version $Id: C2Functions.py,v 1.55 2006-08-07 21:28:41 mendenhall Exp $
+version $Id: C2Functions.py,v 1.56 2006-08-08 12:36:20 mendenhall Exp $
 """
-_rcsid="$Id: C2Functions.py,v 1.55 2006-08-07 21:28:41 mendenhall Exp $"
+_rcsid="$Id: C2Functions.py,v 1.56 2006-08-08 12:36:20 mendenhall Exp $"
 
 ##\file
 ##Provides the analysis.C2Functions package.
 ##\package analysis.C2Functions
 #A group of classes which make it easy to manipulate smooth functions, including cubic splines. 
-#\verbatim version $Id: C2Functions.py,v 1.55 2006-08-07 21:28:41 mendenhall Exp $ \endverbatim
+#\verbatim version $Id: C2Functions.py,v 1.56 2006-08-08 12:36:20 mendenhall Exp $ \endverbatim
 #C2Functions know how to keep track of the first and second derivatives of functions, and to use this information in, for example, C2Function.find_root() and 
 #C2Function.partial_integrals()
 #to allow much more efficient solutions to problems for which the general solution may be expensive.
@@ -48,9 +48,21 @@ try:
 	#prefer numpy over Numeric since it knows how to handle Numeric arrays, too (maybe, but not reliably!)
 	import numpy as _numeric 
 	_numeric_float=_numeric.float64
+
+	def native(y, yp, ypp):
+		"make sure returned scalar arguments are not numpy scalars"
+		if not operator.isSequenceType(y):
+			return float(y), float(yp), float(ypp)
+		else:
+			return y, yp, ypp
+
 except:
 	import Numeric as _numeric
 	_numeric_float=_numeric.Float64
+
+	def native(y, yp, ypp):
+		"make sure returned scalar arguments are not numpy scalars... not needed with Numeric"
+		return y, yp, ypp
 
 _myfuncs=_numeric
 
@@ -415,6 +427,7 @@ class	C2Function(object):
 		grid=self.GetSamplingGrid(xmin, xmax)
 		intg=sum(mesquared.partial_integrals(grid))
 		return C2ScaledFunction(self, math.sqrt(norm/intg))
+	
 
 ##
 # Create a function which is a simple scalar multiple of another
@@ -430,7 +443,7 @@ class C2ScaledFunction(C2Function):
 	def value_with_derivatives(self, x): 
 		y, yp, ypp = fn.value_with_derivatives(x)
 		ys=self.yscale
-		return y*ys, yp*ys, ypp*ys
+		return  native(y*ys, yp*ys, ypp*ys)
 
 class C2Constant(C2Function):
 	"a constant and its derivatives"
@@ -452,7 +465,7 @@ class _fC2sin(C2Function):
 	name='sin'
 	def value_with_derivatives(self, x):
 		q=_myfuncs.sin(x)
-		return q, _myfuncs.cos(x), -q
+		return  native(q, _myfuncs.cos(x), -q)
 C2sin=_fC2sin() #make singleton
 
 class _fC2cos(C2Function):
@@ -460,14 +473,14 @@ class _fC2cos(C2Function):
 	name='cos'
 	def value_with_derivatives(self, x):
 		q=_myfuncs.cos(x)
-		return q, -_myfuncs.sin(x), -q
+		return  native(q, -_myfuncs.sin(x), -q)
 C2cos=_fC2cos() #make singleton
 
 class _fC2log(C2Function):
 	"log(x)"
 	name='log'
 	def value_with_derivatives(self, x):
-		return _myfuncs.log(x), 1/x, -1/(x*x)
+		return  native(_myfuncs.log(x), 1/x, -1/(x*x))
 C2log=_fC2log() #make singleton
 
 class _fC2exp(C2Function):
@@ -475,7 +488,7 @@ class _fC2exp(C2Function):
 	name='exp'
 	def value_with_derivatives(self, x):
 		q=_myfuncs.exp(x)
-		return q, q, q
+		return  native(q, q, q)
 C2exp=_fC2exp() #make singleton
 
 class _fC2sqrt(C2Function):
@@ -483,7 +496,7 @@ class _fC2sqrt(C2Function):
 	name='sqrt'
 	def value_with_derivatives(self, x):
 		q=_myfuncs.sqrt(x)
-		return q, 0.5/q, -0.25/(q*x)
+		return  native(q, 0.5/q, -0.25/(q*x))
 C2sqrt=_fC2sqrt() #make singleton
 
 class _fC2recip(C2Function):
@@ -491,7 +504,7 @@ class _fC2recip(C2Function):
 	name='1/x'
 	def value_with_derivatives(self, x):
 		q=1.0/x
-		return q, -q*q, 2*q*q*q
+		return  native(q, -q*q, 2*q*q*q)
 C2recip=_fC2recip() #make singleton
 
 class _fC2identity(C2Function):
@@ -516,7 +529,7 @@ class C2Linear(C2Function):
 			self.y0=y0
 			
 	def value_with_derivatives(self, x):
-		return x*self.slope+self.y0, self.slope, 0.0
+		return native(x*self.slope+self.y0, self.slope, 0.0)
 
 class C2Quadratic(C2Function):
 	"a*(x-x0)**2 + b*(x-x0) + c"
@@ -538,7 +551,7 @@ class C2Quadratic(C2Function):
 
 	def value_with_derivatives(self, x):
 		dx=x-self.x0
-		return self.a*dx*dx+self.b*dx+self.c, 2*self.a*dx+self.b, 2*self.a
+		return native(self.a*dx*dx+self.b*dx+self.c, 2*self.a*dx+self.b, 2*self.a)
 
 class C2PowerLaw(C2Function):
 	"a*x**b where a and b are constant"
@@ -558,7 +571,7 @@ class C2PowerLaw(C2Function):
 
 	def value_with_derivatives(self, x):
 		xp=self.a*x**self.b2
-		return xp*x*x, self.b*xp*x, self.bb1*xp
+		return  native(xp*x*x, self.b*xp*x, self.bb1*xp)
 
 class C2Polynomial(C2Function):
 	"poly(x)"
@@ -579,7 +592,7 @@ class C2Polynomial(C2Function):
 		xp2sum=0.0
 		for n,c in self.rcoefs[:-2]: xp2sum=xp2sum*x+c*n*(n-1)
 		
-		return xsum, xpsum, xp2sum
+		return  native(xsum, xpsum, xp2sum)
 
 		
 
@@ -651,7 +664,7 @@ class C2Power(C2BinaryFunction):
 			ab1 *= yp0
 			ab1 *= y1 #ab1 is now the derivative
 			ab2 *= y1*(y1-1)*yp0*yp0+y0*y1*ypp0 #ab2 is now the second derivative
-			return ab,  ab1, ab2
+			return  native(ab,  ab1, ab2)
 		else:
 			loga=_myfuncs.log(y0)
 			ab2=_myfuncs.exp(loga*(y1-2.0)) #this if a^(b-2), which appears often
@@ -659,7 +672,7 @@ class C2Power(C2BinaryFunction):
 			ab=ab1*y0 #this is a^b
 			yp=ab1*(yp0*y1+y0*yp1*loga)
 			ypp=ab2*(y1*(y1-1)*yp0*yp0+2*y0*yp0*yp1*(1.0+y1*loga)+y0*(y1*ypp0+y0*(ypp1+yp1*yp1*loga)*loga))
-			return ab, yp, ypp
+			return  native(ab, yp, ypp)
 
 #the following spline utilities are directly from pythonlabtools.analysis.spline, version "spline.py,v 1.23 2005/07/13 14:24:58 mendenhall Release-20050805"
 #and are copied here to reduce paxckage interdependency
@@ -943,10 +956,7 @@ class InterpolatingFunction(C2Function):
 			gpp=self.fXinPP(x)
 			#also from Mathematica Dt[InverseFunction[f][g[y[x]]], {x,2}]
 			yprimeprime=(gp*gp*ypp0 + yp0*gpp - gp*gp*yp0*yp0*fpp*fpi*fpi)*fpi
-			if not operator.isSequenceType(x):
-				return float(y), float(yprime), float(yprimeprime) #native scalars always!
-			else:
-				return y, yprime, yprimeprime
+			return native(y, yprime, yprimeprime)
 		else:
 			return _splint(self.X, self.F, self.y2, x, derivs=True)
 
