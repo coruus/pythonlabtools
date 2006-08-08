@@ -111,24 +111,38 @@ If analytic derivatives are desired, do, \e e.g.
 
 """
 
-_rcsid="$Id: fitting_toolkit.py,v 1.16 2006-05-03 15:12:23 mendenhall Exp $"
+_rcsid="$Id: fitting_toolkit.py,v 1.17 2006-08-08 01:47:10 mendenhall Exp $"
 
-import Numeric
+try:
+	import numpy as Numeric
+	import numpy
+	numeric_float=Numeric.float64
+	from numpy import linalg
+	solve_linear_equations=linalg.solve
+	def  singular_value_decomposition(mat):
+		return  linalg.svd(mat, full_matrices=0, compute_uv=1)
+		
+	matinverse=linalg.inv
+	from numpy import dot, zeros, transpose, array
+except:
+	import Numeric
+	numeric_float=Numeric.Float64
+	from LinearAlgebra import solve_linear_equations, inverse as matinverse, singular_value_decomposition
+	from Numeric import dot, zeros, transpose, array
+
 import random
 
-from Numeric import dot, zeros, transpose, array, Float
 
 import math
 from math import sqrt
-from LinearAlgebra import solve_linear_equations, inverse as matinverse, singular_value_decomposition
 import copy
-import exceptions
+import operator
 
 ##\file
 ## Provides the analysis.fitting_toolkit package.
 ##\package analysis.fitting_toolkit
 ## Hessian and Levenberg-Marquardt Curve Fitting Package with resampling capability.
-#\verbatim version $Id: fitting_toolkit.py,v 1.16 2006-05-03 15:12:23 mendenhall Exp $ \endverbatim
+#\verbatim version $Id: fitting_toolkit.py,v 1.17 2006-08-08 01:47:10 mendenhall Exp $ \endverbatim
 #This is loosely derived from the information in 'Numerical Recipes' 2nd Ed. by Press, Flannery, Teukolsky and Vetterling.
 #Implementation by Marcus H. Mendenhall, Vanderbilt University Free Electron Laser Center, Nashville, TN, USA
 #Implemented around 3 December, 2002.
@@ -252,11 +266,11 @@ class fit:
 	
 	##
 	## Override this function if you want to fit in single precision, \e e.g.  
-	# Default is Numeric.Float i.e. double precision
+	# Default is numeric_float i.e. double precision
 	def DefaultArrayType(self):
 		"""override this function if you want to fit in single precision, \e e.g.
-			Default is Numeric.Float i.e. double precision"""
-		return Numeric.Float
+			Default is numeric_float i.e. double precision"""
+		return numeric_float
 	
 	##
 	## Set up initial values for function parameters to get the fit off to a good start.
@@ -285,7 +299,10 @@ class fit:
 	def check_arrays(self, sample_x, points_to_add=1):
 		"make sure arrays are big enough to add the specified number of points"
 		if not self.arraysexist:
-			self.arg_count=len(Numeric.array(sample_x))
+			if operator.isSequenceType(sample_x):
+				self.arg_count=len(sample_x)
+			else:
+				self.arg_count=1
 			self.frozen=Numeric.zeros(self.param_count)
 			self.xarray=Numeric.zeros((self.arg_count, self.pointhint), self.atype)
 			self.yarray=Numeric.zeros(self.pointhint, self.atype )
@@ -482,14 +499,14 @@ class fit:
 					r[k]*=self.weights
 				return r
 		else:
-			return Numeric.dot(self.weights, right_array)	
+			return dot(self.weights, right_array)	
 
 	##
 	## Evaluate residuals, and compute proper chi^2 with weights.		
 	def compute_chi2(self):
 		self.residuals=self.yarray[:self.pointcount]-self.funcvals
-		self.chi2=Numeric.dot(self.residuals,self.weights_multiply(self.residuals))
-		self.reduced_chi2=self.chi2/(self.pointcount-self.param_count)
+		self.chi2=float(dot(self.residuals,self.weights_multiply(self.residuals)))
+		self.reduced_chi2=float(self.chi2/(self.pointcount-self.param_count))
 
 	##
 	## Take one inverse-Hessian or Levenberg-Marquardt step in a fit.  
@@ -502,7 +519,7 @@ class fit:
 
 		self.set_weights()
 		fxwarray=self.weights_multiply(Numeric.transpose(fxarray))
-		self.fitmat=Numeric.dot(fxwarray, fxarray)
+		self.fitmat=dot(fxwarray, fxarray)
 		
 		if lm_lambda is not None: #make Levenberg-Marquardt correction to inverse-covariance matrix
 			for i in range(self.param_count):
@@ -529,33 +546,38 @@ class fit:
 	def svd_hessian_compute_fit(self, damping=None): 
 		"take one Hessian fitting step  using singular-value-decomposition"
 		
-		n=self.pointcount		
-		self.set_weights()
-
-		if not self.scalar_weights:
-			raise exceptions.AssertionError, "SVD solutions require, for now, scalar weights"
+		try:
+			n=self.pointcount		
+			self.set_weights()
+	
+			if not self.scalar_weights:
+				raise exceptions.AssertionError, "SVD solutions require, for now, scalar weights"
+							
+			sigi=Numeric.sqrt(self.weights)
+			if not operator.isSequenceType(sigi):
+				design=self.derivs()*float(sigi)
+			else:
+				design=self.derivs()*sigi[:,Numeric.NewAxis] #w should be a column vector
 						
-		sigi=Numeric.sqrt(self.weights)
-		if type(sigi) is type(1.0) or len(sigi)==1:
-			design=self.derivs()*sigi
-		else:
-			design=self.derivs()*sigi[:,Numeric.NewAxis] #w should be a column vector
+			if(self.firstpass):
+				self.funcvals=self.compute_funcvals()
+				self.firstpass=0
+	
+			u, w, v = singular_value_decomposition(design)
+			w=self.singular_value_edit(w)
+			for i in range(self.param_count):
+				if w[i] != 0:
+					w[i] = 1.0/w[i]
+			b=(self.yarray[:n]-self.funcvals)*sigi
+			self.fitvector=Numeric.sum(dot(Numeric.transpose(u*w),b)*Numeric.transpose(v), -1)
+			self.svd_u=u
+			self.svd_v=v
+			self.svd_winv=w
+		except:
+			import traceback
+			traceback.print_exc()
+			raise
 					
-		if(self.firstpass):
-			self.funcvals=self.compute_funcvals()
-			self.firstpass=0
-
-		u, w, v = singular_value_decomposition(design)
-		w=self.singular_value_edit(w)
-		for i in range(self.param_count):
-			if w[i] != 0:
-				w[i] = 1.0/w[i]
-		b=(self.yarray[:n]-self.funcvals)*sigi
-		self.fitvector=Numeric.sum(Numeric.dot(Numeric.transpose(u*w),b)*Numeric.transpose(v), -1)
-		self.svd_u=u
-		self.svd_v=v
-		self.svd_winv=w
-		
 		if damping is None:
 			self.funcparams=self.funcparams+self.fitvector*(1-self.frozen)
 		else:
@@ -594,7 +616,7 @@ class fit:
 	## Return the variance-covariance matrix for the fit if svd fitting was used.
 	def svd_covariance_matrix(self):
 		"return the variance-covariance matrix resulting from this fit when svd stepping was used"
-		return Numeric.dot(self.svd_v, Numeric.transpose(self.svd_winv**2*self.svd_v))
+		return dot(self.svd_v, Numeric.transpose(self.svd_winv**2*self.svd_v))
 	
 	##
 	##One choice of a schedule for adjusting the Levenberg-Marquardt parameter.  Not the only one!
@@ -819,7 +841,7 @@ def find_peak(data):
 	get included in the fit.  It breaks for peaks narrower than this, 
 	but in that case, using the highest point is about the best one can do, anyway. 
 	"""
-	da=Numeric.array(data, Numeric.Float) #put it in a well-known format
+	da=Numeric.array(data, numeric_float) #put it in a well-known format
 	if type(data[0]) is type(1.0):
 		x=range(len(data))
 		y=data
