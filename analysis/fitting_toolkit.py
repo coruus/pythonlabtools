@@ -99,7 +99,7 @@ If analytic derivatives are desired, do, \e e.g.
 			expfact=Numeric.exp(xsigi*dx2+ysigi*dy2)
 			z=a*expfact
 			
-			dd = Numeric.zeros((n, 6), self.atype)
+			dd = zeros((n, 6), self.atype)
 			dd[:,0]=1.0
 			dd[:,1]=expfact
 			dd[:,2]=(-2.0*xsigi)*(dx*z)
@@ -111,7 +111,7 @@ If analytic derivatives are desired, do, \e e.g.
 
 """
 
-_rcsid="$Id: fitting_toolkit.py,v 1.17 2006-08-08 01:47:10 mendenhall Exp $"
+_rcsid="$Id: fitting_toolkit.py,v 1.18 2006-08-08 02:00:19 mendenhall Exp $"
 
 try:
 	import numpy as Numeric
@@ -123,12 +123,12 @@ try:
 		return  linalg.svd(mat, full_matrices=0, compute_uv=1)
 		
 	matinverse=linalg.inv
-	from numpy import dot, zeros, transpose, array
+	from numpy import dot, zeros, transpose, array, array_str
 except:
 	import Numeric
 	numeric_float=Numeric.Float64
 	from LinearAlgebra import solve_linear_equations, inverse as matinverse, singular_value_decomposition
-	from Numeric import dot, zeros, transpose, array
+	from Numeric import dot, zeros, transpose, array, array_str
 
 import random
 
@@ -142,7 +142,7 @@ import operator
 ## Provides the analysis.fitting_toolkit package.
 ##\package analysis.fitting_toolkit
 ## Hessian and Levenberg-Marquardt Curve Fitting Package with resampling capability.
-#\verbatim version $Id: fitting_toolkit.py,v 1.17 2006-08-08 01:47:10 mendenhall Exp $ \endverbatim
+#\verbatim version $Id: fitting_toolkit.py,v 1.18 2006-08-08 02:00:19 mendenhall Exp $ \endverbatim
 #This is loosely derived from the information in 'Numerical Recipes' 2nd Ed. by Press, Flannery, Teukolsky and Vetterling.
 #Implementation by Marcus H. Mendenhall, Vanderbilt University Free Electron Laser Center, Nashville, TN, USA
 #Implemented around 3 December, 2002.
@@ -241,7 +241,7 @@ import operator
 #			expfact=Numeric.exp(xsigi*dx2+ysigi*dy2)
 #			z=a*expfact
 #			
-#			dd = Numeric.zeros((n, 6), self.atype)
+#			dd = zeros((n, 6), self.atype)
 #			dd[:,0]=1.0
 #			dd[:,1]=expfact
 #			dd[:,2]=(-2.0*xsigi)*(dx*z)
@@ -275,10 +275,10 @@ class fit:
 	##
 	## Set up initial values for function parameters to get the fit off to a good start.
 	# 
-	# \param params A Numeric.array of starting values. The array has one value per free parameter in the fit, and must be ordered as it will be used by function()
+	# \param params A array of starting values. The array has one value per free parameter in the fit, and must be ordered as it will be used by function()
 	def set_initial_params(self, params):
 		"set up initial values for function parameters to get the fit off to a good start"
-		self.funcparams=Numeric.array(params, self.atype)
+		self.funcparams=array(params, self.atype)
 		self.firstpass=1	#probably need to recompute function if we did this
 		self.param_count=len(params)
 		if not hasattr(self, "deriv_step"):
@@ -290,7 +290,7 @@ class fit:
 	#										
 	def auto_deriv_steps(self, deriv_step):
 		"set the step sizes used for each parameter if numerical derivatives are to be used"
-		self.deriv_step=Numeric.array(deriv_step, self.atype)
+		self.deriv_step=array(deriv_step, self.atype)
 
 	##
 	##  Make sure arrays are big enough to add the specified number of points
@@ -303,17 +303,17 @@ class fit:
 				self.arg_count=len(sample_x)
 			else:
 				self.arg_count=1
-			self.frozen=Numeric.zeros(self.param_count)
-			self.xarray=Numeric.zeros((self.arg_count, self.pointhint), self.atype)
-			self.yarray=Numeric.zeros(self.pointhint, self.atype )
+			self.frozen=zeros(self.param_count)
+			self.xarray=zeros((self.arg_count, self.pointhint), self.atype)
+			self.yarray=zeros(self.pointhint, self.atype )
 			self.currentlen=self.pointhint
 			self.arraysexist=1
 		
 		if self.pointcount+points_to_add  >= self.currentlen:
 			#expand arrays to accept more data
 			realmax = max(2*self.currentlen, self.currentlen+2*points_to_add) 
-			xarray=Numeric.zeros((self.arg_count, realmax ), self.atype)
-			yarray=Numeric.zeros(realmax, self.atype)
+			xarray=zeros((self.arg_count, realmax ), self.atype)
+			yarray=zeros(realmax, self.atype)
 			xarray[:, :self.pointcount]=self.xarray[:,:self.pointcount]
 			yarray[:self.pointcount]=self.yarray[:self.pointcount]
 			self.xarray=xarray
@@ -352,16 +352,16 @@ class fit:
 
 	##
 	## Add multiple points to the fit simultaneously.
-	#\param xvector A 1-d or 2-d Numeric.array of abscissas
+	#\param xvector A 1-d or 2-d array of abscissas
 	#\param yval A 1-d array of ordinates
 	#\param x_transpose If x_transpose is False or 0, xvector has one point per column.  If True, xvector has one point per row.
 	def add_points(self, xvector, yval, x_transpose=0):
 		n=self.pointcount	
 		
 		if x_transpose:
-			xv=Numeric.transpose(Numeric.array(xvector))
+			xv=Numeric.transpose(array(xvector))
 		else:
-			xv=Numeric.array(xvector)
+			xv=array(xvector)
 		
 		n1=xv.shape[-1]
 		if len(xv.shape) == 1:	
@@ -404,7 +404,7 @@ class fit:
 	def numeric_deriv(self, param_index, delta_x):
 		"""numerically differentiate the fitter's function with respect
 		 to the indexed parameter, using the specified step size"""
-		delta=Numeric.zeros(self.param_count, self.atype)
+		delta=zeros(self.param_count, self.atype)
 		delta[param_index]=delta_x/2.0
 		newrow=((self.compute_funcvals(params=self.funcparams+delta)-
 				self.compute_funcvals(params=self.funcparams-delta))/delta_x)
@@ -417,7 +417,7 @@ class fit:
 	def derivs(self): 
 		"default deriv is automatic numeric derivatives, override this for analytic derivatives"
 		n=self.pointcount
-		fxarray=Numeric.zeros((n, self.param_count), self.atype)
+		fxarray=zeros((n, self.param_count), self.atype)
 		for i in range(self.param_count):
 			if not self.frozen[i]:
 				fxarray[:,i]=self.numeric_deriv(i, self.deriv_step[i])
@@ -441,8 +441,8 @@ class fit:
 	def setup_resampling(self):
 		"setup_resampling() caches the 'real' arrays of x and y, so they can be resampled for bootstrapping, and seeds a random generator"
 		assert not hasattr(self, "saved_xarray"), "Don't even think of initializing the resampling more than once!"
-		self.saved_xarray=Numeric.array(self.xarray[:,:self.pointcount]) #these must be copies, not slices!
-		self.saved_yarray=Numeric.array(self.yarray[:self.pointcount]) 
+		self.saved_xarray=array(self.xarray[:,:self.pointcount]) #these must be copies, not slices!
+		self.saved_yarray=array(self.yarray[:self.pointcount]) 
 		self.initialize_random_generator()
 	
 	##
@@ -466,7 +466,7 @@ class fit:
 	def get_random_list(self, count):
 		"return a list of count randoms on [0,1) for resampling.  Override to pick a different random generator"
 		r=self.randoms.random
-		return Numeric.array([r() for i in range(count)])
+		return array([r() for i in range(count)])
 	
 	##
 	## Take a new sample of the data for  resampling/bootstrapping.  
@@ -737,7 +737,7 @@ class linear_combination_fit(fit):
 		if self.firstpass: #first call from hessian_fit is meaningless, all coefficients zero, save time
 			return 0.0
 
-		sumarray=Numeric.zeros(x.shape[-1], self.atype)
+		sumarray=zeros(x.shape[-1], self.atype)
 		for i in range(self.param_count):
 			sumarray+=p[i]*self.basis[i](i, x)
 		return sumarray
@@ -747,8 +747,8 @@ class linear_combination_fit(fit):
 	def derivs(self):
 		if self.firstpass: #may get used more than once if weights are not constant, but no need to recompute
 			n=self.pointcount
-			self.funcparams=Numeric.zeros(self.param_count, self.atype)
-			dd = Numeric.zeros((n, self.param_count), self.atype)
+			self.funcparams=zeros(self.param_count, self.atype)
+			dd = zeros((n, self.param_count), self.atype)
 			if self.arg_count==1:
 				x=self.xarray[0,:n]
 			else:
@@ -799,9 +799,9 @@ class polynomial_fit(fit):
 	## Compute the derivatives.
 	def derivs(self):
 		if self.firstpass: #may get used more than once if weights are not constant, but no need to recompute
-			self.funcparams=Numeric.zeros(self.param_count, self.atype)
+			self.funcparams=zeros(self.param_count, self.atype)
 			n=self.pointcount
-			dd = Numeric.zeros((n, self.param_count), self.atype)
+			dd = zeros((n, self.param_count), self.atype)
 			dd[:,0]=1.0
 			xc=self.xarray[0,:n]-self.xcenter
 			for i in range(1,self.param_count):
@@ -841,7 +841,7 @@ def find_peak(data):
 	get included in the fit.  It breaks for peaks narrower than this, 
 	but in that case, using the highest point is about the best one can do, anyway. 
 	"""
-	da=Numeric.array(data, numeric_float) #put it in a well-known format
+	da=array(data, numeric_float) #put it in a well-known format
 	if type(data[0]) is type(1.0):
 		x=range(len(data))
 		y=data
@@ -886,7 +886,7 @@ class gauss_fit(fit):
 		expfact=Numeric.exp(xsigi*dx2)
 		z=a*expfact
 		
-		dd = Numeric.zeros((n, 4), self.atype)
+		dd = zeros((n, 4), self.atype)
 		dd[:,0]=1.0
 		dd[:,1]=expfact
 		dd[:,2]=(-2.0*xsigi)*(dx*z)
@@ -920,7 +920,7 @@ class gauss_fit_2d(fit):
 		expfact=Numeric.exp(xsigi*dx2+ysigi*dy2)
 		z=a*expfact
 		
-		dd = Numeric.zeros((n, 6), self.atype)
+		dd = zeros((n, 6), self.atype)
 		dd[:,0]=1.0
 		dd[:,1]=expfact
 		dd[:,2]=(-2.0*xsigi)*(dx*z)
@@ -968,7 +968,7 @@ if __name__=="__main__":
 	print "\n\n***Start nonlinear test fit***" 
 	for i in range(10):
 		x.lm_fit_step()
-		print Numeric.array_str(x.funcparams, precision=5), Numeric.array_str(x.funcvals, precision=3), sqrt(x.reduced_chi2)
+		print array_str(x.funcparams, precision=5), array_str(x.funcvals, precision=3), sqrt(x.reduced_chi2)
 		
 	print "\n\n***Start polynomial test fit***" 
 	x=polynomial_fit(2)
@@ -988,7 +988,7 @@ if __name__=="__main__":
 		def compute_fit(self, lm_lambda=None):
 			self.svd_hessian_compute_fit(lm_lambda)
 		def weight_func(self):
-			return Numeric.array(range(self.pointcount), self.atype)**2+2.0
+			return array(range(self.pointcount), self.atype)**2+2.0
 		
 	x=my_svd_fit(2)
 	x.add_point(0, 2)
@@ -998,7 +998,7 @@ if __name__=="__main__":
 	x.add_point(4, 26.1)
 	x.add_point(5, 36.9)
 	x.compute_fit()
-	print Numeric.array_str(x.funcparams, precision=5), Numeric.array_str(x.funcvals, precision=3), sqrt(x.reduced_chi2)
+	print array_str(x.funcparams, precision=5), array_str(x.funcvals, precision=3), sqrt(x.reduced_chi2)
 
 	print "\n\n***Start svd degenerate function nonlinear test fit ***" 
 	##
@@ -1017,7 +1017,7 @@ if __name__=="__main__":
 	x.add_point(5, 36.9)
 	for i in range(25):
 		x.damped_svd_fit_step(trace=0)
-		print Numeric.array_str(x.funcparams, precision=5), Numeric.array_str(x.funcvals, precision=3), sqrt(x.reduced_chi2)
+		print array_str(x.funcparams, precision=5), array_str(x.funcvals, precision=3), sqrt(x.reduced_chi2)
 	print x.svd_covariance_matrix()
 	
 	
