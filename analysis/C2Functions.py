@@ -12,15 +12,15 @@ C2Functions can be combined with unary operators (nested functions) or binary op
 Developed by Marcus H. Mendenhall, Vanderbilt University Keck Free Electron Laser Center, Nashville, TN USA
 email: mendenhall@users.sourceforge.net
 Work supported by the US DoD  MFEL program under grant FA9550-04-1-0045
-version $Id: C2Functions.py,v 1.56 2006-08-08 12:36:20 mendenhall Exp $
+version $Id: C2Functions.py,v 1.57 2006-09-11 21:14:14 mendenhall Exp $
 """
-_rcsid="$Id: C2Functions.py,v 1.56 2006-08-08 12:36:20 mendenhall Exp $"
+_rcsid="$Id: C2Functions.py,v 1.57 2006-09-11 21:14:14 mendenhall Exp $"
 
 ##\file
 ##Provides the analysis.C2Functions package.
 ##\package analysis.C2Functions
 #A group of classes which make it easy to manipulate smooth functions, including cubic splines. 
-#\verbatim version $Id: C2Functions.py,v 1.56 2006-08-08 12:36:20 mendenhall Exp $ \endverbatim
+#\verbatim version $Id: C2Functions.py,v 1.57 2006-09-11 21:14:14 mendenhall Exp $ \endverbatim
 #C2Functions know how to keep track of the first and second derivatives of functions, and to use this information in, for example, C2Function.find_root() and 
 #C2Function.partial_integrals()
 #to allow much more efficient solutions to problems for which the general solution may be expensive.
@@ -441,7 +441,7 @@ class C2ScaledFunction(C2Function):
 		self.name=fn.name+'* %g' % yscale
 	
 	def value_with_derivatives(self, x): 
-		y, yp, ypp = fn.value_with_derivatives(x)
+		y, yp, ypp = self.fn.value_with_derivatives(x)
 		ys=self.yscale
 		return  native(y*ys, yp*ys, ypp*ys)
 
