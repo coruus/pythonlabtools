@@ -12,15 +12,15 @@ C2Functions can be combined with unary operators (nested functions) or binary op
 Developed by Marcus H. Mendenhall, Vanderbilt University Keck Free Electron Laser Center, Nashville, TN USA
 email: mendenhall@users.sourceforge.net
 Work supported by the US DoD  MFEL program under grant FA9550-04-1-0045
-version $Id: C2Functions.py,v 1.57 2006-09-11 21:14:14 mendenhall Exp $
+version $Id: C2Functions.py,v 1.58 2006-12-04 17:26:18 mendenhall Exp $
 """
-_rcsid="$Id: C2Functions.py,v 1.57 2006-09-11 21:14:14 mendenhall Exp $"
+_rcsid="$Id: C2Functions.py,v 1.58 2006-12-04 17:26:18 mendenhall Exp $"
 
 ##\file
 ##Provides the analysis.C2Functions package.
 ##\package analysis.C2Functions
 #A group of classes which make it easy to manipulate smooth functions, including cubic splines. 
-#\verbatim version $Id: C2Functions.py,v 1.57 2006-09-11 21:14:14 mendenhall Exp $ \endverbatim
+#\verbatim version $Id: C2Functions.py,v 1.58 2006-12-04 17:26:18 mendenhall Exp $ \endverbatim
 #C2Functions know how to keep track of the first and second derivatives of functions, and to use this information in, for example, C2Function.find_root() and 
 #C2Function.partial_integrals()
 #to allow much more efficient solutions to problems for which the general solution may be expensive.
@@ -180,8 +180,8 @@ class	C2Function(object):
 				else: delta=q/a
 				root+=delta;
 
-			if disc < 0 or root<lower_bracket or root>upper_bracket:	
-				#if we jump out of the bracket, bisect
+			if disc < 0 or root<=lower_bracket or root>=upper_bracket or abs(delta) >= 0.5*(upper_bracket-lower_bracket):	
+				#if we jump out of the bracket, or if the step is not smaller than half the bracket, bisect
 				root=0.5*(lower_bracket+upper_bracket)	
 				delta=upper_bracket-lower_bracket
 
