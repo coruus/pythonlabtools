@@ -12,15 +12,15 @@ C2Functions can be combined with unary operators (nested functions) or binary op
 Developed by Marcus H. Mendenhall, Vanderbilt University Keck Free Electron Laser Center, Nashville, TN USA
 email: mendenhall@users.sourceforge.net
 Work supported by the US DoD  MFEL program under grant FA9550-04-1-0045
-version $Id: C2Functions.py,v 1.58 2006-12-04 17:26:18 mendenhall Exp $
+version $Id: C2Functions.py,v 1.59 2006-12-29 21:56:46 mendenhall Exp $
 """
-_rcsid="$Id: C2Functions.py,v 1.58 2006-12-04 17:26:18 mendenhall Exp $"
+_rcsid="$Id: C2Functions.py,v 1.59 2006-12-29 21:56:46 mendenhall Exp $"
 
 ##\file
 ##Provides the analysis.C2Functions package.
 ##\package analysis.C2Functions
 #A group of classes which make it easy to manipulate smooth functions, including cubic splines. 
-#\verbatim version $Id: C2Functions.py,v 1.58 2006-12-04 17:26:18 mendenhall Exp $ \endverbatim
+#\verbatim version $Id: C2Functions.py,v 1.59 2006-12-29 21:56:46 mendenhall Exp $ \endverbatim
 #C2Functions know how to keep track of the first and second derivatives of functions, and to use this information in, for example, C2Function.find_root() and 
 #C2Function.partial_integrals()
 #to allow much more efficient solutions to problems for which the general solution may be expensive.
@@ -686,10 +686,10 @@ try:
 		returns the y2 table for the spline as needed by splint()"""
 	
 		n=len(x)
-		u=_numpy.zeros(n,_numpy.Float)
+		u=_numpy.zeros(n,_numpy.float64)
 		
-		x=_numpy.asarray(x, _numpy.Float)
-		y=_numpy.asarray(y, _numpy.Float)
+		x=_numpy.asarray(x, _numpy.float64)
+		y=_numpy.asarray(y, _numpy.float64)
 		
 		dx=x[1:]-x[:-1]
 		dx2=(x[2:]-x[:-2])
@@ -700,7 +700,7 @@ try:
 		u[1:-1]=dydx[1:]
 		u[1:-1]-=dydx[:-1] #this is an incomplete rendering of u... the rest requires recursion in the loop
 
-		trimat=_numpy.zeros((3, n), _numpy.Float)
+		trimat=_numpy.zeros((3, n), _numpy.float64)
 
 		trimat[0, 1:]=dx
 		trimat[1, 1:-1]=dx2
