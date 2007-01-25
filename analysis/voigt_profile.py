@@ -1,11 +1,11 @@
 """generate voigt functions and their derivatives with respect to parameters"""
-_rcsid="$Id: voigt_profile.py,v 1.6 2007-01-25 02:27:43 mendenhall Exp $"
+_rcsid="$Id: voigt_profile.py,v 1.7 2007-01-25 12:44:05 mendenhall Exp $"
 
 ##\file
 ##Provides the analysis.voigt_profile package.
 ##\package analysis.voigt_profile
 #This is a function which efficiently computes Voigt profiles (convolutions of Lorentzian and Gaussian functions) which are useful for many types of spectroscopy.
-#\verbatim version $Id: voigt_profile.py,v 1.6 2007-01-25 02:27:43 mendenhall Exp $ \endverbatim
+#\verbatim version $Id: voigt_profile.py,v 1.7 2007-01-25 12:44:05 mendenhall Exp $ \endverbatim
 #
 #Developed by Marcus H. Mendenhall, Vanderbilt University Keck Free Electron Laser Center, Nashville, TN USA
 #
@@ -23,7 +23,7 @@ try:
 except ImportError:	
 	import Numeric
 	from FFT import inverse_real_fft
-	_numeric_float=_numeric.Float64
+	_numeric_float=Numeric.Float64
 
 import math
 
