@@ -12,15 +12,15 @@ C2Functions can be combined with unary operators (nested functions) or binary op
 Developed by Marcus H. Mendenhall, Vanderbilt University Keck Free Electron Laser Center, Nashville, TN USA
 email: mendenhall@users.sourceforge.net
 Work supported by the US DoD  MFEL program under grant FA9550-04-1-0045
-version $Id: C2Functions.py,v 1.59 2006-12-29 21:56:46 mendenhall Exp $
+version $Id: C2Functions.py,v 1.60 2007-07-10 16:58:47 mendenhall Exp $
 """
-_rcsid="$Id: C2Functions.py,v 1.59 2006-12-29 21:56:46 mendenhall Exp $"
+_rcsid="$Id: C2Functions.py,v 1.60 2007-07-10 16:58:47 mendenhall Exp $"
 
 ##\file
 ##Provides the analysis.C2Functions package.
 ##\package analysis.C2Functions
 #A group of classes which make it easy to manipulate smooth functions, including cubic splines. 
-#\verbatim version $Id: C2Functions.py,v 1.59 2006-12-29 21:56:46 mendenhall Exp $ \endverbatim
+#\verbatim version $Id: C2Functions.py,v 1.60 2007-07-10 16:58:47 mendenhall Exp $ \endverbatim
 #C2Functions know how to keep track of the first and second derivatives of functions, and to use this information in, for example, C2Function.find_root() and 
 #C2Function.partial_integrals()
 #to allow much more efficient solutions to problems for which the general solution may be expensive.
@@ -873,17 +873,18 @@ def _mylog(x): return _myfuncs.log(x)
 #		Note that the y transform f and f(-1) MUST be exact inverses, or the system will melt.
 #	
 class InterpolatingFunction(C2Function):
-	"""An InterpolatingFunction stores a cubic spline representation of a set of x,y pairs.
+	"""An InterpolatingFunction stores a cubic spline or piecewise linear representation of a set of x,y pairs.
 		It can also transform the variable on input and output, so that the underlying spline may live in log-log space, 
 		but such transforms are transparent to the setup and use of the function.  This makes it possible to
 		store splines of, e.g., data which are very close to a power law, as a LogLogInterpolatingFunction, and
 		to then have very accurate interpolation and extrapolation, since the curvature of such a function is small in log-log space.
 		
-		InterpolatingFunction(x, y, lowerSlope, upperSlope, XConversions, YConversions) sets up a spline.  
+		InterpolatingFunction(x, y, lowerSlope, upperSlope, XConversions, YConversions, cubic_spline) sets up a spline.  
 		If lowerSlope or upperSlope is None, the corresponding boundary is set to 'natural', with zero second derivative.
 		XConversions is a list of g, g', g'' to evaluate for transforming the X axis.  
 		YConversions is a list of f, f', f'', f(-1) to evaluate for transforming the Y axis.
 			Note that the y transform f and f(-1) MUST be exact inverses, or the system will melt.
+		If cubic_spline is True (default), create a cubic spline, otherwise, create a piecewise linear interpolator.
 				
 	""" 
 	YConversions=None
@@ -899,7 +900,8 @@ class InterpolatingFunction(C2Function):
 	#\param upperSlope if not None, the slope at the lower end of the spline.  If None, use 'natural' spline with zero second derivative
 	#\param XConversions a list of functions used for transforming the abscissa
 	#\param YConversions a list of functions used for tranforming the ordinate
-	def __init__(self, x, y, lowerSlope=None, upperSlope=None, XConversions=None, YConversions=None):
+	#\param cubic_spline is true for a normal cubic spline, false for piecewise linear interpolation
+	def __init__(self, x, y, lowerSlope=None, upperSlope=None, XConversions=None, YConversions=None, cubic_spline=True):
 		C2Function.__init__(self) #just on general principle, right now this does nothing
 		self.SetDomain(min(x), max(x))
 		self.Xraw=_numeric.array(x) #keep a private copy
@@ -940,8 +942,11 @@ class InterpolatingFunction(C2Function):
 		if min(dx) <  0 or min(self.X) < self.X[0] or max(self.X) > self.X[-1]:
 			raise C2Exception("monotonicity error in X values for interpolating function: "  + 
 				_numeric.array_str(self.X))
-		self.y2=_spline(self.X, self.F, yp1=lowerSlope, ypn=upperSlope)
-		
+		if cubic_spline:
+			self.y2=_spline(self.X, self.F, yp1=lowerSlope, ypn=upperSlope)
+		else:
+			#use a dummy y2 table if we are not really cubic splining
+			self.y2=_numeric.zeros(len(self.X), _numeric_float)
 
 	def value_with_derivatives(self, x): 
 		if self.xNonLin or self.yNonLin: #skip this if this is a completely untransformed spline
