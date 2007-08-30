@@ -4,7 +4,7 @@ diffraction gratings, etc., and run a laser beam through it.
 It correctly handles off-axis optics of most types (tilted lenses & mirrors, e.g.).
 It has been used to model a 10 Joule Nd:Glass CPA system at Vanderbilt University, for example
 """
-_rcsid="$Id: general_optics.py,v 1.18 2007-08-30 14:15:15 mendenhall Exp $"
+_rcsid="$Id: general_optics.py,v 1.19 2007-08-30 14:44:01 mendenhall Exp $"
 
 from math import *
 import math
@@ -1371,7 +1371,7 @@ class composite_optic(general_optic):
         def __len__(self):
                 return len(self.optics_order)
                 
-if 1:
+if 0:
         print "testing grating"
         optic=grating("grating", pitch=1.5e6, angle=38.0, order=1)
         mybeam=beam((0,0,0), qtens(1.054e-6, r=Infinity, w=.002)) 
