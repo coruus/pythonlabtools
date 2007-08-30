@@ -2,10 +2,23 @@
 Marcus H. Mendenhall, Vanderbilt University Keck Free Electron Laser Center, Nashville, TN, 37235
 16 April, 2002
 This is really the little brother of general_optics.py, which mostly should be used instead"""
-_rcsid="$Id: abcd_optics.py,v 1.3 2003-05-30 13:31:55 mendenhall Exp $"
+_rcsid="$Id: abcd_optics.py,v 1.4 2007-08-30 14:20:20 mendenhall Exp $"
 
 import math
-import Numeric
+
+try:
+  import numpy as Numeric
+  import numpy.linalg
+  numeric_float=Numeric.float
+  numeric_complex=Numeric.complex
+  eigenvectors=numpy.linalg.eig
+
+except:
+  import Numeric
+  import LinearAlgebra
+  numeric_float=Numeric.Float
+  numeric_complex=Numeric.Complex
+  eigenvectors=LinearAlgebra.eigenvectors
 
 Infinity="Infinity"
 
@@ -158,7 +171,7 @@ def abcd_resonator(abcd_rt, lambda0):
 
 def matx(matlist, x):
 	"matx( ((drift0, abcd0),(drift1, abcd1)...), x) returns the accumulated abcd matrix at x.  Drift_n is _before_ the element abcd_n"
-	m=optic(Numeric.identity(2).astype(Numeric.Float))
+	m=optic(Numeric.identity(2).astype(numeric_float))
 	z=0.0
 	for (dz, abcd) in matlist:
 		if not isinstance(abcd, probe):
