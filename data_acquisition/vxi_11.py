@@ -1,5 +1,5 @@
 "The basic infrastructure for maintaining a vxi-11 protocol connection to a remote device"
-_rcsid="$Id: vxi_11.py,v 1.6 2003-05-30 13:29:23 mendenhall Exp $"
+_rcsid="$Id: vxi_11.py,v 1.7 2007-08-31 14:25:34 mendenhall Exp $"
 
 import rpc
 from rpc import TCPClient, RawTCPClient
@@ -72,7 +72,7 @@ class VXI_11_Error(IOError):
 			return self.message
 
 	def __str__(self):
-		return self.__repr__()		
+		return self.__repr__()      
 
 class VXI_11_Device_Not_Connected(VXI_11_Error):
 	def __init__(self):
@@ -211,15 +211,15 @@ class vxi_11_connection:
 		self.mux=None #default is no multiplexer active
 		
 		if shortname is None:
-			self.shortname=device_name.strip().replace(' ','').replace('\t','')		
+			self.shortname=device_name.strip().replace(' ','').replace('\t','')     
 		else:
-			self.shortname=shortname.strip().replace(' ','').replace('\t','')	
+			self.shortname=shortname.strip().replace(' ','').replace('\t','')   
 					
 		if threads:
 			self.threadlock=threading.RLock()
 	
-		try:							
-			self.reconnect()	
+		try:                            
+			self.reconnect()    
 			
 		except VXI_11_Transient_Error:
 			self.log_exception("Initial connect failed... retry later")
@@ -318,7 +318,7 @@ class vxi_11_connection:
 		self.connected=1
 
 		self.check_idn()
-		self.post_init()			
+		self.post_init()            
 
 
 	def abort(self):
@@ -359,7 +359,7 @@ class vxi_11_connection:
 			try:
 				self.disconnect()
 			except VXI_11_Error:
-				pass			
+				pass            
 
 
 				
@@ -376,16 +376,21 @@ class vxi_11_connection:
 				xfer=self.maxRecvSize
 			else:
 				xfer=n
-				flags |= 8 #write end on last byte			
+				flags |= 8 #write end on last byte          
 				
 			err, count=self.command(11, "write", "write",  (self.lid, timeout, lock_timeout, flags, data[base:base+xfer]))
-			if  err: break	
+			if  err: break  
 			base+=count
 		return err, base
 		
 	def read(self, timeout=None, lock_timeout=0, count=None, termChar=None):
 		"""err, reason, result=read([timeout] [,lock_timeout] [,count] [,termChar]) reads up to count bytes from the device,
-		ending on count, EOI or termChar (if specified).  See do_timeouts() for semantics of the timeouts."""
+		ending on count, EOI or termChar (if specified).  See do_timeouts() for semantics of the timeouts. \n
+		the returned reason is an inclusive OR of 3 bits (per the VXI-11 specs section B.6.4.device_read):
+			Bit 2 = END/EOI received,
+			bit 1 = Terminating Character received,
+			bit 0 = full requested byte count received. 
+		"""
 		flags, timeout, lock_timeout=self.do_timeouts(timeout, lock_timeout)
 
 		if termChar is not None:
@@ -407,7 +412,7 @@ class vxi_11_connection:
 			if count is not None:
 				readcount=min(readcount, count-accumlen)
 			err, reason, data = self.command(12, "read","read", (self.lid,  readcount, timeout, lock_timeout, flags, act_term))
-			accumdata+=data		
+			accumdata+=data     
 			accumlen+=len(data)
 			#print err, reason, len(data), len(accumdata)
 		
@@ -452,7 +457,7 @@ class vxi_11_connection:
 					err, = self.command(18, "lock","error", (self.lid, flags, lock_timeout))
 				except:
 					if self.mux: self.mux.unlock_connection(self.global_mux_name)
-					raise					
+					raise                   
 			except:
 				if threads:
 					self.threadlock.release()
@@ -484,14 +489,14 @@ class vxi_11_connection:
 		try:
 			if self.locklevel==0:
 				try:
-					err, = self.command(19, "id", "error", (self.lid,  ))	
+					err, = self.command(19, "id", "error", (self.lid,  ))   
 				finally:
 					if self.mux: 
 						self.mux.unlock_connection(self.global_mux_name, priority) #this cannot fail, no try needed (??)
 			elif priority and self.mux:
 				#even on a non-final unlock, a request for changed priority is always remembered
 				self.mux.adjust_priority(self.global_mux_name, priority)
-		finally:			
+		finally:            
 			if threads:
 				self.threadlock.release()
 
@@ -510,8 +515,8 @@ class vxi_11_connection:
 	
 		if threads:
 			self.threadlock._RLock__count += (1-self.threadlock._RLock__count)
-			#unwind to single lock the fast way, and make sure this variable	really existed, to shield against internal changes
-		self.locklevel=1 #unwind our own counter, too			
+			#unwind to single lock the fast way, and make sure this variable    really existed, to shield against internal changes
+		self.locklevel=1 #unwind our own counter, too           
 		try:
 			self.unlock(priority)
 		except VXI_11_Device_Not_Locked:
@@ -536,7 +541,7 @@ class vxi_11_connection:
 			
 			if not err:
 				err, reason, result = self.read(count=count)
-		finally:		
+		finally:        
 			self.unlock()
 
 		return err, reason, result
@@ -555,9 +560,9 @@ class vxi_11_connection:
 				self.unlock()
 
 			check=idn.find(self.idn_head)
-			self.idn=idn.strip() #save for future reference info	
+			self.idn=idn.strip() #save for future reference info    
 			if  check:
-				self.disconnect()				
+				self.disconnect()               
 				assert check==0, "Wrong device type! expecting: "+self.idn_head+"... got: "+self.idn
 		else:
 			self.idn="Device *idn? not checked!"
@@ -605,7 +610,7 @@ class device_thread:
 			try:
 				connection.clear()
 			except:
-				connection.log_exception('failed to clear connection after error')				
+				connection.log_exception('failed to clear connection after error')              
 			self.run=0
 
 		connection.unlock()
