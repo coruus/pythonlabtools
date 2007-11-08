@@ -12,15 +12,15 @@ C2Functions can be combined with unary operators (nested functions) or binary op
 Developed by Marcus H. Mendenhall, Vanderbilt University Keck Free Electron Laser Center, Nashville, TN USA
 email: mendenhall@users.sourceforge.net
 Work supported by the US DoD  MFEL program under grant FA9550-04-1-0045
-version $Id: C2Functions.py,v 1.60 2007-07-10 16:58:47 mendenhall Exp $
+version $Id: C2Functions.py,v 1.61 2007-11-08 22:45:27 mendenhall Exp $
 """
-_rcsid="$Id: C2Functions.py,v 1.60 2007-07-10 16:58:47 mendenhall Exp $"
+_rcsid="$Id: C2Functions.py,v 1.61 2007-11-08 22:45:27 mendenhall Exp $"
 
 ##\file
 ##Provides the analysis.C2Functions package.
 ##\package analysis.C2Functions
 #A group of classes which make it easy to manipulate smooth functions, including cubic splines. 
-#\verbatim version $Id: C2Functions.py,v 1.60 2007-07-10 16:58:47 mendenhall Exp $ \endverbatim
+#\verbatim version $Id: C2Functions.py,v 1.61 2007-11-08 22:45:27 mendenhall Exp $ \endverbatim
 #C2Functions know how to keep track of the first and second derivatives of functions, and to use this information in, for example, C2Function.find_root() and 
 #C2Function.partial_integrals()
 #to allow much more efficient solutions to problems for which the general solution may be expensive.
@@ -1318,7 +1318,7 @@ class C2LHopitalRatio(C2Ratio):
 		
 		y= y1 + dx*(a+b*dx) + xp1*q1
 		yp=a + 2*b*dx + xp2*q1 + xp1*q2
-		ypp=2*b+xp1*q3+2*xp2*q2+6*x*q1
+		ypp=2*b+xp1*q3+2*xp2*q2+6*dx*q1
 			
 		return y, yp/dx0, ypp/dx0/dx0
 
