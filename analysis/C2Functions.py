@@ -12,15 +12,15 @@ C2Functions can be combined with unary operators (nested functions) or binary op
 Developed by Marcus H. Mendenhall, Vanderbilt University Keck Free Electron Laser Center, Nashville, TN USA
 email: mendenhall@users.sourceforge.net
 Work supported by the US DoD  MFEL program under grant FA9550-04-1-0045
-version $Id: C2Functions.py,v 1.61 2007-11-08 22:45:27 mendenhall Exp $
+version $Id: C2Functions.py,v 1.62 2007-11-20 17:25:42 mendenhall Exp $
 """
-_rcsid="$Id: C2Functions.py,v 1.61 2007-11-08 22:45:27 mendenhall Exp $"
+_rcsid="$Id: C2Functions.py,v 1.62 2007-11-20 17:25:42 mendenhall Exp $"
 
 ##\file
 ##Provides the analysis.C2Functions package.
 ##\package analysis.C2Functions
 #A group of classes which make it easy to manipulate smooth functions, including cubic splines. 
-#\verbatim version $Id: C2Functions.py,v 1.61 2007-11-08 22:45:27 mendenhall Exp $ \endverbatim
+#\verbatim version $Id: C2Functions.py,v 1.62 2007-11-20 17:25:42 mendenhall Exp $ \endverbatim
 #C2Functions know how to keep track of the first and second derivatives of functions, and to use this information in, for example, C2Function.find_root() and 
 #C2Function.partial_integrals()
 #to allow much more efficient solutions to problems for which the general solution may be expensive.
@@ -206,19 +206,41 @@ class	C2Function(object):
 
 		return root
 
+	##
+	## \brief Set the domain of the function to (xmin, xmax).
+	# Mostly, the domain is informative, and used by other functions to figure out where the function should be applied.
+	# many functions can be evaluated without error outside their marked domain.
+	# However, some functions for which it is wrong to do so (InterpolatingFunction, e.g.) will raise an exception
+	# \param xmin the lower bound of the domain
+	# \param xmax the upper bound of the domain
 	def SetDomain(self, xmin, xmax): 
 		"Set the domain of the function. This is mostly an advisory range, except for InterpolatingFunctions, where it matters"
 		self.xMin=xmin; self.xMax=xmax; return self
+
+	##
+	## \brief get a tuple of the domain of the function
+	# \return (xmin, xmax)
 	def GetDomain(self):
 		"returns xMin, xMax"
 		return self.xMin, self.xMax
 
+	##
+	## \brief return the value of self(inner_function(x)) without explicitly creating a composed function
+	#
+	# If you really want the composed function self(inner), use C2ComposedFunction
+	# \param inner the inner function
+	# \param x the point at which to evaluate the composed function
+	# \return self(inner(x)) and its two derivatives
 	def compose(self, inner_function, x):
 		"y=f.compose(g, x) returns f(g(x)), f'(g(x)), f''(g(x)) where the derivatives are with respect to x"
 		y0, yp0, ypp0=inner_function.value_with_derivatives(x)
 		y1, yp1, ypp1=self.value_with_derivatives(y0)
 		return y1, yp1*yp0, ypp0*yp1+yp0*yp0*ypp1
 
+	##
+	## \brief utility to make sure python constants get converted to C2Constant objects in subclasses
+	# \param arg something which might be a number or another C2Function
+	# \return a C2Function
 	def convert_arg(self, arg): 
 		"convert constants to C2Constants"
 		import operator
@@ -226,25 +248,47 @@ class	C2Function(object):
 			return C2Constant(arg)
 		else: 
 			return arg
-
+	##
+	## \brief Python operator to return a function \a self +\a right 
+	# \param right the right-hand term of the sum
+	# \return the C2Function a+b
 	def __add__(self, right):
 		"a+b returns a new C2Function which represents the sum"
 		return C2Sum(self, right)
+	##
+	## \brief Python operator to return a function \a self -\a right 
+	# \param right the right-hand term of the difference
+	# \return the C2Function a-b
 	def __sub__(self, right):
 		"a-b returns a new C2Function which represents the difference"
 		return C2Diff(self, right)
+	##
+	## \brief Python operator to return a function \a self *\a right 
+	# \param right the right-hand term of the product
+	# \return the C2Function a*b
 	def __mul__(self, right):
 		"a*b returns a new C2Function which represents the product"
 		return C2Product(self, right)
+	##
+	## \brief Python operator to return a function \a self /\a right 
+	# \param right the denominator term of the ratio
+	# \return the C2Function a/b
 	def __div__(self, right):
 		"a/b returns a new C2Function which represents the ratio"
 		return C2Ratio(self, right)
+	##
+	## \brief Python operator to return a function \a self ^\a right
+	# \note This includes an optimization for numerical powers.
+	# \param right the exponent
+	# \return the C2Function a^b
 	def __pow__(self, right):
-		"a**b returns a new C2Function which represents the power law, with a optimization for numerical powers"
+		"a**b returns a new C2Function which represents the power law, with an optimization for numerical powers"
 		return C2Power(self, right)
 
-	## For points in \a recur_data, compute {\f$ \int_{x_i}^{x_{i+1}} f(x) dx \f$} .
-	# Note that the length of the return is one less than the length of \a recur_data. 
+	##
+	## \brief For points in \a recur_data, compute {\f$ \int_{x_i}^{x_{i+1}} f(x) dx \f$} .
+	#
+	# Note: The length of the return is one less than the length of \a recur_data. 
 	# partial_integrals() uses a method with an error O(dx**10) with full  information from the derivatives.
 	#
 	# the integration is adaptive, starting from the grid provided, and returning data in the intervals
@@ -256,7 +300,6 @@ class	C2Function(object):
 	# \param allow_recursion allow adaptive behavior if true, otherwise just use subdomains provided
 	# \param extrapolate carry out simple Richardson-Romberg extrapolation if true
 	# \return  vector in which results from subdomains are returned.
-   
 	def partial_integrals(self, recur_data, **args):
 		"""def partial_integrals(self, xgrid, relative_error_tolerance=1e-12, derivs=2, 
 			absolute_error_tolerance=1e-12, depth=0, debug=0, extrapolate=1, allow_recursion=True)
@@ -364,25 +407,36 @@ class	C2Function(object):
 						(left, right), absolute_error_tolerance/2 )
 				l, r =self.partial_integrals(recur_data)
 				retvals[i]=l+r
-		
 		if debug ==2:
-			print 
-			print "integrating at depth ", depth
+			print "\nintegrating at depth ", depth
 			print xgrid
 			print funcgrid
 			import operator
 			print retvals
 			if old_integrals: 
 				print map(operator.sub, old_integrals, retvals)
-			print
-			print "returning from depth ", depth
-		
+			print "\nreturning from depth ", depth
 		return retvals
-	
+
+	##
+	## \brief give a C2Function hints about interesting points to sample for integration, etc.
+	# \param self the class instance
+	# \param grid an indexable list of points which is a starting point for any recursive sampling
+	# \note typically, this grid can be quite coarse.  For periodic functions, it may be just more frequent
+	# than 1 point per period.  DO NOT make it have the same period as the function, since this will certainly
+	# break any recursive measures of convergence.  It will see the function the same at every point, and think
+	# it is dealing with a constant.
+	#
 	def SetSamplingGrid(self, grid):
-		"establish a set of 'interesting' points for starting to sample this function"
+		"provide a set of 'interesting' points for starting to sample this function"
 		self.sampling_grid=_numeric.array(grid)
-	
+
+	##
+	## \brief Extract the list of 'interesting' points from the sampling grid which lie in the requested domain,
+	# including q point at each endpoint.
+	# \param xmin the lower bound for the grid.
+	# \param xmax the upper bound for the grid.
+	# \return a list of points at which to start looking at the function.
 	def GetSamplingGrid(self, xmin, xmax):
 		"get a set of points, including xmin and xmax, which are reasonable points to evaluate the function between them"
 		if self.sampling_grid is None or xmin > self.sampling_grid[-1] or xmax < self.sampling_grid[0]:
@@ -407,17 +461,36 @@ class	C2Function(object):
 				if (x2-x1) < ftol or (x2-x1) < 0.1*(x2-x0): del grid[-2] #remove collision
 		
 			return grid
-	
+
+	##
+	## \brief return the definite integral from xmin to xmax of this function using our sampling_grid for hints.
+	# 
+	# \param xmin the lower bound
+	# \param xmax the upper bound
+	# \param args see partial_integrals() for meaning of these arguments 
+	# \return the integral
 	def integral(self, xmin, xmax, **args):
 		"carry out integration using our sampling grid"
 		grid=self.GetSamplingGrid(xmin, xmax)
 		return sum(self.partial_integrals(grid, **args))
 
+	##
+	## \brief return a new C2Function which has integral \a norm on (\a xmin, \a xmax )
+	# \param xmin the lower bound for the normalization
+	# \param xmax the upper bound for the normalization
+	# \param norm the desired integral
+	# \return the new function
 	def NormalizedFunction(self, xmin, xmax, norm=1):
 		"return a function whose integral on [xmin, xmax] is norm"
 		intg=self.integral(xmin, xmax)
 		return C2ScaledFunction(self, norm/intg)
-
+	##
+	## \brief return a new C2Function which has square-integral \a norm on (\a xmin, \a xmax ) with weight function \a weight
+	# \param xmin the lower bound for the normalization
+	# \param xmax the upper bound for the normalization
+	# \param weight the weight function.  Unity if omitted.
+	# \param norm the desired integral
+	# \return the new function
 	def SquareNormalizedFunction(self, xmin, xmax, weight=None, norm=1):
 		"return a function whose square integral on [xmin, xmax] with optional weight function is norm"
 		mesquared=C2Quadratic(a=1.0)(self)
@@ -1216,6 +1289,60 @@ class C2InverseFunction(C2Function):
 		self.start_hint=y #always start looking near previous solution, unless value is reset explicitly
 		return y, 1.0/yp, -ypp/yp**3 #appropriate inverse derivs from MMA
 
+class C2ConnectorFunction(C2Function):
+	"""C2ConnectorFunction generates a smooth conection between two other C2Function instances.
+	"""
+	def __init__(self, f1, f2, x0, x2, auto_center=False, y1=0.0):
+		""" connect f1(x0) to f2(x2) with a very smooth polynomial.  If auto_center is False,
+			function(midpoint)=y1 at midpoint of the join and poly is 6th order.
+			If auto_center is True, poly is 5th order, and y(midpoint) is whatever it has to be.""" 
+		fdx=self.fdx=(x2-x0)/2.0
+		self.fhinv=1.0/fdx
+		self.fx1=(x0+x2)/2.0
+		sef.fx0=x0
+		self.fx2=x2
+		
+		y0, yp0, ypp0=f1.value_with_derivatives(x0) # get left wall values from conventional computation
+		y2, yp2, ypp2=f2.value_with_derivatives(x2) # get right wall values from conventional computation
+
+		# scale derivs to put function on [-1,1] since mma  solution is done this way
+		yp0*=fdx
+		yp2*=fdx
+		ypp0*=fdx*fdx
+		ypp2*=fdx*fdx
+		
+		ff0=(8*(y0 + y2) + 5*(yp0 - yp2) + ypp0 + ypp2)*0.0625
+		if auto_center: y1=ff0 # forces ff to be 0 if we are auto-centering
+		
+		# y[x_] = y1 + x (a + b x) + x [(x-1) (x+1)] (c + d x) + x (x-1)^2 (x+1)^2 (e + f x)
+		# y' = a + 2 b x + d x [(x+1)(x-1)] + (c + d x)(3x^2-1) + f x [(x+1)(x-1)]^2 + (e + f x)[(x+1)(x-1)](5x^2-1)  
+		# y'' = 2 b + 6x(c + d x) + 2d(3x^2-1) + 4x(e + f x)(5x^2-3) + 2f(x^2-1)(5x^2-1)
+		self.fy1=y1 
+		self.fa=(y2 - y0)*0.5
+		self.fb=(y0 + y2)*0.5 - y1
+		self.fc=(yp2+yp0-2.*self.fa)*0.25
+		self.fd=(yp2-yp0-4.*self.fb)*0.25
+		self.fe=(ypp2-ypp0-12.*self.fc)*0.0625
+		self.ff=(ff0 - y1)
+		self.SetDomain(x0,x2) # this is where the function is valid
+	def value_with_derivatives(self, x):
+		fhinv=self.fhinv
+		dx=(x-self.fx1)*fhinv
+		q1=(x-self.fx0)*(x-self.fx2)*fhinv*fhinv # exactly vanish all bits at both ends
+		q2=dx*q1
+		
+		r1=self.fa+self.fb*dx
+		r2=self.fc+self.fd*dx
+		r3=self.fe+self.ff*dx
+		
+		y=self.fy1+dx*r1+q2*r2+q1*q2*r3
+		
+		q3=3*q1+2
+		q4=5*q1+4
+		yprime=(self.fa+2*self.fb*dx+self.fd*q2+r2*q3+self.ff*q1*q2+q1*q4*r3)*fhinv
+		yprime2=2*(self.fb+self.fd*q3+3*dx*r2+self.ff*q1*q4+r3*(2*dx*(5*q1+2)))*fhinv*fhinv
+		return y, yprime, yprime2
+	
 class C2LHopitalRatio(C2Ratio):
 	"""C2LHopitalRatio(a,b) returns a new C2Function which evaluates as a/b with special care near zeros of the denominator.
 		It caches coefficients once it has found a zero, and evaluates very quickly afterwards near that point.
