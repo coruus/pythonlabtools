@@ -12,15 +12,15 @@ C2Functions can be combined with unary operators (nested functions) or binary op
 Developed by Marcus H. Mendenhall, Vanderbilt University Keck Free Electron Laser Center, Nashville, TN USA
 email: mendenhall@users.sourceforge.net
 Work supported by the US DoD  MFEL program under grant FA9550-04-1-0045
-version $Id: C2Functions.py,v 1.65 2007-11-21 15:06:35 mendenhall Exp $
+version $Id: C2Functions.py,v 1.66 2007-11-21 16:18:00 mendenhall Exp $
 """
-_rcsid="$Id: C2Functions.py,v 1.65 2007-11-21 15:06:35 mendenhall Exp $"
+_rcsid="$Id: C2Functions.py,v 1.66 2007-11-21 16:18:00 mendenhall Exp $"
 
 ##\file
-##Provides the analysis.C2Functions package.
+## \brief Provides the analysis.C2Functions package.
 ##\package analysis.C2Functions
-#A group of classes which make it easy to manipulate smooth functions, including cubic splines. 
-#\version $Id: C2Functions.py,v 1.65 2007-11-21 15:06:35 mendenhall Exp $
+# \brief A group of classes which make it easy to manipulate smooth functions, including cubic splines. 
+#\version $Id: C2Functions.py,v 1.66 2007-11-21 16:18:00 mendenhall Exp $
 #
 #C2Functions know how to keep track of the first and second derivatives of functions, and to use this information in, for example, C2Function.find_root() and 
 #C2Function.partial_integrals()
@@ -68,22 +68,22 @@ except:
 _myfuncs=_numeric
 
 ##
-## Our own exception class
+## \brief Our own exception class
 class	C2Exception(Exception):
 	pass
 
 ##
-##Raised if an abscissa is out of range
+## \brief Raised if an abscissa is out of range
 class	RangeError(IndexError):
 	pass
 
 ##
-##Raised if an abscissa is out of range
+## \brief Raised if the base class C2Function is called without a valid value_with_derivatives()
 class	C2NakedFunction(C2Exception):
 	pass
 
 ##
-## Provides support for the entire C2Function hierarchy
+## \brief Provides support for the entire C2Function hierarchy
 #
 class	C2Function(object):
 	"if f is a C2Function, f(x) returns the value at x, and f.value_with_derivatives returns y(x), y'(x), y''(x)"	
@@ -1315,7 +1315,7 @@ class InterpolatingFunction(C2Function):
 	def __mul__(self, right):
 		return self.BinaryOperator(right, C2Product)
 	##
-	## \brief python operator to return a new InterpolatingFunction \a self +/\a right evaluated pointwise
+	## \brief python operator to return a new InterpolatingFunction \a self /\a right evaluated pointwise
 	# \param right the denominator function 
 	# \return a new InterpolatingFunction with the same transformations as the parent
 	# \note This has different derivatives than C2Ratio(\a self, \a right) since it is evaluated pointwise
