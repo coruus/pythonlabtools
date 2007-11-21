@@ -12,15 +12,15 @@ C2Functions can be combined with unary operators (nested functions) or binary op
 Developed by Marcus H. Mendenhall, Vanderbilt University Keck Free Electron Laser Center, Nashville, TN USA
 email: mendenhall@users.sourceforge.net
 Work supported by the US DoD  MFEL program under grant FA9550-04-1-0045
-version $Id: C2Functions.py,v 1.64 2007-11-21 14:22:52 mendenhall Exp $
+version $Id: C2Functions.py,v 1.65 2007-11-21 15:06:35 mendenhall Exp $
 """
-_rcsid="$Id: C2Functions.py,v 1.64 2007-11-21 14:22:52 mendenhall Exp $"
+_rcsid="$Id: C2Functions.py,v 1.65 2007-11-21 15:06:35 mendenhall Exp $"
 
 ##\file
 ##Provides the analysis.C2Functions package.
 ##\package analysis.C2Functions
 #A group of classes which make it easy to manipulate smooth functions, including cubic splines. 
-#\version $Id: C2Functions.py,v 1.64 2007-11-21 14:22:52 mendenhall Exp $
+#\version $Id: C2Functions.py,v 1.65 2007-11-21 15:06:35 mendenhall Exp $
 #
 #C2Functions know how to keep track of the first and second derivatives of functions, and to use this information in, for example, C2Function.find_root() and 
 #C2Function.partial_integrals()
@@ -1041,7 +1041,7 @@ def _splint(xa, ya, y2a, x, derivs=False):
 		khi=max(_numeric.searchsorted(xa,x),1)
 		klo=khi-1
 		#convert everything which came out of an array to a float, since numpy arrays return numpy scalars, rather than native scalars
-		#this speeds things up, and makes sure numbers coming back fro here are native
+		#this speeds things up, and makes sure numbers coming back from here are native
 		h=float(xa[khi]-xa[klo])
 		a=float(xa[khi]-x)/h; b=1.0-a
 		ylo=float(ya[klo]); yhi=float(ya[khi]); y2lo=float(y2a[klo]); y2hi=float(y2a[khi]) 
@@ -1083,6 +1083,7 @@ def _mylog(x): return _myfuncs.log(x)
 
 ##
 ##\class InterpolatingFunction
+# \brief the parent class for various interpolators. Does untransformed cubic splines by default.
 #
 #An InterpolatingFunction stores a cubic spline representation of a set of x,y pairs.
 #	It can also transform the variable on input and output, so that the underlying spline may live in log-log space, 
@@ -1171,7 +1172,8 @@ class InterpolatingFunction(C2Function):
 		else:
 			#use a dummy y2 table if we are not really cubic splining
 			self.y2=_numeric.zeros(len(self.X), _numeric_float)
-
+	##
+	
 	def value_with_derivatives(self, x): 
 		if self.xNonLin or self.yNonLin: #skip this if this is a completely untransformed spline
 			y0, yp0, ypp0=_splint(self.X, self.F, self.y2, self.fXin(x), derivs=True)
@@ -1188,7 +1190,13 @@ class InterpolatingFunction(C2Function):
 			return native(y, yprime, yprimeprime)
 		else:
 			return _splint(self.X, self.F, self.y2, x, derivs=True)
-
+	##
+	## \brief Set extrapolation on left end of data set.
+	#
+	# This will be dynamically assigned to either SetLowerExtrapolation or SetUpperExtrapolation by the constructor
+	# depending on whether the transformed spline is running in increasing or decreasing order.
+	# This is necessary since the arrays may have been  reversed because of a transformation of \a x.
+	# \param bound the bound to which the left edge of the data should be extrapolated
 	def SetLeftExtrapolation(self, bound):
 		"""Set extrapolation on left end of data set.  
 		This will be dynamically assigned to either SetLowerExtrapolation or SetUpperExtrapolation by the constructor
@@ -1202,6 +1210,13 @@ class InterpolatingFunction(C2Function):
 		self.Xraw=_numeric.concatenate(((bound, ), self.Xraw))
 		self.SetDomain(min(self.Xraw), max(self.Xraw))
 		
+	##
+	## \brief Set extrapolation on right end of data set.
+	#
+	# This will be dynamically assigned to either SetLowerExtrapolation or SetUpperExtrapolation by the constructor
+	# depending on whether the transformed spline is running in increasing or decreasing order.
+	# This is necessary since the arrays may have been  reversed because of a transformation of \a x.
+	# \param bound the bound to which the right edge of the data should be extrapolated
 	def SetRightExtrapolation(self, bound):
 		"""Set extrapolation on right end of data set.  
 		This will be dynamically assigned to either SetLowerExtrapolation or SetUpperExtrapolation by the constructor
@@ -1215,18 +1230,26 @@ class InterpolatingFunction(C2Function):
 		self.Xraw=_numeric.concatenate((self.Xraw, (bound, )))
 		self.SetDomain(min(self.Xraw), max(self.Xraw))
 
+	##
+	## \brief set the extrapolation permitted on the left edge of the original data set (lowest \a x value)
+	# \param bound the bound to which the left edge of the data should be extrapolated		
 	def SetLowerExtrapolation(self, bound):
 		if not self.xInverted:
 			self.SetLeftExtrapolation(bound)
 		else:
 			self.SetRightExtrapolation(bound)
-			 
+
+	##
+	## \brief set the extrapolation permitted on the right edge of the original data set (hightest \a x value)
+	# \param bound the bound to which the right edge of the data should be extrapolated		
 	def SetUpperExtrapolation(self, bound):
 		if self.xInverted:
 			self.SetLeftExtrapolation(bound)
 		else:
 			self.SetRightExtrapolation(bound)
 
+	##
+	## \brief legacy...
 	def YtoX(self):
 		"returns a new InterpolatingFunction with our current grid of Y values as the X values"
 		
@@ -1235,17 +1258,31 @@ class InterpolatingFunction(C2Function):
 		f=InterpolatingFunction(yv, yv, XConversions=self.XConversions, YConversions=self.YConversions)
 		f.SetName("x values: "+self.name)
 		return f
-		
+	##
+	## \brief create new InterpolatingFunction C2source(self) evaluated pointwise
+	# \param C2Source the outer member of the composition
+	# \return new InterpolatingFunction using the same transformation rules as the parent
+	# \note This has different derivatives than C2ComposedFunction(\a self, \a right) since it is evaluated pointwise
+	# and then re-splined.  If you want the full derivative information, use C2ComposedFunction()
 	def UnaryOperator(self, C2source):
 		"return new InterpolatingFunction C2source(self)"
-		yv=[C2source.compose(self, x) for x in self.Xraw] #get array of ( ( y, y', y''), ...)
-		y=[yy[0] for yy in yv] #get y values only
+		y=[C2source(self.fYout(yy)) for yy in self.F] #get array of y values efficiently
+		#get exact derivative of composition at each end to seed new spline.
+		junk, yp0, junk = C2source.compose(self, self.Xraw[0]) 
+		junk, ypn, junk = C2source.compose(self, self.Xraw[-1]) 
 
-		f=InterpolatingFunction(self.Xraw, y, lowerSlope=yv[0][1], upperSlope=yv[-1][1],
+		f=InterpolatingFunction(self.Xraw, y, lowerSlope=yp0, upperSlope=ypn,
 			XConversions=self.XConversions, YConversions=self.YConversions)
 		f.name=C2source.name+'('+self.name+')'
 		return f
-		
+
+	##
+	## \brief create new InterpolatingFunction self +-*/ rhs (or any other binary operator) evaluated pointwise
+	# \param rhs the right hand function for the binary
+	# \param c2binary the class (NOT an instance) for the binary operator
+	# \return new InterpolatingFunction using the same transformation rules as the parent
+	# \note This has different derivatives than a regular binary operator such as C2Product since it is evaluated pointwise
+	# and then re-splined.  If you want the full derivative information, use C2Product() (e.g.)
 	def BinaryOperator(self, rhs, c2binary):
 		"return new InterpolatingFunction self +-*/ rhs (or any other binary operator)"
 		bf=c2binary(self, rhs)
@@ -1257,59 +1294,58 @@ class InterpolatingFunction(C2Function):
 			XConversions=self.XConversions, YConversions=self.YConversions)
 		f.name=bf.name
 		return f
-		
-	#factory functions to create evaluated binary functions of InterpolatingFunctions
+	##
+	## \brief python operator to return a new InterpolatingFunction \a self +\a right evaluated pointwise
+	# \param right the function to add
+	# \return a new InterpolatingFunction with the same transformations as the parent
 	def __add__(self, right):
 		return self.BinaryOperator(right, C2Sum)
+	##
+	## \brief python operator to return a new InterpolatingFunction \a self -\a right evaluated pointwise
+	# \param right the function to subtract
+	# \return a new InterpolatingFunction with the same transformations as the parent
 	def __sub__(self, right):
 		return self.BinaryOperator(right, C2Diff)
+	##
+	## \brief python operator to return a new InterpolatingFunction \a self *\a right evaluated pointwise
+	# \param right the function to multiply
+	# \return a new InterpolatingFunction with the same transformations as the parent
+	# \note This has different derivatives than C2Product(\a self, \a right) since it is evaluated pointwise
+	# and then re-splined.  If you want the full derivative information, use C2Product()
 	def __mul__(self, right):
 		return self.BinaryOperator(right, C2Product)
+	##
+	## \brief python operator to return a new InterpolatingFunction \a self +/\a right evaluated pointwise
+	# \param right the denominator function 
+	# \return a new InterpolatingFunction with the same transformations as the parent
+	# \note This has different derivatives than C2Ratio(\a self, \a right) since it is evaluated pointwise
+	# and then re-splined.  If you want the full derivative information, use C2Ratio()
 	def __div__(self, right):
 		return self.BinaryOperator(right, C2Ratio)
-
+##
+	
 LogConversions=_mylog, _recip, _mrecip2, _myexp
-
+##
+## \brief An InterpolatingFunction which stores log(x) vs. y
 class LogLinInterpolatingFunction(InterpolatingFunction):
 	"An InterpolatingFunction which stores log(x) vs. y"
 	ClassName='LogLinInterpolatingFunction'
 	XConversions=LogConversions
-
+##
+## \brief An InterpolatingFunction which stores x vs. log(y)
 class LinLogInterpolatingFunction(InterpolatingFunction):
 	"An InterpolatingFunction which stores x vs. log(y), useful for functions with exponential-like behavior"
 	ClassName='LinLogInterpolatingFunction'
 	YConversions=LogConversions
-
+##
+## \brief An InterpolatingFunction which stores log(x) vs. log(y)
 class LogLogInterpolatingFunction(InterpolatingFunction):
 	"An InterpolatingFunction which stores log(x) vs. log(y), useful for functions with power-law-like behavior"
 	ClassName='LogLogInterpolatingFunction'
 	XConversions=LogConversions
 	YConversions=LogConversions
-	def log_log_partial_integrals_broken(self, xgrid, debug=False):
-		"""Return the integrals of a function between the sampling points xgrid.  The sum is the definite integral.
-		This version knows about integrating in log-log space, at least to some simple approximation.
-		The approximation is that ln(y)=a + b*ln(x) + c*ln(x)^2 -> a + (b + c*ln(xbar)) * ln(x) where xbar=sqrt(x0*x1) for the interval 
-		"""
-		
-		xgridl=_numeric.log(xgrid)
-		dx=xgridl[1:]-xgridl[:-1]
-	
-		#compute all log values & derivatives of logs at sampling points
-		y, yp, ypp=_spline.splint(self.X, self.F, self.y2, xgridl, derivs=True) 
-		
-		localpower=yp[:-1]+0.25*ypp[:-1]*(xgridl[1:]+xgridl[:-1])+1 #this is the 1+slope of log x assuming  ln^2(x) is ln(x)*ln(sqrt(x0*x1))
-		if debug: 
-			print "\ndebug log_log_partial_integrals:"
-			print dx
-			print y
-			print yp
-			print ypp
-			print localpower
-			print zip(self.fYout(y[:-1]), self.fYout(localpower*dx))
-		partials=_numeric.exp(y[:-1]-(localpower+1)*xgridl[:-1])*(_numeric.exp(localpower*dx)-1.0)/localpower
-		
-		return partials
-
+##
+## \brief legacy...
 def LinearInterpolatingGrid(xmin, dx, count):
 	"""create a linear-linear interpolating grid with both x & y set to (xmin, xmin+dx, ... xmin + dx*(count -1) )
 		very useful for transformaiton with other functions e.g. 
@@ -1317,7 +1353,8 @@ def LinearInterpolatingGrid(xmin, dx, count):
 	"""
 	x=[xmin + dx*i for i in xrange(count)]
 	return InterpolatingFunction(x,x).SetName('x')
-
+##
+## \brief legacy...
 def LogLogInterpolatingGrid(xmin, dx, count):
 	"create a log-log interpolating grid with both x & y set to (xmin, xmin*dx, ... xmin * dx**(count -1) )"
 	x=[xmin]
