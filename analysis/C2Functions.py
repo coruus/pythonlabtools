@@ -12,15 +12,16 @@ C2Functions can be combined with unary operators (nested functions) or binary op
 Developed by Marcus H. Mendenhall, Vanderbilt University Keck Free Electron Laser Center, Nashville, TN USA
 email: mendenhall@users.sourceforge.net
 Work supported by the US DoD  MFEL program under grant FA9550-04-1-0045
-version $Id: C2Functions.py,v 1.62 2007-11-20 17:25:42 mendenhall Exp $
+version $Id: C2Functions.py,v 1.63 2007-11-21 14:19:37 mendenhall Exp $
 """
-_rcsid="$Id: C2Functions.py,v 1.62 2007-11-20 17:25:42 mendenhall Exp $"
+_rcsid="$Id: C2Functions.py,v 1.63 2007-11-21 14:19:37 mendenhall Exp $"
 
 ##\file
 ##Provides the analysis.C2Functions package.
 ##\package analysis.C2Functions
 #A group of classes which make it easy to manipulate smooth functions, including cubic splines. 
-#\verbatim version $Id: C2Functions.py,v 1.62 2007-11-20 17:25:42 mendenhall Exp $ \endverbatim
+#\version $Id: C2Functions.py,v 1.63 2007-11-21 14:19:37 mendenhall Exp $
+#
 #C2Functions know how to keep track of the first and second derivatives of functions, and to use this information in, for example, C2Function.find_root() and 
 #C2Function.partial_integrals()
 #to allow much more efficient solutions to problems for which the general solution may be expensive.
@@ -77,6 +78,11 @@ class	RangeError(IndexError):
 	pass
 
 ##
+##Raised if an abscissa is out of range
+class	C2NakedFunction(C2Exception):
+	pass
+
+##
 ## Provides support for the entire C2Function hierarchy
 #
 class	C2Function(object):
@@ -112,7 +118,14 @@ class	C2Function(object):
 	def SetName(self, name): 
 		"set the short name of the function for __str__"
 		self.name=name; return self
-	
+
+	##
+	## \brief get the value of the function, and its first & second derivative
+	# \param x the point at which to evaluate the function
+	# \return (f(x), f'(x), f''(x))
+	def value_with_derivatives(self, x):
+                raise C2NakedFunction
+        
 	##
 	## get f(val) if val is numeric, otherwise generate the composed fonction f(val())
 	#\param arg the independent variable, if numeric, otherise the inner function
@@ -140,7 +153,7 @@ class	C2Function(object):
 	# \param upper_bracket the upper bound. Note that the function have opposite signs at these two points
 	# \param start an initial guess for where to start the search
 	# \param value the target value of the function
-  
+	# \param trace print debugging info to sys.stderr if True
 	def find_root(self, lower_bracket, upper_bracket, start, value, trace=False): 
 		"solve f(x)==value very efficiently, with explicit knowledge of derivatives of the function"
 		# can use local f(x)=a*x**2 + b*x + c 
@@ -231,9 +244,9 @@ class	C2Function(object):
 	# \param inner the inner function
 	# \param x the point at which to evaluate the composed function
 	# \return self(inner(x)) and its two derivatives
-	def compose(self, inner_function, x):
+	def compose(self, inner, x):
 		"y=f.compose(g, x) returns f(g(x)), f'(g(x)), f''(g(x)) where the derivatives are with respect to x"
-		y0, yp0, ypp0=inner_function.value_with_derivatives(x)
+		y0, yp0, ypp0=inner.value_with_derivatives(x)
 		y1, yp1, ypp1=self.value_with_derivatives(y0)
 		return y1, yp1*yp0, ypp0*yp1+yp0*yp0*ypp1
 
@@ -420,7 +433,6 @@ class	C2Function(object):
 
 	##
 	## \brief give a C2Function hints about interesting points to sample for integration, etc.
-	# \param self the class instance
 	# \param grid an indexable list of points which is a starting point for any recursive sampling
 	# \note typically, this grid can be quite coarse.  For periodic functions, it may be just more frequent
 	# than 1 point per period.  DO NOT make it have the same period as the function, since this will certainly
@@ -503,114 +515,193 @@ class	C2Function(object):
 	
 
 ##
-# Create a function which is a simple scalar multiple of another
+# \brief Create a function which is a simple scalar multiple of the parent
 class C2ScaledFunction(C2Function):
 	"a lightweight class to create a function scaled vertically by a scale factor"
 	ClassName='Scaled'
+	##
+	# \brief construct the scaled function
+	# \param fn the function to scale
+	# \param yscale the mutiplicative factor to apply
 	def __init__(self, fn, yscale):
 		C2Function.__init__(self)
 		self.fn=fn
 		self.yscale=yscale
 		self.name=fn.name+'* %g' % yscale
-	
+
+	##
 	def value_with_derivatives(self, x): 
 		y, yp, ypp = self.fn.value_with_derivatives(x)
 		ys=self.yscale
 		return  native(y*ys, yp*ys, ypp*ys)
 
+##
+# \brief Create a function which is a constant
 class C2Constant(C2Function):
 	"a constant and its derivatives"
 	ClassName='Constant'
+	##
+	# \brief construct the constant
+	# \param val the constant
 	def __init__(self, val):
 		C2Function.__init__(self)
 		self.val=val
 		self.name='%g' % val
 
+	##
+	# \brief reset the value of the constant
+	# \param val the new constant
 	def reset(self, val):
 		"reset the value to a new value"
 		self.val=val
 
+        ##
 	def value_with_derivatives(self, x): 
 		return self.val, 0., 0.
 
+##
+# \brief Create a function which is the sine.  Use the singleton C2Functions.C2sin to access this.
 class _fC2sin(C2Function):
 	"sin(x)"
 	name='sin'
 	def value_with_derivatives(self, x):
 		q=_myfuncs.sin(x)
 		return  native(q, _myfuncs.cos(x), -q)
+
+##
+# \brief a pre-constructed singleton
 C2sin=_fC2sin() #make singleton
 
+##
+# \brief Create a function which is the cosine. Use the singleton C2Functions.C2cos to access this.
 class _fC2cos(C2Function):
 	"cos(x)"
 	name='cos'
 	def value_with_derivatives(self, x):
 		q=_myfuncs.cos(x)
 		return  native(q, -_myfuncs.sin(x), -q)
+##
+# \brief a pre-constructed singleton
 C2cos=_fC2cos() #make singleton
 
+##
+# \brief Create a function which is the natural log. Use the singleton C2Functions.C2log to access this.
 class _fC2log(C2Function):
 	"log(x)"
 	name='log'
 	def value_with_derivatives(self, x):
 		return  native(_myfuncs.log(x), 1/x, -1/(x*x))
+##
+# \brief a pre-constructed singleton
 C2log=_fC2log() #make singleton
 
+##
+# \brief Create a function which is the e^x. Use the singleton C2Functions.C2exp to access this.
 class _fC2exp(C2Function):
 	"exp(x)"
 	name='exp'
 	def value_with_derivatives(self, x):
 		q=_myfuncs.exp(x)
 		return  native(q, q, q)
+##
+# \brief a pre-constructed singleton
 C2exp=_fC2exp() #make singleton
 
+##
+# \brief Create a function which is the square root. Use the singleton C2Functions.C2sqrt to access this.
 class _fC2sqrt(C2Function):
 	"sqrt(x)"
 	name='sqrt'
 	def value_with_derivatives(self, x):
 		q=_myfuncs.sqrt(x)
 		return  native(q, 0.5/q, -0.25/(q*x))
+##
+# \brief a pre-constructed singleton
 C2sqrt=_fC2sqrt() #make singleton
 
-class _fC2recip(C2Function):
+##
+# \brief Create a function which is the \a scale /\a x. Use the singleton C2Functions.C2recip to access this as 1/x.
+class C2ScaledRecip recip(C2Function):
 	"1/x"
 	name='1/x'
+	##
+	# \brief construct the function, and set the scale factor.
+	def __init__(self, scale=1.0):
+                self.scale=scale
+                
+        ##
 	def value_with_derivatives(self, x):
 		q=1.0/x
-		return  native(q, -q*q, 2*q*q*q)
-C2recip=_fC2recip() #make singleton
+		return  native(self.scale*q, -self.scale*q*q, 2*self.scale*q*q*q)
+	
+##
+# \brief a pre-constructed singleton for 1/x
+C2recip=C2ScaledRecip() #make singleton
 
+##
+# \brief Create a function which is \a x. Use the singleton C2Functions.C2identity to access this.
 class _fC2identity(C2Function):
 	name='Identity'
 	def value_with_derivatives(self, x):
 		return x, 1.0, 0.0
+##
+# \brief a pre-constructed singleton identity
 C2identity=_fC2identity() #make singleton
 
+##
+# \brief Create a function which is (\a x - \a x0)*\a slope + \a y0.
 class C2Linear(C2Function):
-	"slope*x + y0"
-	def __init__(self, slope=1.0, y0=0.0):
+	"slope*(x-x0) + y0"
+	##
+	## \brief construct the function
+	# \param x0 the \a x offset at which f(\a x) = \a y0
+	# \param slope the slope
+	# \param y0 the value of the function at \a x0
+	def __init__(self, x0=0.0, slope=1.0, y0=0.0):
 		C2Function.__init__(self)
+		self.x0=x0
 		self.slope=slope
 		self.y0=y0
-		self.name="(%g * x + %g)" % (slope, y0)
+		self.name="(%g * (x - %g) + %g)" % (slope, x0, y0)
 	
-	def reset(self, slope=None, y0=None):
-		"reset the slope or intercept to a new value"
+	##
+	## \brief reset the parameters of the function
+	# \param x0 the \a x offset at which f(\a x) = \a y0, None if not reset
+	# \param slope the slope, None if not reset
+	# \param y0 the value of the function at \a x0, None if not reset
+	def reset(self, x0=None, slope=None, y0=None):
+		"reset the x0, slope or intercept to a new value"
 		if slope is not None:
 			self.slope=slope
 		if y0 is not None:
 			self.y0=y0
+		if x0 is not None:
+			self.x0=x0
 			
 	def value_with_derivatives(self, x):
-		return native(x*self.slope+self.y0, self.slope, 0.0)
+		return native((x-self.x0)*self.slope+self.y0, self.slope, 0.0)
 
+##
+# \brief Create a function which is \a a *(\a x - \a x0)**2 + \a b *(\a x - \a x0) + \a c 
 class C2Quadratic(C2Function):
 	"a*(x-x0)**2 + b*(x-x0) + c"
+	##
+	## \brief construct the function
+	# \param x0 the \a x offset at which f(\a x) = \a c
+	# \param a the coefficient of (\a x - \a x0)**2
+	# \param b the coefficient of (\a x - \a x0)
+	# \param c the value of the function at \a x0
 	def __init__(self, x0=0.0, a=1.0, b=0.0, c=0.0):
 		C2Function.__init__(self)
 		self.x0, self.a, self.b, self.c = x0, a, b, c
 		self.name="(%g*(x-x0)^2 + %g*(x-x0) + %g, x0=%g)" % (a, b, c, x0)
 		
+	##
+	## \brief reset the parameters of the function
+	# \param x0 the \a x offset at which f(\a x) = \a c, None if not reset
+	# \param a the coefficient of (\a x - \a x0)**2, None if not reset
+	# \param b the coefficient of (\a x - \a x0), None if not reset
+	# \param c the value of the function at \a x0, None if not reset
 	def reset(self, x0=None, a=None, b=None, c=None):
 		"reset the parameters to new values"
 		if x0 is not None:
@@ -626,8 +717,14 @@ class C2Quadratic(C2Function):
 		dx=x-self.x0
 		return native(self.a*dx*dx+self.b*dx+self.c, 2*self.a*dx+self.b, 2*self.a)
 
+##
+# \brief Create a function which is \a a\a x**\a b 
 class C2PowerLaw(C2Function):
 	"a*x**b where a and b are constant"
+	##
+	## \brief construct the function \a a\a x**\a b 
+	# \param a the scale factor
+	# \param b the exponent
 	def __init__(self, a=1.0, b=2.0):
 		C2Function.__init__(self)
 		self.a, self.b = a, b
@@ -635,6 +732,10 @@ class C2PowerLaw(C2Function):
 		self.bb1=b*(b-1)
 		self.name='%g*x^%g' % (a,b)
 		
+	##
+	## \brief reset the parameters of the function \a a\a x**\a b 
+	# \param a the scale factor, None if not reset
+	# \param b the the exponent, None if not reset
 	def reset(self, a=None, b=None):
 		"reset the parameters to new values"
 		if a is not None:
@@ -646,15 +747,20 @@ class C2PowerLaw(C2Function):
 		xp=self.a*x**self.b2
 		return  native(xp*x*x, self.b*xp*x, self.bb1*xp)
 
+##
+# \brief Create a function which is c0 + c1 (x-x0) + c2 (x-x0)^2 + ...
 class C2Polynomial(C2Function):
-	"poly(x)"
-	
-	def __init__(self, coefs, xcenter=0.0):
+	"poly(x)"	
+	##
+	## \brief construct the function c0 + c1 (x-x0) + c2 (x-x0)^2 + ...
+	# \param coefs the coefficients c_n (first coefficient in list is the conatant term)
+	# \param x0 the center for expansion of the polyomial
+	def __init__(self, coefs, x0=0.0):
 		"initialize the polynomial with coefficients specified, expanding around xcenter.  Constant coefficient is coefs[0]"
 		
 		self.coefs=tuple(coefs)
 		self.rcoefs=tuple(enumerate(self.coefs))[::-1] #record power index with coef
-		self.xcenter=xcenter
+		self.xcenter=x0
 	
 	def value_with_derivatives(self, x):
 		x-=self.xcenter
@@ -668,9 +774,16 @@ class C2Polynomial(C2Function):
 		return  native(xsum, xpsum, xp2sum)
 
 		
-
+##
+# \brief create a composed function outer(inner(...)).  The functions can either be unbound class names or class instances
 class C2ComposedFunction(C2Function):
 	"create a composed function outer(inner(...)).  The functions can either be unbound class names or class instances"
+	##
+	## \brief construct the function outer(inner)
+	# \param outer the outer function of the composition
+	# \param inner the inner function of the composition
+	# \note The functions can either be unbound class names or class instances.
+	# If they are class names, they will be instantiated with default arguments
 	def __init__(self, outer, inner):
 		if type(inner) is types.ClassType: inner=inner() #instatiate unbound class
 		if type(outer) is types.ClassType: outer=outer() #instatiate unbound class
@@ -681,8 +794,14 @@ class C2ComposedFunction(C2Function):
 		
 	def value_with_derivatives(self, x): return self.outer.compose(self.inner, x)
 
+##
+# \brief abstract class to create a binary function f (operator) g
 class C2BinaryFunction(C2Function):
 	"create a binary function using a helper function which computes the derivatives"
+	##
+	# \brief construct the function, making sure if an argument is passed as a constant that it is converted to a C2Constant
+	# \param left the left function in the binary
+	# \param right the right function in the binary
 	def __init__(self, left,  right):
 		self.left=self.convert_arg(left)
 		self.right=self.convert_arg(right)
@@ -692,6 +811,8 @@ class C2BinaryFunction(C2Function):
 		else: p1, p2='', ''
 		self.name=p1+self.left.name+p2+self.name+self.right.name #put on parentheses to kepp hierachy obvious
 		
+##
+# \brief class to create function f + g
 class C2Sum(C2BinaryFunction):
 	"C2Sum(a,b) returns a new C2Function which evaluates as a+b"
 	name='+'
@@ -700,6 +821,8 @@ class C2Sum(C2BinaryFunction):
 		y1, yp1, ypp1=self.right.value_with_derivatives(x)
 		return y0+y1, yp0+yp1, ypp0+ypp1
 
+##
+# \brief  class to create function f - g
 class C2Diff(C2BinaryFunction):
 	"C2Diff(a,b) returns a new C2Function which evaluates as a-b"
 	name='-'
@@ -708,6 +831,8 @@ class C2Diff(C2BinaryFunction):
 		y1, yp1, ypp1=self.right.value_with_derivatives(x)
 		return y0-y1, yp0-yp1, ypp0-ypp1
 
+##
+# \brief class to create function f * g
 class C2Product(C2BinaryFunction):
 	"C2Product(a,b) returns a new C2Function which evaluates as a*b"
 	name='*'
@@ -716,6 +841,8 @@ class C2Product(C2BinaryFunction):
 		y1, yp1, ypp1=self.right.value_with_derivatives(x)
 		return y0*y1, y1*yp0+y0*yp1, ypp0*y1+2.0*yp0*yp1+ypp1*y0
 
+##
+# \brief class to create function f / g
 class C2Ratio(C2BinaryFunction):
 	"C2Ratio(a,b) returns a new C2Function which evaluates as a/b"
 	name='/'
@@ -723,7 +850,8 @@ class C2Ratio(C2BinaryFunction):
 		y0, yp0, ypp0=self.left.value_with_derivatives(x)
 		y1, yp1, ypp1=self.right.value_with_derivatives(x)
 		return y0/y1, (yp0*y1-y0*yp1)/(y1*y1), (y1*y1*ypp0+y0*(2*yp1*yp1-y1*ypp1)-2*y1*yp0*yp1)/(y1*y1*y1)
-
+##
+# \brief class to create function f ** g with optimization if g is a constant
 class C2Power(C2BinaryFunction):
 	"C2power(a,b) returns a new C2Function which evaluates as a^b where neither is necessarily constant.  Checks if b is constant, and optimizes if so"
 	name='^'
@@ -747,16 +875,28 @@ class C2Power(C2BinaryFunction):
 			ypp=ab2*(y1*(y1-1)*yp0*yp0+2*y0*yp0*yp1*(1.0+y1*loga)+y0*(y1*ypp0+y0*(ypp1+yp1*yp1*loga)*loga))
 			return  native(ab, yp, ypp)
 
+##
+
 #the following spline utilities are directly from pythonlabtools.analysis.spline, version "spline.py,v 1.23 2005/07/13 14:24:58 mendenhall Release-20050805"
 #and are copied here to reduce paxckage interdependency
-
 try:
-	#if we have scipy support, use a fast tridiagonal algorithm and numpy arrays internally
 	from scipy import linalg as _linalg
 	import numpy as _numpy
-	def _spline(x, y, yp1=None, ypn=None):
-		"""y2 = spline(x_vals,y_vals, yp1=None, ypn=None) 
-		returns the y2 table for the spline as needed by splint()"""
+	_has_linalg=True
+except:
+	_has_linalg=False
+## \brief solve for the spline coefficients y''
+##
+## If we have scipy support, use a fast tridiagonal algorithm and numpy arrays internally to compute spline coefficients.
+## Without scipy support, use a raw python code to compute coefficients.
+## \param x array of abscissas
+## \param y array of ordinates
+## \param yp1 first derivative at lower edge, None if natural spline (y''(0) -> 0)
+## \param ypn first derivative at upper edge, None if natural spline (y''(n) -> 0)
+## \return y'' array (spline coefficients)
+def _spline(x, y, yp1=None, ypn=None):
+	if _has_linalg:
+		"y2 = spline(x_vals,y_vals, yp1=None, ypn=None) returns the y2 table for the spline as needed by splint()"
 	
 		n=len(x)
 		u=_numpy.zeros(n,_numpy.float64)
@@ -800,12 +940,7 @@ try:
 		
 		y2=_linalg.solve_banded((1,1), trimat, u, debug=0)
 		return _numeric.asarray(y2, _numeric_float)
-	
-except:
-	def _spline(x, y, yp1=None, ypn=None):
-		"""y2 = spline(x_vals,y_vals, yp1=None, ypn=None) 
-		returns the y2 table for the spline as needed by splint()"""
-	
+	else:
 		n=len(x)
 		u=_numeric.zeros(n,_numeric_float)
 		y2=_numeric.zeros(n,_numeric_float)
@@ -847,7 +982,14 @@ except:
 			y2[k]=y2[k]*y2[k+1]+u[k]
 	
 		return y2
-
+##
+## \brief compute the correct coefficients and insert them to allow spline extrapolation
+# \param x the array of abscissas for an already existing spline
+# \param y the array of ordinates for an already existing spline
+# \param x the array of spline coefficients for an already existing spline
+# \param xmin the lower bound to which extrapolation should be permitted (None if no lower extension)
+# \param xmax the upper bound to which extrapolation should be permitted (None if no upper extension)
+# \return new arrays x, y, y'' with extesions added
 def _spline_extension(x, y, y2, xmin=None, xmax=None):
 	"""x, y, y2 = spline_extension(x_vals,y_vals, y2vals, xmin=None, xmax=None) 
 	returns the x, y, y2 table for the spline as needed by splint() with adjustments to allow quadratic extrapolation 
@@ -876,8 +1018,16 @@ def _spline_extension(x, y, y2, xmin=None, xmax=None):
 
 	return _numeric.concatenate(xl), _numeric.concatenate(yl), _numeric.concatenate(y2l)
 
+##
 import operator
 
+## \brief compute the interpolated value for a set of spline coefficients and either a scalar \a x or an array of \a x values
+# \param xa the abscissa table for the spline
+# \param ya the ordinate table for the spline
+# \param y2a the spline coefficients (second derivatives) for the spline
+# \param x the value or values at which to do the interpolation
+# \param derivs if True, also compute and return derivatives.  If False, return value or values only
+# \return (\a y, \a y', \a y'') if \a derivs is True, \a y if \a derivs is False.  Each item will be an array if \a x was an array.
 def _splint(xa, ya, y2a, x, derivs=False):
 	"""returns the interpolated from from the spline
 	x can either be a scalar or a listable item, in which case a Numeric Float array will be
@@ -920,6 +1070,7 @@ def _splint(xa, ya, y2a, x, derivs=False):
 		return y, (yhi-ylo)/h+((3*b*b-1)*y2hi-(3*a*a-1)*y2lo)*h/6.0, b*y2hi+a*y2lo
 	else:
 		return y
+##
 
 #these are functions to bypass the need for lambdas in the conversion functions.  This is compatible with pickling. 
 def _identity(x): return x
