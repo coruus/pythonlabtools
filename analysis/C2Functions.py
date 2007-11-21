@@ -12,15 +12,15 @@ C2Functions can be combined with unary operators (nested functions) or binary op
 Developed by Marcus H. Mendenhall, Vanderbilt University Keck Free Electron Laser Center, Nashville, TN USA
 email: mendenhall@users.sourceforge.net
 Work supported by the US DoD  MFEL program under grant FA9550-04-1-0045
-version $Id: C2Functions.py,v 1.63 2007-11-21 14:19:37 mendenhall Exp $
+version $Id: C2Functions.py,v 1.64 2007-11-21 14:22:52 mendenhall Exp $
 """
-_rcsid="$Id: C2Functions.py,v 1.63 2007-11-21 14:19:37 mendenhall Exp $"
+_rcsid="$Id: C2Functions.py,v 1.64 2007-11-21 14:22:52 mendenhall Exp $"
 
 ##\file
 ##Provides the analysis.C2Functions package.
 ##\package analysis.C2Functions
 #A group of classes which make it easy to manipulate smooth functions, including cubic splines. 
-#\version $Id: C2Functions.py,v 1.63 2007-11-21 14:19:37 mendenhall Exp $
+#\version $Id: C2Functions.py,v 1.64 2007-11-21 14:22:52 mendenhall Exp $
 #
 #C2Functions know how to keep track of the first and second derivatives of functions, and to use this information in, for example, C2Function.find_root() and 
 #C2Function.partial_integrals()
@@ -621,7 +621,7 @@ C2sqrt=_fC2sqrt() #make singleton
 
 ##
 # \brief Create a function which is the \a scale /\a x. Use the singleton C2Functions.C2recip to access this as 1/x.
-class C2ScaledRecip recip(C2Function):
+class C2ScaledRecip(C2Function):
 	"1/x"
 	name='1/x'
 	##
