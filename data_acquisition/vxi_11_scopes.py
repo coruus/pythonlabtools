@@ -1,10 +1,18 @@
 "Some simple oscilloscope drivers built around an abstract oscilloscope"
-_rcsid="$Id: vxi_11_scopes.py,v 1.3 2003-05-30 13:29:23 mendenhall Exp $"
+_rcsid="$Id: vxi_11_scopes.py,v 1.4 2008-01-07 20:06:24 mendenhall Exp $"
 
 from vxi_11 import vxi_11_connection
 import struct
-import Numeric
 import time
+
+try:
+	#prefer numpy over Numeric since it knows how to handle Numeric arrays, too (maybe, but not reliably!)
+	import numpy as _numeric 
+	_numeric_float=_numeric.float64
+
+except:
+	import Numeric as _numeric
+	_numeric_float=_numeric.Float64
 
 class oscilloscope(vxi_11_connection):
 	
@@ -44,9 +52,9 @@ class oscilloscope(vxi_11_connection):
 			bdata=struct.unpack(">%di"%count, data)		
 		
 		#print bdata[:100]
-		fdata=(Numeric.array(bdata,Numeric.Float)-self.preamble["YREF"])*self.preamble["YINC"]+self.preamble["YORG"]
+		fdata=(_numeric.array(bdata,_numeric_float)-self.preamble["YREF"])*self.preamble["YINC"]+self.preamble["YORG"]
 		
-		self.xaxis=(Numeric.array(range(len(fdata)),Numeric.Float)-self.preamble["XREF"])*self.preamble["XINC"]+self.preamble["XORG"]
+		self.xaxis=(_numeric.array(range(len(fdata)),_numeric_float)-self.preamble["XREF"])*self.preamble["XINC"]+self.preamble["XORG"]
 		return fdata
 	
 	def post_init(self):
@@ -221,7 +229,7 @@ class hp54542(agilentscope):
 		for i in range((shots//grab_block)*grab_block, shots):
 			tags.append(float(self.transaction(":seq:ttag? %d"%(i+1))[2]))
 	
-		return Numeric.array(tags)
+		return _numeric.array(tags)
 	
 	def sequential_mode(self, npoints=100, nsegments=10):
 		self.realtime_mode(512) #this is a good starting point
