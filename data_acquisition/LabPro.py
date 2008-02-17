@@ -1,10 +1,20 @@
 """LabPro supports communications with the Vernier Instruments (www.vernier.com) LabPro Module
 over a serial line"""
 
-_rcsid="$Id: LabPro.py,v 1.23 2004-10-01 16:47:02 mendenhall Exp $"
+_rcsid="$Id: LabPro.py,v 1.24 2008-02-17 03:00:36 mendenhall Exp $"
 
 import time
-import Numeric
+
+try:
+	import numpy as Numeric
+	import numpy
+	numeric_float=Numeric.float64
+	numeric_int32=Numeric.int32
+except:
+	import Numeric
+	numeric_float=Numeric.Float64
+	numeric_int32=Numeric.Int32
+
 import os
 import sys
 import math
@@ -263,7 +273,7 @@ class RawLabPro:
 	def scale_binary_data(self, idata, scaled_range):
 		"scale data from LabPro binary transfer to specified full-scale min and max and return in Numeric (NumPy) array"
 		scaled_min, scaled_max=scaled_range	
-		return Numeric.array(idata,Numeric.Float)*((scaled_max-scaled_min)/65536.0)+scaled_min
+		return Numeric.array(idata,numeric_float)*((scaled_max-scaled_min)/65536.0)+scaled_min
 	
 	def get_data_binary(self, chan=0, points=None, scaled_range=None, max_wait_time=1.0, loop_sleep_time=0.1):
 		"get specified channel data, either as raw integers if scaled_range=None, or as floats scaled to specified range in Numeric array"
@@ -614,7 +624,7 @@ if __name__=='__main__':
 				lp.stop()
 				data+=lp.get_data_ascii_realtime()
 				
-				data=Numeric.array(data,Numeric.Float32)
+				data=Numeric.array(data,numeric_float)
 				print Numeric.array_str(data[:,0],precision=4, suppress_small=1)
 			if 0:		
 				lp.binary_mode()
@@ -625,7 +635,7 @@ if __name__=='__main__':
 					data+=lp.get_data_binary_realtime(channels=1)
 				labpro_stop()
 				data+=lp.get_data_binary_realtime(channels=1)
-				data=Numeric.array(data,Numeric.Int32)
+				data=Numeric.array(data,numeric_int32)
 				print data[:,0]
 			if 1:
 				lp.reset()

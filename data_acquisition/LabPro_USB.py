@@ -1,12 +1,22 @@
 "LabPro_USB supports connections of the Vernier LabPro system via USB"
 
-_rcsid="$Id: LabPro_USB.py,v 1.21 2003-11-13 22:50:53 mendenhall Exp $"
+_rcsid="$Id: LabPro_USB.py,v 1.22 2008-02-17 03:00:36 mendenhall Exp $"
 
 import LabPro
 from LabPro import RawLabPro, LabProError, LabProTimeout, _bigendian
 
 import array
-import Numeric
+
+
+try:
+	import numpy as Numeric
+	import numpy
+	numeric_float=Numeric.float64
+	numeric_int32=Numeric.int32
+except:
+	import Numeric
+	numeric_float=Numeric.Float64
+	numeric_int32=Numeric.Int32
 
 import time
 import sys
@@ -472,7 +482,7 @@ if __name__=='__main__':
 			
 			print map(lambda t: time.asctime(time.localtime(t)), timestamps[:10])
 			
-			rtdata=Numeric.array(rtdata,Numeric.Float)
+			rtdata=Numeric.array(rtdata,numeric_float)
 			volts=lp.scale_binary_data(rtdata[:,0],(-10.,10.))
 			timevals=Numeric.add.accumulate(rtdata[:,1])
 			print stoptime-starttime, len(rtdata), Numeric.array_str(volts[:20],precision=4, suppress_small=1)
