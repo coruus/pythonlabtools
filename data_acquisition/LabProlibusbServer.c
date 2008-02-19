@@ -1,17 +1,20 @@
 /* serve up USB data from a Vernier LabPro device attached via USB using libusb on MacOSX, Linux or *BSD */
 
-static char rcsid[]="RCSID $Id: LabProlibusbServer.c,v 1.16 2003-11-12 17:13:21 mendenhall Exp $";
+static char rcsid[]="RCSID $Id: LabProlibusbServer.c,v 1.17 2008-02-19 00:59:30 mendenhall Exp $";
 
 /* 
-requires libusb or libusb-win32 (from www.sourceforge.net) installed 
-to compile on a Mac under OSX:
-cc -o LabProUSBServer -framework IOKit -framework CoreFoundation -lusb LabProlibusbServer.c
+requires libusb or libusb-win32 (from www.sourceforge.net) installed.  It has been recently tested with version 0.1.12
+
+to compile on a Mac under OSX (using Fink libusb, e.g.):
+cc -o LabProUSBServer -I /sw/include -L/sw/lib -framework IOKit -framework CoreFoundation -lusb LabProlibusbServer.c
+mv LabProUSBServer <same directory as active copy of LabPro_USB.py, if it's not already there>
 
 or to compile it using libusb statically, (so it can be installed on machines without libusb)
 cc -o LabProUSBServer -framework IOKit -framework CoreFoundation /usr/local/lib/libusb.a LabProlibusbServer.c
 
 to compile under Linux or *BSD:
 cc -o LabProUSBServer -lpthread -lusb  LabProlibusbServer.c 
+mv LabProUSBServer <same directory as active copy of LabPro_USB.py, if it's not already there>
 which should produce a working binary.
 
 Under linux, it is apparently necessary also to do (as root):
@@ -39,9 +42,10 @@ void handle_signal(int what)
 	keep_running=0;
 	if (global_intf) {
 		while(reader_running) {
-			usb_resetep(global_intf, USB_ENDPOINT_IN | 2); /* terminate eternal read operation */
+			/* usb_resetep listed as deprecated in 0.1.12 and beyond, functionality in usb_clear_halt */
+			/* usb_resetep(global_intf, USB_ENDPOINT_IN | 2); */ /* terminate eternal read operation */
 			usb_clear_halt(global_intf, USB_ENDPOINT_IN | 2); /* terminate eternal read operation */
-			usb_resetep(global_intf, USB_ENDPOINT_OUT | 2); /* terminate eternal read operation */
+			/* usb_resetep(global_intf, USB_ENDPOINT_OUT | 2); */ /* terminate eternal read operation */
 			usb_clear_halt(global_intf, USB_ENDPOINT_OUT | 2); /* terminate eternal read operation */
 			sleep(1);
 		}
@@ -218,9 +222,9 @@ void dealWithDevice(usb_dev_handle *udev)
 		err=pthread_join(input_thread, &thread_retval);
 		while(reader_running) { 
 			usb_clear_halt(global_intf, USB_ENDPOINT_IN | 2); /* terminate eternal read operation */
-			usb_resetep(global_intf, USB_ENDPOINT_IN | 2); /* terminate eternal read operation */
+			/* usb_resetep(global_intf, USB_ENDPOINT_IN | 2); */ /* terminate eternal read operation */
 			usb_clear_halt(global_intf, USB_ENDPOINT_OUT | 2); /* terminate eternal read operation */
-			usb_resetep(global_intf, USB_ENDPOINT_OUT | 2); /* terminate eternal read operation */
+			/* usb_resetep(global_intf, USB_ENDPOINT_OUT | 2); */ /* terminate eternal read operation */
 			sleep(1);
 		}
 		err=pthread_join(output_thread, &thread_retval);
@@ -292,7 +296,7 @@ int main (int argc, const char * argv[])
 	signal(SIGPIPE, handle_signal);
 	
 	matchcount=-1;
-	for (bus = usb_busses; bus && matchcount<USBIndex; bus = bus->next) {
+	for (bus = usb_get_busses(); bus && matchcount<USBIndex; bus = bus->next) {
 		for (dev = bus->devices; dev && matchcount<USBIndex; dev = dev->next) {			
 			if(dev->descriptor.idVendor==idVendor && dev->descriptor.idProduct==idProduct) {
 				matchcount++; matchdev=dev; }
@@ -306,8 +310,10 @@ int main (int argc, const char * argv[])
 			fprintf(stderr, "Found device %p\n", (void*)udev);
 			fflush(0);
 			global_intf=udev;
+			/* docs for 0.1.12 say usb_reset may cause re-enumeration, so don't do it here! */
+			/*
 			usb_reset(udev);
-			usb_reset(udev); /* make sure it's OK at the start */
+			usb_reset(udev); */ /* make sure it's OK at the start */
 			dealWithDevice(udev);
 			global_intf=0; /* don't need resets any more */
 			usb_reset(udev);

@@ -1,6 +1,8 @@
 "LabPro_USB supports connections of the Vernier LabPro system via USB"
 
-_rcsid="$Id: LabPro_USB.py,v 1.22 2008-02-17 03:00:36 mendenhall Exp $"
+#NOTE: this requires a copy of a LabProUSBServer executable in the same directory as this file.  See comments in LabProUSBServer.c for compile info.
+
+_rcsid="$Id: LabPro_USB.py,v 1.23 2008-02-19 00:59:30 mendenhall Exp $"
 
 import LabPro
 from LabPro import RawLabPro, LabProError, LabProTimeout, _bigendian
@@ -84,23 +86,6 @@ class USB_data_mixin:
 				l[-1][-1]*=0.0001 #convert time code to seconds
 		return l
 		
-	def get_data_binary_realtime_old(self, channels=1):
-		"read the most recently collected realtime data from the LabPro and return as a list, using binary transfers and no scaling"
-		s=self.__saved_realtime_fragment
-		while(len(s)<64):
-			time.sleep(0.005)
-			s=s+self.read(maxlen=64-len(s), mode=1) #binary, don't chop zeros
-			if not s:
-				return [] #no data if string is still blank
-		leftovers=len(s) % 64
-		if leftovers:
-			self.__saved_realtime_fragment=s[-leftovers:]
-			s=s[:-leftovers]
-		else:
-			self.__saved_realtime_fragment=''
-	
-		return self.parse_binary(s, channels)
-
 	def get_data_binary_realtime(self, channels=1):
 		"read the most recently collected realtime data from the LabPro and return as a list, using binary transfers and no scaling"
 		s=self.read(mode=1) #binary, don't chop zeros, and new read routine always returns multiples of 64
