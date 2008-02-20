@@ -1,7 +1,7 @@
 """LabPro supports communications with the Vernier Instruments (www.vernier.com) LabPro Module
 over a serial line"""
 
-_rcsid="$Id: LabPro.py,v 1.24 2008-02-17 03:00:36 mendenhall Exp $"
+_rcsid="$Id: LabPro.py,v 1.25 2008-02-20 12:12:56 mendenhall Exp $"
 
 import time
 
@@ -68,7 +68,7 @@ class RawLabPro:
 	commands={'reset':0, 'channel_setup':1, 'data_collection_setup':3, 
 			'conversion_equation_setup':4, 'data_control':5, 'system_setup':6, 
 			'request_system_status':7, 'request_channel_status':8, 'request_channel_data':9,
-			'digital_data_capture':12, 'baudrate':105 , 'request_channel_setup':115,
+			'digital_data_capture':12, 'baudrate':105 , 'request_channel_setup':115, 'archive': 201, 
 			'analog_output':401, 'led':1998, 'sound': 1999, 'dig_out':2001,
 			'power_control':102}
 
@@ -127,7 +127,7 @@ class RawLabPro:
 		self.send_string(s, delay)
 	
 	def read_ascii_response(self):
-		"read an ascii numeric list reponse that looks like {1.23e4, 5.67e8,  ...}"
+		"""read an ascii list reponse that looks like {1.23e4, 5.67e8,  "hello", ...}"""
 		str=''
 		empties=0
 		while(empties < 5 and str[-3:]!='}\r\n'):
@@ -143,8 +143,23 @@ class RawLabPro:
 		goodstart=str.find('{')
 		if goodstart<0:
 			raise LabProDataError('bad ascii data: '+repr(str))
-		return map(float,str[goodstart+1:-3].split(','))
+		return map(eval,str[goodstart+1:-3].split(','))
 
+	def read_ascii_line(self):
+		"""read an ascii list reponse that looks like {1.23e4, 5.67e8,  "hello", ...}"""
+		str=''
+		empties=0
+		while(empties < 5 and str[-2:]!='\r\n'):
+			time.sleep(.1)
+			newdata=self.read()
+			str+=newdata
+			if newdata:
+				empties=0
+			else:
+				empties+=1	
+		if empties: #last result must have gotten data, so empties should be zero
+			raise LabProTimeout('timeout getting ascii data, current result: '+repr(str))		
+		return str.strip()
 
 	def reset(self):
 		"reset LabPro to powerupd state, except baud rate" 
@@ -399,6 +414,61 @@ class RawLabPro:
 			points=(points, )
 		self.command('dig_out',*points)
 
+	def get_archive_status(self):
+		"get data from archive memory: returns ndataset, nlist, nprograms, nbytes"
+		self.command('archive', 1, 0, 0, 0) #request archive info
+		result = self.read_ascii_response()
+		ndataset, nlist, nprograms, res1, res2, res3, nsupplemental, nbytes = result
+		return ndataset, nlist, nprograms, nsupplemental, nbytes
+
+	def get_directory_labels(self, dir_type=1, calc_type=None):
+		"get data labels from the chosen directory"
+		ndataset, nlist, nprograms, nsupplemental, nbytes = self.get_archive_status()
+		names=[]
+		count=int((ndataset, nlist)[dir_type])
+		for i in range(count):
+			if calc_type is None or dir_type != 2:
+				self.command('archive', 3, dir_type, i+1) #request name string
+			else:
+				self.command('archive', 3, dir_type, i+1, calc_type) #request name string for calculator-specific program
+			
+			names.append(eval(self.read_ascii_line())) #line is quoted
+		return names
+	
+	def get_archive_list(self, name=None, idx=None):
+		if name is not None:
+			names=self.get_directory_labels(dir_type=1)
+			idx=names.find(name)+1
+		self.command('archive', 34, idx) #get size of list
+		listsize=int(self.read_ascii_response()[0])
+		result=()
+		if listsize:
+			self.command('archive', 35, idx, 1, listsize) #get elements
+			result=self.read_ascii_response()
+		return result
+	
+	def create_new_archive_list(self, name=None, data=(), ident1=0, ident2=0):
+		ndataset, nlist, nprograms, nsupplemental, nbytes = self.get_archive_status()
+		nl=len(data)
+		self.command('archive', 0, 0, 0, 2.46802) #enable write
+		self.command('archive', 31,  nl, 0, ident1, ident2) #allocate data
+		while 1:
+			self.send_string('g')
+			if self.read_ascii_response()[0] == 0: break #wait for allocation & garbage collection
+		self.command('archive', 32, nlist+1, 1, *tuple(data)) #write data
+		self.command('archive', 33, nlist+1) #close list
+		if name is not None:
+			self.command('archive', 4,  1, nlist+1) #set up label
+			self.send_string('s{"%s"}' % name, 0.05)
+		self.get_system_config() #this also disables flash writing
+		
+	def delete_item(self, idx, dir_type=1, calc_type=None):
+			self.command('archive', 0, 0, 0, 1.35791) #enable delete
+			if calc_type is None or dir_type != 2:
+				self.command('archive', 11, dir_type, idx) 
+			else:
+				self.command('archive', 11, dir_type, idx, calc_type) 
+	
 _have_default_labpro=0
 
 try:
