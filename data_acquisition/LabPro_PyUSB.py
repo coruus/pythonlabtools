@@ -2,7 +2,7 @@
 
 import usb
 
-_rcsid="$Id: LabPro_PyUSB.py,v 1.9 2008-02-24 13:36:06 mendenhall Exp $"
+_rcsid="$Id: LabPro_PyUSB.py,v 1.10 2008-02-24 17:26:28 mendenhall Exp $"
 
 import LabPro
 from LabPro import RawLabPro, LabProError, LabProTimeout, _bigendian
@@ -165,9 +165,22 @@ class PyUSB_mixin:
 				pass
 		self.__keep_running=0
 		time.sleep(2)
-		self.usbdev.clearHalt(usb.ENDPOINT_OUT | 2)
-		self.usbdev.clearHalt(usb.ENDPOINT_IN | 2)
-		self.usbdev.releaseInterface()
+		try:
+			self.usbdev.clearHalt(usb.ENDPOINT_OUT | 2)
+		except:
+			pass
+		try:
+			self.usbdev.clearHalt(usb.ENDPOINT_IN | 2)
+		except:
+			pass
+		try:
+			self.usbdev.clearHalt(usb.ENDPOINT_OUT | 2)
+		except:
+			pass
+		try:
+			self.usbdev.releaseInterface()
+		except:
+			pass
 
 class LabPro_PyUSB(LabPro_USB.USB_data_mixin, PyUSB_mixin, RawLabPro):
 	def __init__(self, device_index=1):
