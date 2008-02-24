@@ -4,7 +4,7 @@
 
 import usb
 
-_rcsid="$Id: LabPro_PyUSB.py,v 1.1 2008-02-24 02:29:46 mendenhall Exp $"
+_rcsid="$Id: LabPro_PyUSB.py,v 1.2 2008-02-24 02:33:35 mendenhall Exp $"
 
 import LabPro
 from LabPro import RawLabPro, LabProError, LabProTimeout, _bigendian
@@ -101,8 +101,6 @@ class PyUSB_mixin:
 				self.read_queue.put((stop_time, ''.join(map(chr,data))))
 		except:
 			self.__keep_running=0
-			import traceback
-			traceback.print_exc()
 
 	def writer_thread_task(self):
 		"""monitor USB input for data and post to queue as it comes in"""
@@ -117,9 +115,10 @@ class PyUSB_mixin:
 					newdata=newdata[64:]
 				self.write_queue.task_done()
 		except:
+			if self.__keep_running: #got an error which wasn't on termination
+				import traceback
+				traceback.print_exc()
 			self.__keep_running=0
-			import traceback
-			traceback.print_exc()
 		
 	def read(self, maxlen=None, mode=None):
 		"read data from USB.  If mode is None or 0, strip trailing nulls for ASCII, otherwise leave alone"
