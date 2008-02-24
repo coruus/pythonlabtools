@@ -2,7 +2,7 @@
 
 import usb
 
-_rcsid="$Id: LabPro_PyUSB.py,v 1.4 2008-02-24 02:39:16 mendenhall Exp $"
+_rcsid="$Id: LabPro_PyUSB.py,v 1.5 2008-02-24 02:45:37 mendenhall Exp $"
 
 import LabPro
 from LabPro import RawLabPro, LabProError, LabProTimeout, _bigendian
@@ -55,8 +55,7 @@ class PyUSB_mixin:
 				
 				if matchcount==self.device_index: break
 			if not matchdev or matchcount != self.device_index: 
-				print "no USB LabPro found with requested index", self.device_index
-				raise FileNotFound("no USB LabPro found with requested index %d" % self.device_index)
+				raise IOError("no USB LabPro found with requested index %d" % self.device_index)
 				
 			udev=self.usbdev=matchdev.open()
 			udev.claimInterface(0)
@@ -69,7 +68,8 @@ class PyUSB_mixin:
 			self.read_thread.start()
 			self.write_thread=threading.Thread(target=self.writer_thread_task)
 			self.write_thread.start()
-			
+		except IOError:
+			raise
 		except:
 			self.__keep_running=0
 			self.close()
