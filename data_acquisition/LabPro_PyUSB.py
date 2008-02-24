@@ -4,7 +4,7 @@
 
 import usb
 
-_rcsid="$Id: LabPro_PyUSB.py,v 1.2 2008-02-24 02:33:35 mendenhall Exp $"
+_rcsid="$Id: LabPro_PyUSB.py,v 1.3 2008-02-24 02:38:18 mendenhall Exp $"
 
 import LabPro
 from LabPro import RawLabPro, LabProError, LabProTimeout, _bigendian
@@ -123,7 +123,6 @@ class PyUSB_mixin:
 	def read(self, maxlen=None, mode=None):
 		"read data from USB.  If mode is None or 0, strip trailing nulls for ASCII, otherwise leave alone"
 		res=''
-						
 		while (not maxlen or (maxlen and len(res) < maxlen)):
 			try:
 				timestamp, data = self.read_queue.get(True, 1)
@@ -131,9 +130,7 @@ class PyUSB_mixin:
 				continue
 			res=res+data			
 			self.data_timestamp=timestamp
-			
 			if not mode and data.find('\r'): break #ascii data terminator
-			
 		if not mode:
 			zp=res.find('\0')
 			if zp>=0:
@@ -150,7 +147,6 @@ class PyUSB_mixin:
 			self.stop()
 		except:
 			pass
-
 		time.sleep(2)
 		self.usbdev.clearHalt(usb.ENDPOINT_OUT | 2)
 		self.usbdev.clearHalt(usb.ENDPOINT_IN | 2)
