@@ -2,7 +2,7 @@
 
 import usb
 
-_rcsid="$Id: LabPro_PyUSB.py,v 1.7 2008-02-24 03:04:53 mendenhall Exp $"
+_rcsid="$Id: LabPro_PyUSB.py,v 1.8 2008-02-24 13:27:40 mendenhall Exp $"
 
 import LabPro
 from LabPro import RawLabPro, LabProError, LabProTimeout, _bigendian
@@ -99,6 +99,8 @@ class PyUSB_mixin:
 				self.read_queue.put((stop_time, ''.join(map(chr,data))))
 		except:
 			self.__keep_running=0
+			self.usbdev.clearHalt(usb.ENDPOINT_OUT | 2)
+			self.usbdev.clearHalt(usb.ENDPOINT_IN | 2)
 
 	def writer_thread_task(self):
 		"""monitor USB input for data and post to queue as it comes in"""
@@ -109,7 +111,7 @@ class PyUSB_mixin:
 				except Queue.Empty:
 					continue
 				while newdata:  #break into 64-byte chunks
-					self.usbdev.bulkWrite(usb.ENDPOINT_OUT | 2 , newdata[:64], 10000)
+					self.usbdev.bulkWrite(usb.ENDPOINT_OUT | 2 , newdata[:64], 1000)
 					newdata=newdata[64:]
 				self.write_queue.task_done()
 		except:
@@ -117,6 +119,8 @@ class PyUSB_mixin:
 				import traceback
 				traceback.print_exc()
 			self.__keep_running=0
+			self.usbdev.clearHalt(usb.ENDPOINT_OUT | 2)
+			self.usbdev.clearHalt(usb.ENDPOINT_IN | 2)
 		
 	def read(self, maxlen=None, mode=None):
 		"read data from USB.  If mode is None or 0, strip trailing nulls for ASCII, otherwise leave alone"
@@ -142,10 +146,11 @@ class PyUSB_mixin:
 		self.write_queue.put(data)
 		
 	def close(self):
-		try:
-			self.stop()
-		except:
-			pass
+		if self.__keep_running:
+			try:
+				self.stop()
+			except:
+				pass
 		self.__keep_running=0
 		time.sleep(2)
 		self.usbdev.clearHalt(usb.ENDPOINT_OUT | 2)
