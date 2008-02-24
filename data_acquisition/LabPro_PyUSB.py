@@ -2,7 +2,7 @@
 
 import usb
 
-_rcsid="$Id: LabPro_PyUSB.py,v 1.6 2008-02-24 02:56:45 mendenhall Exp $"
+_rcsid="$Id: LabPro_PyUSB.py,v 1.7 2008-02-24 03:04:53 mendenhall Exp $"
 
 import LabPro
 from LabPro import RawLabPro, LabProError, LabProTimeout, _bigendian
@@ -133,6 +133,8 @@ class PyUSB_mixin:
 			zp=res.find('\0')
 			if zp>=0:
 				res=res[:zp] #trim any nulls
+		
+		if not self.__keep_running: raise IOErr("USB Labpro index %d closed, reading still going on" % self.device_index)
 		return res
 			
 		
@@ -140,11 +142,11 @@ class PyUSB_mixin:
 		self.write_queue.put(data)
 		
 	def close(self):
-		self.__keep_running=0
 		try:
 			self.stop()
 		except:
 			pass
+		self.__keep_running=0
 		time.sleep(2)
 		self.usbdev.clearHalt(usb.ENDPOINT_OUT | 2)
 		self.usbdev.clearHalt(usb.ENDPOINT_IN | 2)
@@ -164,6 +166,7 @@ if __name__=='__main__':
 		
 		badloops=0
 		lp=LabPro_PyUSB()
+		start_time=time.time()
 		
 		try:	
 			lp.wake()
@@ -190,7 +193,7 @@ if __name__=='__main__':
 						else:
 							f=sys.stdout
 							
-						print >> f, "%s\t%.1f\t%.3f\t%.1f" % (time.asctime(), grabtime, value, value*31.47-31.74)
+						print >> f, "%s\t%.3f\t%.3f\t%.1f" % (time.asctime(), grabtime-start_time, value, value*31.47-31.74)
 						
 					finally:
 						if f != sys.stdout:
