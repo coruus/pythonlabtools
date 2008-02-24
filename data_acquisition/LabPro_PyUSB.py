@@ -1,10 +1,8 @@
-"LabPro_USB supports connections of the Vernier LabPro system via USB"
-
-#NOTE: this requires a copy of a LabProUSBServer executable in the same directory as this file.  See comments in LabProUSBServer.c for compile info.
+"LabPro_PyUSB supports connections of the Vernier LabPro system via USB using the PyUSB library"
 
 import usb
 
-_rcsid="$Id: LabPro_PyUSB.py,v 1.3 2008-02-24 02:38:18 mendenhall Exp $"
+_rcsid="$Id: LabPro_PyUSB.py,v 1.4 2008-02-24 02:39:16 mendenhall Exp $"
 
 import LabPro
 from LabPro import RawLabPro, LabProError, LabProTimeout, _bigendian
@@ -35,7 +33,7 @@ import LabPro_USB
 
 
 class PyUSB_mixin:
-	"mixin class for RawLabPro to allow operation of LabPro via USB port on Macintosh OSX using pipe server"
+	"mixin class for RawLabPro to allow operation of LabPro via PyUSB library"
 	idVendor = 0x8f7
 	idProduct = 1
 	
