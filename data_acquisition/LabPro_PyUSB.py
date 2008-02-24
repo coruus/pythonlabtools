@@ -2,7 +2,7 @@
 
 import usb
 
-_rcsid="$Id: LabPro_PyUSB.py,v 1.5 2008-02-24 02:45:37 mendenhall Exp $"
+_rcsid="$Id: LabPro_PyUSB.py,v 1.6 2008-02-24 02:56:45 mendenhall Exp $"
 
 import LabPro
 from LabPro import RawLabPro, LabProError, LabProTimeout, _bigendian
@@ -93,9 +93,9 @@ class PyUSB_mixin:
 			while self.__keep_running:
 				count=0
 				start_time=time.time()
-				data = self.usbdev.bulkRead(usb.ENDPOINT_IN | 2 , 64, 1000000);
+				data = self.usbdev.bulkRead(usb.ENDPOINT_IN | 2 , 64, 10000);
 				stop_time=time.time()
-				if stop_time - start_time > 995:  continue #probably a timeout, just keep going
+				if stop_time - start_time > 9.5:  continue #probably a timeout, just keep going
 				self.read_queue.put((stop_time, ''.join(map(chr,data))))
 		except:
 			self.__keep_running=0
@@ -109,7 +109,7 @@ class PyUSB_mixin:
 				except Queue.Empty:
 					continue
 				while newdata:  #break into 64-byte chunks
-					self.usbdev.bulkWrite(usb.ENDPOINT_OUT | 2 , newdata[:64], 1000000)
+					self.usbdev.bulkWrite(usb.ENDPOINT_OUT | 2 , newdata[:64], 10000)
 					newdata=newdata[64:]
 				self.write_queue.task_done()
 		except:
@@ -121,7 +121,7 @@ class PyUSB_mixin:
 	def read(self, maxlen=None, mode=None):
 		"read data from USB.  If mode is None or 0, strip trailing nulls for ASCII, otherwise leave alone"
 		res=''
-		while (not maxlen or (maxlen and len(res) < maxlen)):
+		while (not maxlen or (maxlen and len(res) < maxlen)) and self.__keep_running:
 			try:
 				timestamp, data = self.read_queue.get(True, 1)
 			except Queue.Empty:
@@ -199,7 +199,7 @@ if __name__=='__main__':
 					badloops=0
 				
 				except KeyboardInterrupt:
-					raise
+					break
 				except:
 					badloops+=1
 					if badloops >= 5: raise #re-raise on 5th consecutive failure
