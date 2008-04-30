@@ -2,7 +2,7 @@
 
 import usb
 
-_rcsid="$Id: LabPro_PyUSB.py,v 1.10 2008-02-24 17:26:28 mendenhall Exp $"
+_rcsid="$Id: LabPro_PyUSB.py,v 1.11 2008-04-30 16:54:14 mendenhall Exp $"
 
 import LabPro
 from LabPro import RawLabPro, LabProError, LabProTimeout, _bigendian
@@ -90,9 +90,9 @@ class PyUSB_mixin:
 	def reader_thread_task(self):
 		"""monitor USB input for data and post to queue as it comes in"""
 		try:
+			stop_time=time.time()
 			while self.__keep_running:
-				count=0
-				start_time=time.time()
+				start_time=stop_time #close enough to detect timeouts
 				data = self.usbdev.bulkRead(usb.ENDPOINT_IN | 2 , 64, 10000);
 				stop_time=time.time()
 				if stop_time - start_time > 9.5:  continue #probably a timeout, just keep going
@@ -171,10 +171,6 @@ class PyUSB_mixin:
 			pass
 		try:
 			self.usbdev.clearHalt(usb.ENDPOINT_IN | 2)
-		except:
-			pass
-		try:
-			self.usbdev.clearHalt(usb.ENDPOINT_OUT | 2)
 		except:
 			pass
 		try:
