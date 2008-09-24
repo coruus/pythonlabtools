@@ -4,7 +4,7 @@ diffraction gratings, etc., and run a laser beam through it.
 It correctly handles off-axis optics of most types (tilted lenses & mirrors, e.g.).
 It has been used to model a 10 Joule Nd:Glass CPA system at Vanderbilt University, for example
 """
-_rcsid="$Id: general_optics.py,v 1.19 2007-08-30 14:44:01 mendenhall Exp $"
+_rcsid="$Id: general_optics.py,v 1.20 2008-09-24 14:53:48 mendenhall Exp $"
 
 from math import *
 import math
@@ -830,7 +830,7 @@ class base_lens:
         def mat2(self):
                 "get an abcd matrix, if we look like a spherical lens"
                 if self.d1==self.d2:
-                        return Numeric.array(((1.0,0.),(-1.0/self.d1,1)))
+                        return Numeric.array(((1.0,0.),(self.d1,1)))
                 else:
                         raise "Attempt to get 2x2 matrix of non-spherical lens" 
 
