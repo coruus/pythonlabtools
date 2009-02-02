@@ -111,12 +111,13 @@ If analytic derivatives are desired, do, \e e.g.
 
 """
 
-_rcsid="$Id: fitting_toolkit.py,v 1.18 2006-08-08 02:00:19 mendenhall Exp $"
+_rcsid="$Id: fitting_toolkit.py,v 1.19 2009-02-02 14:10:09 mendenhall Exp $"
 
 try:
 	import numpy as Numeric
 	import numpy
 	numeric_float=Numeric.float64
+	numeric_int=Numeric.int
 	from numpy import linalg
 	solve_linear_equations=linalg.solve
 	def  singular_value_decomposition(mat):
@@ -127,6 +128,7 @@ try:
 except:
 	import Numeric
 	numeric_float=Numeric.Float64
+	numeric_int=Numeric.Int
 	from LinearAlgebra import solve_linear_equations, inverse as matinverse, singular_value_decomposition
 	from Numeric import dot, zeros, transpose, array, array_str
 
@@ -142,7 +144,7 @@ import operator
 ## Provides the analysis.fitting_toolkit package.
 ##\package analysis.fitting_toolkit
 ## Hessian and Levenberg-Marquardt Curve Fitting Package with resampling capability.
-#\verbatim version $Id: fitting_toolkit.py,v 1.18 2006-08-08 02:00:19 mendenhall Exp $ \endverbatim
+#\verbatim version $Id: fitting_toolkit.py,v 1.19 2009-02-02 14:10:09 mendenhall Exp $ \endverbatim
 #This is loosely derived from the information in 'Numerical Recipes' 2nd Ed. by Press, Flannery, Teukolsky and Vetterling.
 #Implementation by Marcus H. Mendenhall, Vanderbilt University Free Electron Laser Center, Nashville, TN, USA
 #Implemented around 3 December, 2002.
@@ -474,7 +476,7 @@ class fit:
 	def resample(self):
 		"resample() randomly draws a set of points equal in size to the original set from the cached data for bootstrapping"
 		assert hasattr(self, "saved_xarray"), "resampling not set up yet.  Call setup_resampling() first."
-		ranlist=Numeric.floor(self.get_random_list(self.pointcount)*self.pointcount).astype(Numeric.Int)
+		ranlist=Numeric.floor(self.get_random_list(self.pointcount)*self.pointcount).astype(numeric_int)
 		self.xarray=Numeric.take(self.saved_xarray, ranlist, -1) #take columns since vectors lie this way
 		self.yarray=Numeric.take(self.saved_yarray, ranlist)
 		self.firstpass=1
