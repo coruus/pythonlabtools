@@ -1,5 +1,5 @@
 "The basic infrastructure for maintaining a vxi-11 protocol connection to a remote device"
-_rcsid="$Id: vxi_11.py,v 1.9 2009-03-17 01:31:18 mendenhall Exp $"
+_rcsid="$Id: vxi_11.py,v 1.10 2009-03-17 01:45:28 mendenhall Exp $"
 
 import rpc
 from rpc import TCPClient, RawTCPClient
@@ -69,7 +69,7 @@ class VXI_11_Error(IOError):
 		if self.other_info:
 			return str(self)+": "+str(self.other_info)
 		else:
-			return str(self)o
+			return str(self)
 
 	def __str__(self):
 		return self.__repr__()      
