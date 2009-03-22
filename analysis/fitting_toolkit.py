@@ -111,7 +111,7 @@ If analytic derivatives are desired, do, \e e.g.
 
 """
 
-_rcsid="$Id: fitting_toolkit.py,v 1.19 2009-02-02 14:10:09 mendenhall Exp $"
+_rcsid="$Id: fitting_toolkit.py,v 1.20 2009-03-22 21:46:32 mendenhall Exp $"
 
 try:
 	import numpy as Numeric
@@ -134,7 +134,7 @@ except:
 
 import random
 
-
+import gc
 import math
 from math import sqrt
 import copy
@@ -144,7 +144,7 @@ import operator
 ## Provides the analysis.fitting_toolkit package.
 ##\package analysis.fitting_toolkit
 ## Hessian and Levenberg-Marquardt Curve Fitting Package with resampling capability.
-#\verbatim version $Id: fitting_toolkit.py,v 1.19 2009-02-02 14:10:09 mendenhall Exp $ \endverbatim
+#\verbatim version $Id: fitting_toolkit.py,v 1.20 2009-03-22 21:46:32 mendenhall Exp $ \endverbatim
 #This is loosely derived from the information in 'Numerical Recipes' 2nd Ed. by Press, Flannery, Teukolsky and Vetterling.
 #Implementation by Marcus H. Mendenhall, Vanderbilt University Free Electron Laser Center, Nashville, TN, USA
 #Implemented around 3 December, 2002.
@@ -258,14 +258,18 @@ import operator
 ##The main class which is the host for all the fitting techniques
 class fit:
 	## Create the fitter, and give it a hint as to the size blocks to allocate for data arrays.
+
+	## If collect_garbage is True, the fitter will clean up with gc.collect() between passes, to reduce memory consumption.  
+	## Useful for huge fits. Override in subclass if huge-dataset capabilities will be needed
+	collect_garbage=False
+	
 	def __init__(self, pointhint=1000):
-		"create the fitter, and give it a hint as to the size blocks to allocate for data arrays"
+		"""create the fitter, and give it a hint as to the size blocks to allocate for data arrays."""
 		self.pointhint=pointhint
 		self.pointcount=0
 		self.arraysexist=0
 		self.firstpass=1
 		self.atype=self.DefaultArrayType()
-	
 	##
 	## Override this function if you want to fit in single precision, \e e.g.  
 	# Default is numeric_float i.e. double precision
@@ -477,6 +481,14 @@ class fit:
 		"resample() randomly draws a set of points equal in size to the original set from the cached data for bootstrapping"
 		assert hasattr(self, "saved_xarray"), "resampling not set up yet.  Call setup_resampling() first."
 		ranlist=Numeric.floor(self.get_random_list(self.pointcount)*self.pointcount).astype(numeric_int)
+		
+		#before we cone possibly huge arrays, clean up a bit to reduce huge transient memory usage 
+		if hasattr(self, 'fitmat'):
+			del self.fitmat
+		if hasattr(self, 'xarray'):
+			del self.xarray
+		if self.collect_garbage: gc.collect()
+		
 		self.xarray=Numeric.take(self.saved_xarray, ranlist, -1) #take columns since vectors lie this way
 		self.yarray=Numeric.take(self.saved_yarray, ranlist)
 		self.firstpass=1
@@ -516,6 +528,10 @@ class fit:
 	def hessian_compute_fit(self, lm_lambda=None): 
 		"take one Hessian fitting step  if lm_lambda undefined, otherwise make Levenberg-Marquardt adjustment"
 		
+		if hasattr(self, 'fitmat'):
+			del self.fitmat
+			if self.collect_garbage: gc.collect() #if we are recycing, thoroughly clean up possibly huge objects
+			
 		n=self.pointcount		
 		fxarray=self.derivs()
 
@@ -748,6 +764,12 @@ class linear_combination_fit(fit):
 	## Compute the (trivial) derivatives for a linear combination
 	def derivs(self):
 		if self.firstpass: #may get used more than once if weights are not constant, but no need to recompute
+			if hasattr(self, 'saved_derivs'):
+				#if we have been reset to firstpass, but have really run before,
+				#delete old stuff before creating new, since memory usage may be very large
+				del self.saved_derivs
+				if self.collect_garbage: gc.collect()
+				
 			n=self.pointcount
 			self.funcparams=zeros(self.param_count, self.atype)
 			dd = zeros((n, self.param_count), self.atype)
@@ -801,6 +823,11 @@ class polynomial_fit(fit):
 	## Compute the derivatives.
 	def derivs(self):
 		if self.firstpass: #may get used more than once if weights are not constant, but no need to recompute
+			if hasattr(self, 'saved_derivs'):
+				#if we have been reset to firstpass, but have really run before,
+				#delete old stuff before creating new, since memory usage may be very large
+				del self.saved_derivs
+				if self.collect_garbage: gc.collect()
 			self.funcparams=zeros(self.param_count, self.atype)
 			n=self.pointcount
 			dd = zeros((n, self.param_count), self.atype)
