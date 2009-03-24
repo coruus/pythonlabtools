@@ -111,7 +111,7 @@ If analytic derivatives are desired, do, \e e.g.
 
 """
 
-_rcsid="$Id: fitting_toolkit.py,v 1.20 2009-03-22 21:46:32 mendenhall Exp $"
+_rcsid="$Id: fitting_toolkit.py,v 1.21 2009-03-24 15:06:15 mendenhall Exp $"
 
 try:
 	import numpy as Numeric
@@ -144,7 +144,7 @@ import operator
 ## Provides the analysis.fitting_toolkit package.
 ##\package analysis.fitting_toolkit
 ## Hessian and Levenberg-Marquardt Curve Fitting Package with resampling capability.
-#\verbatim version $Id: fitting_toolkit.py,v 1.20 2009-03-22 21:46:32 mendenhall Exp $ \endverbatim
+#\verbatim version $Id: fitting_toolkit.py,v 1.21 2009-03-24 15:06:15 mendenhall Exp $ \endverbatim
 #This is loosely derived from the information in 'Numerical Recipes' 2nd Ed. by Press, Flannery, Teukolsky and Vetterling.
 #Implementation by Marcus H. Mendenhall, Vanderbilt University Free Electron Laser Center, Nashville, TN, USA
 #Implemented around 3 December, 2002.
@@ -270,6 +270,12 @@ class fit:
 		self.arraysexist=0
 		self.firstpass=1
 		self.atype=self.DefaultArrayType()
+		
+	## collect garbage if we are enabled to do it.  Useful for huge fits to reduce peak memory
+	##
+	def collect(self):
+		if self.collect_garbage: gc.collect()
+	
 	##
 	## Override this function if you want to fit in single precision, \e e.g.  
 	# Default is numeric_float i.e. double precision
@@ -436,10 +442,9 @@ class fit:
 	#This method should be overridden if anything fancy is being done with weights (correlated fits, etc.) 
 	def weight_func(self):
 		"default weight is 1 or, if explicit_weightlist exists, that is returned"
-		if not hasattr(self, "explicit_weightlist") or self.explicit_weightlist is None:
-			return 1.0
-		else:
-			return self.explicit_weightlist
+		w=getattr(self, 'explicit_weightlist', 1.0)
+		if w is None: w=1.0
+		return w
 	
 	##
 	## This prepares the fitter for doing resampling (bootstrapping) to estimate the true shape of the chi^2 surface.
@@ -449,6 +454,7 @@ class fit:
 		assert not hasattr(self, "saved_xarray"), "Don't even think of initializing the resampling more than once!"
 		self.saved_xarray=array(self.xarray[:,:self.pointcount]) #these must be copies, not slices!
 		self.saved_yarray=array(self.yarray[:self.pointcount]) 
+		self.saved_explicit_weightlist=getattr(self, 'explicit_weightlist', None)
 		self.initialize_random_generator()
 	
 	##
@@ -458,8 +464,11 @@ class fit:
 		"clear_resampling() removes resampling machinery"
 		self.xarray=self.saved_xarray
 		self.yarray=self.saved_yarray
+		self.explicit_weightlist=self.saved_explicit_weightlist
+		
 		self.firstpass=1
-		del self.saved_xarray, self.saved_yarray
+		del self.saved_xarray, self.saved_yarray, self.saved_explicit_weightlist
+		self.collect()
 
 	##
 	## Initialize the random number generator to be used in resampling.  Override this for non-default radnom generators.
@@ -487,10 +496,13 @@ class fit:
 			del self.fitmat
 		if hasattr(self, 'xarray'):
 			del self.xarray
-		if self.collect_garbage: gc.collect()
+		self.collect()
 		
 		self.xarray=Numeric.take(self.saved_xarray, ranlist, -1) #take columns since vectors lie this way
 		self.yarray=Numeric.take(self.saved_yarray, ranlist)
+		if hasattr(self.saved_explicit_weightlist, '__getitem__'): #it's a sequence if it has a __getitem__
+			self.explicit_weightlist=Numeric.take(self.saved_explicit_weightlist, ranlist)
+			
 		self.firstpass=1
 	
 	## 
@@ -530,7 +542,7 @@ class fit:
 		
 		if hasattr(self, 'fitmat'):
 			del self.fitmat
-			if self.collect_garbage: gc.collect() #if we are recycing, thoroughly clean up possibly huge objects
+			self.collect() #if we are recycing, thoroughly clean up possibly huge objects
 			
 		n=self.pointcount		
 		fxarray=self.derivs()
@@ -768,7 +780,7 @@ class linear_combination_fit(fit):
 				#if we have been reset to firstpass, but have really run before,
 				#delete old stuff before creating new, since memory usage may be very large
 				del self.saved_derivs
-				if self.collect_garbage: gc.collect()
+				self.collect()
 				
 			n=self.pointcount
 			self.funcparams=zeros(self.param_count, self.atype)
@@ -827,7 +839,7 @@ class polynomial_fit(fit):
 				#if we have been reset to firstpass, but have really run before,
 				#delete old stuff before creating new, since memory usage may be very large
 				del self.saved_derivs
-				if self.collect_garbage: gc.collect()
+				self.collect()
 			self.funcparams=zeros(self.param_count, self.atype)
 			n=self.pointcount
 			dd = zeros((n, self.param_count), self.atype)
