@@ -1,5 +1,5 @@
 "The basic infrastructure for maintaining a vxi-11 protocol connection to a remote device"
-_rcsid="$Id: vxi_11.py,v 1.10 2009-03-17 01:45:28 mendenhall Exp $"
+_rcsid="$Id: vxi_11.py,v 1.11 2009-04-21 18:30:34 mendenhall Exp $"
 
 import rpc
 from rpc import TCPClient, RawTCPClient
@@ -196,7 +196,7 @@ class vxi_11_connection:
 		self.log_error(main_message+traceback.format_exception_only(*(sys.exc_info()[:2]))[0], self.debug_error, file)
 
 	def __init__(self, host='127.0.0.1', device="inst0", timeout=1000, raise_on_err=None, device_name="Network Device", shortname=None,
-			portmap_proxy_host=None, portmap_proxy_port=rpc.PMAP_PORT):
+			portmap_proxy_host=None, portmap_proxy_port=rpc.PMAP_PORT, use_vxi_locking=True):
 		
 		self.raise_on_err=raise_on_err
 		self.lid=None
@@ -209,6 +209,7 @@ class vxi_11_connection:
 		self.core=None
 		self.abortChannel=None
 		self.mux=None #default is no multiplexer active
+		self.use_vxi_locking=use_vxi_locking
 		
 		if shortname is None:
 			self.shortname=device_name.strip().replace(' ','').replace('\t','')     
@@ -232,23 +233,32 @@ class vxi_11_connection:
 		
 		if not (ignore_connect or self.connected):
 			raise VXI_11_Device_Not_Connected
+
+		#command has been made atomic, so that things like get_status_byte can be done 
+		#in a multi-threaded environment without needed a full vxi-11 lock to make it safe
+		if threads:
+			self.threadlock.acquire() #make this atomic
 		
 		self._setup_core_packing(pack, unpack)
 
 		try:
-			result= self.core.make_call(id, arglist, self._list_packer, self._list_unpacker)
-		except (RuntimeError, EOFError):
-			#RuntimeError is thrown by recvfrag if the xid is off... it means we lost data in the pipe
-			#EOFError is thrown if the packet isn't full length, as usually happens when ther is garbage in the pipe read as a length
-			#so vacuum out the socket, and raise a transient error
-			rlist=1
-			ntotal=0
-			while(rlist):
-				rlist, wlist, xlist=select.select([self.core.sock],[],[], 1.0)
-				if rlist:
-					ntotal+=len(self.core.sock.recv(10000) )#get some data from it
-			raise VXI_11_Stream_Sync_Lost("sync", ntotal)
-		
+			try:
+				result= self.core.make_call(id, arglist, self._list_packer, self._list_unpacker)
+			except (RuntimeError, EOFError):
+				#RuntimeError is thrown by recvfrag if the xid is off... it means we lost data in the pipe
+				#EOFError is thrown if the packet isn't full length, as usually happens when ther is garbage in the pipe read as a length
+				#so vacuum out the socket, and raise a transient error
+				rlist=1
+				ntotal=0
+				while(rlist):
+					rlist, wlist, xlist=select.select([self.core.sock],[],[], 1.0)
+					if rlist:
+						ntotal+=len(self.core.sock.recv(10000) )#get some data from it
+				raise VXI_11_Stream_Sync_Lost("sync", ntotal)
+		finally:
+			if threads:
+				self.threadlock.release() #let go
+
 		err=result[0]
 		
 		if err and self.raise_on_err:
@@ -445,11 +455,14 @@ class vxi_11_connection:
 		return err, status 
 	
 	def lock(self,  lock_timeout=0):
-		"lock() acquires a lock on a device and the threadlock.  If it fails it leaves the connection cleanly unlocked"
+		"""lock() acquires a lock on a device and the threadlock.  If it fails it leaves the connection cleanly unlocked.
+		If self.use_vxi_locking is false, it acquires only a thread lock locally, and does not really lock the vxi-11 device.
+		This is useful if only one process is talking to a given device, and saves time."""
 		err=0
 		if threads:
 			self.threadlock.acquire()
-		if self.locklevel==0:
+		
+		if self.use_vxi_locking and self.locklevel==0:
 			flags, timeout, lock_timeout=self.do_timeouts(0, lock_timeout)
 			try:
 				if self.mux: self.mux.lock_connection(self.global_mux_name)
@@ -485,9 +498,10 @@ class vxi_11_connection:
 		
 		self.locklevel-=1
 		assert self.locklevel>=0, "Too many unlocks on device: "+self.device_name
+			
 		err=0
 		try:
-			if self.locklevel==0:
+			if self.use_vxi_locking and self.locklevel==0:
 				try:
 					err, = self.command(19, "id", "error", (self.lid,  ))   
 				finally:
