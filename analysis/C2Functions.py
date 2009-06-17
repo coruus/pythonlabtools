@@ -12,15 +12,15 @@ C2Functions can be combined with unary operators (nested functions) or binary op
 Developed by Marcus H. Mendenhall, Vanderbilt University Keck Free Electron Laser Center, Nashville, TN USA
 email: mendenhall@users.sourceforge.net
 Work supported by the US DoD  MFEL program under grant FA9550-04-1-0045
-version $Id: C2Functions.py,v 1.66 2007-11-21 16:18:00 mendenhall Exp $
+version $Id: C2Functions.py,v 1.67 2009-06-17 17:23:03 mendenhall Exp $
 """
-_rcsid="$Id: C2Functions.py,v 1.66 2007-11-21 16:18:00 mendenhall Exp $"
+_rcsid="$Id: C2Functions.py,v 1.67 2009-06-17 17:23:03 mendenhall Exp $"
 
 ##\file
 ## \brief Provides the analysis.C2Functions package.
 ##\package analysis.C2Functions
 # \brief A group of classes which make it easy to manipulate smooth functions, including cubic splines. 
-#\version $Id: C2Functions.py,v 1.66 2007-11-21 16:18:00 mendenhall Exp $
+#\version $Id: C2Functions.py,v 1.67 2009-06-17 17:23:03 mendenhall Exp $
 #
 #C2Functions know how to keep track of the first and second derivatives of functions, and to use this information in, for example, C2Function.find_root() and 
 #C2Function.partial_integrals()
@@ -124,7 +124,7 @@ class	C2Function(object):
 	# \param x the point at which to evaluate the function
 	# \return (f(x), f'(x), f''(x))
 	def value_with_derivatives(self, x):
-                raise C2NakedFunction
+		raise C2NakedFunction
         
 	##
 	## get f(val) if val is numeric, otherwise generate the composed fonction f(val())
@@ -528,7 +528,9 @@ class C2ScaledFunction(C2Function):
 		self.fn=fn
 		self.yscale=yscale
 		self.name=fn.name+'* %g' % yscale
-
+		self.xMin=fn.xMin
+		self.xMax=fn.xMax
+		
 	##
 	def value_with_derivatives(self, x): 
 		y, yp, ypp = self.fn.value_with_derivatives(x)
@@ -627,7 +629,7 @@ class C2ScaledRecip(C2Function):
 	##
 	# \brief construct the function, and set the scale factor.
 	def __init__(self, scale=1.0):
-                self.scale=scale
+		self.scale=scale
                 
         ##
 	def value_with_derivatives(self, x):
@@ -1487,8 +1489,6 @@ class C2ConnectorFunction(C2Function):
 		fdx=self.fdx=(x2-x0)/2.0
 		self.fhinv=1.0/fdx
 		self.fx1=(x0+x2)/2.0
-		sef.fx0=x0
-		self.fx2=x2
 		
 		y0, yp0, ypp0=f1.value_with_derivatives(x0) # get left wall values from conventional computation
 		y2, yp2, ypp2=f2.value_with_derivatives(x2) # get right wall values from conventional computation
@@ -1516,7 +1516,8 @@ class C2ConnectorFunction(C2Function):
 	def value_with_derivatives(self, x):
 		fhinv=self.fhinv
 		dx=(x-self.fx1)*fhinv
-		q1=(x-self.fx0)*(x-self.fx2)*fhinv*fhinv # exactly vanish all bits at both ends
+		x0, x2 = self.GetDomain()
+		q1=(x-x0)*(x-x2)*fhinv*fhinv # exactly vanish all bits at both ends
 		q2=dx*q1
 		
 		r1=self.fa+self.fb*dx
@@ -1569,7 +1570,7 @@ class C2LHopitalRatio(C2Ratio):
 	def value_with_derivatives(self, x):
 		"combine left and right functions into ratio, being very careful about zeros of the denominator"
 		cache=self.cache
-		if cache is None or x < cache[0] or x > cache[2]:  #can't get it out of cache, must compute something
+		if cache is None or x < cache[0] or x > cache[1]:  #can't get it out of cache, must compute something
 			y0, yp0, ypp0=self.left.value_with_derivatives(x)
 			y1, yp1, ypp1=self.right.value_with_derivatives(x)
 			
@@ -1594,52 +1595,22 @@ class C2LHopitalRatio(C2Ratio):
 				yy1, yyp1, yypp1=self.right.value_with_derivatives(x1)
 				#now use L'Hopital's rule to find function at the center
 				y1=yyp0/yyp1
-								
-				#scale derivs to put function on [-1,1] since mma  solution is done this way
-				yp0*=dx
-				yp2*=dx
-				ypp0*=dx*dx
-				ypp2*=dx*dx
+
+				conn=C2ConnectorFunction(
+                                        C2Quadratic(x0=x0, a=ypp0/2, b=yp0, c=y0),
+                                        C2Quadratic(x0=x2, a=ypp2/2, b=yp2, c=y2),
+                                        x0, x2, False, y1)
 				
-				#y[x_] = y1 + x (a + b x) + (x-1) x (x+1) (c + d x + e x^2 + f x^3)
-				coefs=( y1, 
-					-(y0 - y2)/2.,
-					(y0 - 2*y1 + y2)/2.,
-					(7*y0 - 7*y2 + 7*yp0 + 7*yp2 + ypp0 - ypp2)/16.,
-					(-16*y0 + 32*y1 - 16*y2 - 9*yp0 + 9*yp2 - ypp0 - ypp2)/16.,
-					(-3*y0 + 3*y2 - 3*yp0 - 3*yp2 - ypp0 + ypp2)/16.,
-					(8*y0 - 16*y1 + 8*y2 + 5*yp0 - 5*yp2 + ypp0 + ypp2)/16.
-				)
-				#y'[x] = a + 2 b x + (3x^2 - 1)   (c + d x + e x^2 + f x^3) + (x-1) x (x+1) (d + 2 e x + 3 f x^2 )
-				#y''[x] = 2b + (x-1) x (x+1) (2 e + 6 f x) + 2 (3 x^2 -1) (d + 2 e x + 3 f x^2 ) + 6 x (c + d x + e x^2 + f x^3)
-				
-				self.cache=x0,x1,x2, coefs
+				self.cache=x0, x2, conn
 				
 			else: #not close to a zero of the denominator... compute conventional answer for ratio
 				return y0/y1, (yp0*y1-y0*yp1)/(y1*y1), (y1*y1*ypp0+y0*(2*yp1*yp1-y1*ypp1)-2*y1*yp0*yp1)/(y1*y1*y1)
 
 		#if we get here, the poly coefficients are ready to go. 
-		x0, x1, x2, (y1, a,b,c,d,e,f)=self.cache
-		
-		dx0=x1-x0
-		dx=(x-x1)/dx0
-		
-		q1=c + dx*(d + dx*(e + dx*f))
-		q2 =d + dx*(2*e + dx*3*f)	
-		q3=2*e+6*f*dx
-		
-		xp1=(dx-1)*(dx+1)*dx
-		xp2=(3*dx*dx-1)
-		
-		y= y1 + dx*(a+b*dx) + xp1*q1
-		yp=a + 2*b*dx + xp2*q1 + xp1*q2
-		ypp=2*b+xp1*q3+2*xp2*q2+6*dx*q1
-			
-		return y, yp/dx0, ypp/dx0/dx0
+		return self.cache[-1].value_with_derivatives(x)
 
 if __name__=="__main__":
 	print _rcsid
-	def as(x): return _numeric.array_str(x, precision=3)
 	
 	if 1:
 		ag=ag1=LinearInterpolatingGrid(1, 1.0,4)	
