@@ -2,7 +2,7 @@
 
 import usb
 
-_rcsid="$Id: LabPro_PyUSB.py,v 1.11 2008-04-30 16:54:14 mendenhall Exp $"
+_rcsid="$Id: LabPro_PyUSB.py,v 1.12 2010-03-31 16:47:22 mendenhall Exp $"
 
 import LabPro
 from LabPro import RawLabPro, LabProError, LabProTimeout, _bigendian
@@ -30,7 +30,7 @@ import traceback
 import struct
 
 import LabPro_USB
-
+import array
 
 class PyUSB_mixin:
 	"mixin class for RawLabPro to allow operation of LabPro via PyUSB library"
@@ -96,7 +96,7 @@ class PyUSB_mixin:
 				data = self.usbdev.bulkRead(usb.ENDPOINT_IN | 2 , 64, 10000);
 				stop_time=time.time()
 				if stop_time - start_time > 9.5:  continue #probably a timeout, just keep going
-				self.read_queue.put((stop_time, ''.join(map(chr,data))))
+				self.read_queue.put((stop_time, array.array('B', data).tostring()))
 		except:
 			self.__keep_running=0
 			try:
