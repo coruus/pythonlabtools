@@ -1,5 +1,5 @@
 "The basic infrastructure for maintaining a vxi-11 protocol connection to a remote device"
-_rcsid="$Id: vxi_11.py,v 1.15 2010-05-31 18:24:56 mendenhall Exp $"
+_rcsid="$Id: vxi_11.py,v 1.16 2010-05-31 19:45:41 mendenhall Exp $"
 
 import rpc
 from rpc import TCPClient, RawTCPClient
@@ -283,7 +283,7 @@ class vxi_11_connection:
 			flags |=  1 # append waitlock bit
 		
 		if channel:
-			channel.select_timeout_seconds=1.5*max(timeout, lock_timeout)/1000.0 #convert ms to sec, and be generous on hard timeout
+			channel.select_timeout_seconds=0.5+1.5*max(timeout, lock_timeout)/1000.0 #convert ms to sec, and be generous on hard timeout
 		
 		return flags, timeout, lock_timeout
 
