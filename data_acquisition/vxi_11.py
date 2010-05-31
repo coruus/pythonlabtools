@@ -1,5 +1,5 @@
 "The basic infrastructure for maintaining a vxi-11 protocol connection to a remote device"
-_rcsid="$Id: vxi_11.py,v 1.14 2010-05-28 21:34:01 mendenhall Exp $"
+_rcsid="$Id: vxi_11.py,v 1.15 2010-05-31 18:24:56 mendenhall Exp $"
 
 import rpc
 from rpc import TCPClient, RawTCPClient
@@ -411,11 +411,9 @@ class vxi_11_connection:
 		err=0
 		accumlen=0
 		
-		while  ( (not err) and (not (reason & 4) ) and 
-				( (count is None) or (accumlen < count)) and 
-				( (termChar is None) or (not accumdata or 
-                (accumdata and accumdata[-1] != chr(termChar)))) ):  #wait for END flag or count or matching terminator char
-			
+		while  ( (not err) and (not (reason & 6) ) and 
+			( (count is None) or (accumlen < count))  ):  #wait for END or CHR reason flag or count
+                        
 			readcount=self.maxRecvSize
 			if count is not None:
 				readcount=min(readcount, count-accumlen)
