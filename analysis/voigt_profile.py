@@ -1,11 +1,11 @@
 """generate voigt functions and their derivatives with respect to parameters"""
-_rcsid="$Id: voigt_profile.py,v 1.7 2007-01-25 12:44:05 mendenhall Exp $"
+_rcsid="$Id$"
 
 ##\file
 ##Provides the analysis.voigt_profile package.
 ##\package analysis.voigt_profile
 #This is a function which efficiently computes Voigt profiles (convolutions of Lorentzian and Gaussian functions) which are useful for many types of spectroscopy.
-#\verbatim version $Id: voigt_profile.py,v 1.7 2007-01-25 12:44:05 mendenhall Exp $ \endverbatim
+#\verbatim version $Id$ \endverbatim
 #
 #Developed by Marcus H. Mendenhall, Vanderbilt University Keck Free Electron Laser Center, Nashville, TN USA
 #

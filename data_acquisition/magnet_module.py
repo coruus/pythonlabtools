@@ -1,5 +1,5 @@
 "Prototype application of the magnets.py module"
-_rcsid="$Id: magnet_module.py,v 1.3 2003-05-30 13:29:22 mendenhall Exp $"
+_rcsid="$Id$"
 
 from power_supplies import current_supply, scpi_power_supply, analog_power_supply
 from tagged_data import system_data as data

@@ -1,5 +1,5 @@
 "mix-in classes for handling tagged data fields"
-_rcsid="$Id: tagged_data.py,v 1.3 2003-05-30 13:29:23 mendenhall Exp $"
+_rcsid="$Id$"
 
 import threading as _threading
 

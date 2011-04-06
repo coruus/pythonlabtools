@@ -1,5 +1,5 @@
 """Compute Schrodinger equation eigenfunctions very quickly and efficiently using Numerov's method to solve the underlying differential equations"""
-_rcsid="$Id: numerov_solve.py,v 1.3 2003-10-03 14:37:38 mendenhall Exp $"
+_rcsid="$Id$"
 
 import math
 import Numeric

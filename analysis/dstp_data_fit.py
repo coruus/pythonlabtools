@@ -1,5 +1,5 @@
 """A shakedown application for the use of the dstp server.  Maybe out of date"""
-_rcsid="$Id: dstp_data_fit.py,v 1.4 2003-05-30 13:31:55 mendenhall Exp $"
+_rcsid="$Id$"
 
 import sys
 import os

@@ -1,6 +1,6 @@
 """Setups for many of the devices used in the Vanderbilt University Free-Electron laser Center VXI crate.
 Useful to the public as drivers for some specific devices, plus lots of exemplary boilerplate"""
-_rcsid="$Id: vxi_crate_devices.py,v 1.5 2003-07-09 18:05:34 mendenhall Exp $"
+_rcsid="$Id$"
 
 import vxi_11 
 from vxi_11 import vxi_11_connection, device_thread

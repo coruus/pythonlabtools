@@ -1,6 +1,6 @@
 calc/* serve up USB data from a Vernier LabPro device attached via USB using libusb on MacOSX, Linux or *BSD */
 
-static char rcsid[]="RCSID $Id: LabProlibusbServer.c,v 1.18 2010-03-31 16:47:22 mendenhall Exp $";
+static char rcsid[]="RCSID $Id$";
 
 /* 
 requires libusb or libusb-win32 (from www.sourceforge.net) installed.  It has been recently tested with version 0.1.12

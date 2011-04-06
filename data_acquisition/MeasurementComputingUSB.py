@@ -1,6 +1,6 @@
 "MeasurementComputingUSB supports connections of  Measurement Computing, Inc.  USB devices"
 
-_rcsid="$Id: MeasurementComputingUSB.py,v 1.17 2003-11-24 16:56:56 mendenhall Exp $"
+_rcsid="$Id$"
 
 
 

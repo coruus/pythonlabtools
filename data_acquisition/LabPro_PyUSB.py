@@ -2,7 +2,7 @@
 
 import usb
 
-_rcsid="$Id: LabPro_PyUSB.py,v 1.12 2010-03-31 16:47:22 mendenhall Exp $"
+_rcsid="$Id$"
 
 import LabPro
 from LabPro import RawLabPro, LabProError, LabProTimeout, _bigendian

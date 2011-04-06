@@ -1,5 +1,5 @@
 "A sample of multi-threaded vxi-11 code... probably not up-to-date"
-_rcsid="$Id: threaded_scope_test.py,v 1.3 2003-05-30 13:29:23 mendenhall Exp $"
+_rcsid="$Id$"
 
 import vxi_11
 import graphite

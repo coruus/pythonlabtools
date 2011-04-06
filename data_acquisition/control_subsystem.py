@@ -1,6 +1,6 @@
 """A set of specific subclasses intended for the Vanderbilt University Free-Electron laser Center,
 but very probably useful to many installations"""
-_rcsid="$Id: control_subsystem.py,v 1.3 2003-05-30 13:29:21 mendenhall Exp $"
+_rcsid="$Id$"
 
 import time
 import exceptions

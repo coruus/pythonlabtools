@@ -1,5 +1,5 @@
 "Sample VXI-11 interface with National Instruments DSTP protocol server"
-_rcsid="$Id: dstp_vxi_example.py,v 1.3 2003-05-30 13:29:22 mendenhall Exp $"
+_rcsid="$Id$"
 import sys
 import os
 def addpath(path_string):

@@ -1,7 +1,7 @@
 """LabPro supports communications with the Vernier Instruments (www.vernier.com) LabPro Module
 over a serial line"""
 
-_rcsid="$Id: LabPro.py,v 1.25 2008-02-20 12:12:56 mendenhall Exp $"
+_rcsid="$Id$"
 
 import time
 

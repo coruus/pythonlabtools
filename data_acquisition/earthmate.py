@@ -1,7 +1,7 @@
 """earthmate.py supports communication with a DeLorme (www.delorme.com) Earthmate GPS unit, and with other Rockwell/Conexant/Navman/SiRF Zodiac
 and Jupiter type receivers"""
 
-_rcsid="$Id: earthmate.py,v 1.6 2003-08-21 16:41:58 mendenhall Exp $"
+_rcsid="$Id$"
 
 import time
 import Numeric

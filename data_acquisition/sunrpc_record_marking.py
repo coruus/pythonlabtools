@@ -1,6 +1,6 @@
 "sunrpc_record_marking implements the Record Marking Standard such as used in SunRPC records sent via sockets per RFC-1831 section 10"
 
-_rcsid="$Id: sunrpc_record_marking.py,v 1.4 2003-08-25 20:00:06 mendenhall Exp $"
+_rcsid="$Id$"
 
 from select import select as _select
 

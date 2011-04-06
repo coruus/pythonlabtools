@@ -1,6 +1,6 @@
 """Compute Hermite-Gauss basis functions very quickly and efficiently using 
 Numerov's method to solve the underlying differential equations"""
-_rcsid="$Id: hermite_numerov.py,v 1.7 2003-10-03 14:38:45 mendenhall Exp $"
+_rcsid="$Id$"
 
 import math
 import Numeric

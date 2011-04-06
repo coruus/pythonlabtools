@@ -2,7 +2,7 @@
 
 #NOTE: this requires a copy of a LabProUSBServer executable in the same directory as this file.  See comments in LabProUSBServer.c for compile info.
 
-_rcsid="$Id: LabPro_USB.py,v 1.23 2008-02-19 00:59:30 mendenhall Exp $"
+_rcsid="$Id$"
 
 import LabPro
 from LabPro import RawLabPro, LabProError, LabProTimeout, _bigendian

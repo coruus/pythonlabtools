@@ -1,5 +1,5 @@
 "Sample code to  stress an vxi_11_connection_multiplexer"
-_rcsid="$Id: test_mux.py,v 1.3 2003-05-30 13:29:23 mendenhall Exp $"
+_rcsid="$Id$"
 
 import vxi_11 
 import vxi_11_connection_mux

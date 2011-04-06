@@ -1,5 +1,5 @@
 "Control system global alarm handlers... make it hard for failures not to get noticed."
-_rcsid="$Id: alarm_system.py,v 1.3 2003-05-30 13:29:21 mendenhall Exp $"
+_rcsid="$Id$"
 
 import weakref
 import threading

@@ -111,7 +111,7 @@ If analytic derivatives are desired, do, \e e.g.
 
 """
 
-_rcsid="$Id: fitting_toolkit.py,v 1.21 2009-03-24 15:06:15 mendenhall Exp $"
+_rcsid="$Id$"
 
 try:
 	import numpy as Numeric
@@ -144,7 +144,7 @@ import operator
 ## Provides the analysis.fitting_toolkit package.
 ##\package analysis.fitting_toolkit
 ## Hessian and Levenberg-Marquardt Curve Fitting Package with resampling capability.
-#\verbatim version $Id: fitting_toolkit.py,v 1.21 2009-03-24 15:06:15 mendenhall Exp $ \endverbatim
+#\verbatim version $Id$ \endverbatim
 #This is loosely derived from the information in 'Numerical Recipes' 2nd Ed. by Press, Flannery, Teukolsky and Vetterling.
 #Implementation by Marcus H. Mendenhall, Vanderbilt University Free Electron Laser Center, Nashville, TN, USA
 #Implemented around 3 December, 2002.

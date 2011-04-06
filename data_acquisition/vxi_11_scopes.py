@@ -1,5 +1,5 @@
 "Some simple oscilloscope drivers built around an abstract oscilloscope"
-_rcsid="$Id: vxi_11_scopes.py,v 1.4 2008-01-07 20:06:24 mendenhall Exp $"
+_rcsid="$Id$"
 
 from vxi_11 import vxi_11_connection
 import struct

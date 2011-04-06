@@ -1,6 +1,6 @@
 /* serve up USB data from a Measurement Computing USB device using libusb on MacOSX, Linux or *BSD */
 
-static char rcsid[]="RCSID $Id: MeasurementComputingServer.c,v 1.5 2003-11-21 15:13:14 mendenhall Exp $";
+static char rcsid[]="RCSID $Id$";
 
 /* 
 requires libusb or libusb-win32 (from www.sourceforge.net) installed 

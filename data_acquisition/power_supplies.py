@@ -1,5 +1,5 @@
 "Basic power supply types"
-_rcsid="$Id: power_supplies.py,v 1.3 2003-05-30 13:29:23 mendenhall Exp $"
+_rcsid="$Id$"
 
 import tagged_data
 

@@ -1,6 +1,6 @@
 """steppers.py defines abstract intelligent stepper motor channels and clusters and has a sample implementation for Norberg Consulting BiStep and SimStep stepper controllers"""
 
-_rcsid="$Id: steppers.py,v 1.1 2004-01-23 01:03:29 mendenhall Exp $"
+_rcsid="$Id$"
 
 import time
 import os

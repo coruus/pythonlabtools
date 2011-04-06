@@ -1,5 +1,5 @@
-"""cubic spline handling, in a manner compatible with the API in Numeric Recipes"""
-_rcsid="$Id: spline.py,v 1.23 2005-07-13 14:24:58 mendenhall Exp $"
+"""cubic spline handling, in a manner compatible with the API in numpy Recipes"""
+_rcsid="$Id$"
 
 __all__=["spline","splint","cubeinterpolate","RangeError",
 "spline_extension", "spline_extrapolate", "approximate_least_squares_spline" ]
@@ -7,19 +7,19 @@ __all__=["spline","splint","cubeinterpolate","RangeError",
 class RangeError(IndexError):
 	"X out of input range in splint()"
 
-from Numeric import zeros, Float, searchsorted, array, asarray, take, clip
-import Numeric
+from numpy import zeros, float, searchsorted, array, asarray, take, clip
+import numpy
 
 def spline(x, y, yp1=None, ypn=None):
 	"""y2 = spline(x_vals,y_vals, yp1=None, ypn=None) 
 	returns the y2 table for the spline as needed by splint()"""
 
 	n=len(x)
-	u=zeros(n,Float)
-	y2=zeros(n,Float)
+	u=zeros(n,float)
+	y2=zeros(n,float)
 	
-	x=asarray(x, Float)
-	y=asarray(y, Float)
+	x=asarray(x, float)
+	y=asarray(y, float)
 	
 	dx=x[1:]-x[:-1]
 	dxi=1.0/dx
@@ -81,7 +81,7 @@ def spline_extension(x, y, y2, xmin=None, xmax=None):
 		xl.append((xmax,))
 		y2l.append((y2[-1],))
 
-	return Numeric.concatenate(xl), Numeric.concatenate(yl), Numeric.concatenate(y2l)
+	return numpy.concatenate(xl), numpy.concatenate(yl), numpy.concatenate(y2l)
 
 def spline_extrapolate(x, y, yp1=None, ypn=None, xmin=None, xmax=None):
 	"""x, y, y2 = spline_extrapolate(x_vals,y_vals, yp1=None, ypn=None, xmin=None, xmax=None) 
@@ -94,10 +94,10 @@ import types
 
 def splint(xa, ya, y2a, x, derivs=False):
 	"""returns the interpolated from from the spline
-	x can either be a scalar or a listable item, in which case a Numeric Float array will be
+	x can either be a scalar or a listable item, in which case a numpy float array will be
 	returned and the multiple interpolations will be done somewhat more efficiently.
 	If derivs is not False, return y, y', y'' instead of just y."""
-	if type(x) is types.IntType or type(x) is types.FloatType: 
+	if type(x) is types.IntType or type(x) is types.floatType: 
 		if (x<xa[0] or x>xa[-1]):
 			raise RangeError, "%f not in range (%f, %f) in splint()" % (x, xa[0], xa[-1])
 			 
@@ -122,7 +122,7 @@ def splint(xa, ya, y2a, x, derivs=False):
 		y2hi=take(y2a, khi)
 		y2lo=take(y2a, klo)
 		
-		h=(xhi-xlo).astype(Float)
+		h=(xhi-xlo).astype(float)
 		a=(xhi-x)/h
 		b=1.0-a
 		
@@ -161,20 +161,20 @@ def approximate_least_squares_spline(xvals, yvals, nodelist=None, nodeindices=No
 	
 	if not nodeindices:
 		if not nodelist: #make equally-spaced nodelist
-			nodelist=Numeric.array(range(nodecount),Numeric.Float)*((xvals[-1]-xvals[0])/(nodecount-1))+xvals[0]
+			nodelist=numpy.array(range(nodecount),numpy.float)*((xvals[-1]-xvals[0])/(nodecount-1))+xvals[0]
 			nodelist[-1]=xvals[-1] #make sure no roundoff error clips the last point!
 		else:
 			nodecount=len(nodelist)
 			
-		nodeindices=Numeric.searchsorted(xvals, nodelist)
-		boundindices=Numeric.searchsorted(xvals, (nodelist[1:]+nodelist[:-1])*0.5) #find halfway points
+		nodeindices=numpy.searchsorted(xvals, nodelist)
+		boundindices=numpy.searchsorted(xvals, (nodelist[1:]+nodelist[:-1])*0.5) #find halfway points
 	else:
 		boundindices=(nodeindices[1:]+nodeindices[:-1])//2 
-		nodelist=Numeric.take(xvals, nodeindices)
+		nodelist=numpy.take(xvals, nodeindices)
 		
 	nodecount=len(nodeindices)
 
-	ya=Numeric.zeros(nodecount,Numeric.Float)
+	ya=numpy.zeros(nodecount,numpy.float)
 
 	#fit first  chunk un-centered to get slope at start
 	fitter.fit_data(xvals[:nodeindices[1]], yvals[:nodeindices[1]], xcenter=nodelist[0])
@@ -228,7 +228,7 @@ if __name__=="__main__":
 		
 		xx, yy, yy2=spline_extrapolate(xlist,ylist, yp1=None, ypn=-2.5, xmin=xlist[0]-2, xmax=xlist[-1]+2)
 		import graphite
-		import Numeric
+		import numpy
 		g=graphite.Graph()
 		ds1=graphite.Dataset()
 		ds1.x=xx
@@ -240,7 +240,7 @@ if __name__=="__main__":
 		f1.symbolStyle=graphite.SymbolStyle(size=5, fillColor=graphite.red, edgeColor=graphite.red)
 		g.formats=[]
 		g.formats.append(f1)
-		finex=Numeric.array(range(-20,181),Float)*0.1
+		finex=numpy.array(range(-20,181),float)*0.1
 		finey=splint(xx, yy, yy2, finex)
 		ds2=graphite.Dataset()
 		ds2.x=finex

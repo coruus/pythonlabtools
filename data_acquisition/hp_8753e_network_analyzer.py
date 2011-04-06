@@ -1,5 +1,5 @@
 "A basic wrapper for some of the more useful external functionality for the Hewlett-Packard / Agilent 8753E-class Network Analyzers"
-_rcsid="$Id: hp_8753e_network_analyzer.py,v 1.3 2003-08-07 15:49:48 mendenhall Exp $"
+_rcsid="$Id$"
 
 from vxi_11 import vxi_11_connection
 import struct

@@ -59,7 +59,7 @@ Heuer, Dunweg and Ferrenberg,
 by Marcus Mendenhall
                                                                 
 """
-_rcsid="$Id: r250.py,v 1.10 2007-08-30 14:32:15 mendenhall Exp $"
+_rcsid="$Id$"
 
 import random
 

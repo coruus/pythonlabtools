@@ -2,7 +2,7 @@
 Marcus H. Mendenhall, Vanderbilt University Keck Free Electron Laser Center, Nashville, TN, 37235
 16 April, 2002
 This is really the little brother of general_optics.py, which mostly should be used instead"""
-_rcsid="$Id: abcd_optics.py,v 1.5 2007-11-08 22:45:27 mendenhall Exp $"
+_rcsid="$Id$"
 
 import math
 

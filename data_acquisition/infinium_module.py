@@ -1,5 +1,5 @@
 "Some protocol for Agilent 548xx scopes"
-_rcsid="$Id: infinium_module.py,v 1.3 2003-05-30 13:29:22 mendenhall Exp $"
+_rcsid="$Id$"
 
 from vxi_11_scopes import agilentscope
 

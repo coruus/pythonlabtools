@@ -1,5 +1,5 @@
 "A group of magnets, with lots of error checking"
-_rcsid="$Id: magnets.py,v 1.4 2003-05-30 13:29:22 mendenhall Exp $"
+_rcsid="$Id$"
 
 #use the global data cache
 from tagged_data import system_data
