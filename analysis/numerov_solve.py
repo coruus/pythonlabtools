@@ -2,7 +2,7 @@
 _rcsid="$Id$"
 
 import math
-import Numeric
+import numpy
 import sys
 
 try:
@@ -22,7 +22,7 @@ def bare_numerov(V, dx):
 	"""generate a solution to Schrodinger's eqn for a potential V=(2m/hbar**2)(V-E) using the Numerov method.
 	Always integrate in from forbidden region to center of potential from both ends, and solve to match boundary conditions.  The initial conditions will fail if started in an allowed (V-E < 0) region"""
 	npoints=len(V)
-	Y=Numeric.zeros(npoints,Numeric.Float)
+	Y=numpy.zeros(npoints,numpy.float)
 	dx2=dx*dx
 	ypsifact=1.0/(1.0-(dx2/12.0)*V)
 	coef=2.0+dx2*V*ypsifact
@@ -36,7 +36,7 @@ def bare_numerov(V, dx):
 
 
 def zbrent(func, x1, x2, tol, itmax=100, trace=0):
-	"find zeros using the van Wijngaarden-Dekker-Brent method a la Numeric Recipes"
+	"find zeros using the van Wijngaarden-Dekker-Brent method a la numpy Recipes"
 	a=x1; b=x2
 	fa=func(a); fb=func(b)
 
@@ -95,27 +95,27 @@ def zbrent(func, x1, x2, tol, itmax=100, trace=0):
 def single_well_numerov_match(V0, dx, parity=1, overlapsize=5):
 	"generate a candidate eigenfunction with given potential, assuming the potential well has a single allowed region bounded on both sides"
 	assert len(V0) & 1, "Must have a grid with an odd number of points"
-	vminchan=Numeric.argmin(V0) #position of bottom of well
-	right_turn=Numeric.searchsorted(V0[vminchan:], 0.0)+vminchan #position of right-hand turning point
+	vminchan=numpy.argmin(V0) #position of bottom of well
+	right_turn=numpy.searchsorted(V0[vminchan:], 0.0)+vminchan #position of right-hand turning point
 
 	#integrate from left end to right-hand turning point, at which point numerov method becomes unstable
 	leftpsi=bare_numerov(V0[:right_turn], dx)
 	#iterate backwards on right part to turning point, and flatten to normal array
-	rightpsi= Numeric.array(bare_numerov(V0[right_turn-overlapsize:][::-1], dx)[::-1]) 
+	rightpsi= numpy.array(bare_numerov(V0[right_turn-overlapsize:][::-1], dx)[::-1]) 
 	
-	#remember that since Numeric handles slices without copying, leftend and rightend also scale here
-	slopeweight=Numeric.array(range(overlapsize),Numeric.Float)-overlapsize/2.0
+	#remember that since numpy handles slices without copying, leftend and rightend also scale here
+	slopeweight=numpy.array(range(overlapsize),numpy.float)-overlapsize/2.0
 	leftend=leftpsi[-overlapsize:]
 	rightend=rightpsi[:overlapsize]
 	
-	scale=abs(Numeric.sum(leftend*rightend)/Numeric.sum(leftend**2)) #'least-squares' scale estimate
-	#note that since leftend and rightend are Numeric slice references, modifying psi also changes them!
+	scale=abs(numpy.sum(leftend*rightend)/numpy.sum(leftend**2)) #'least-squares' scale estimate
+	#note that since leftend and rightend are numpy slice references, modifying psi also changes them!
 	rightpsi*=float(parity)/scale	
-	error=Numeric.sum((leftend-rightend)*slopeweight) #average derivative
-	psi0=Numeric.concatenate((leftpsi, rightpsi[overlapsize:]))
+	error=numpy.sum((leftend-rightend)*slopeweight) #average derivative
+	psi0=numpy.concatenate((leftpsi, rightpsi[overlapsize:]))
 
 	psi2=psi0*psi0
-	integral=psi2[0]+psi2[-1]+4.0*Numeric.sum(psi2[1:-1:2])+2.0*Numeric.sum(psi2[2:-2:2]) #use simpson's rule
+	integral=psi2[0]+psi2[-1]+4.0*numpy.sum(psi2[1:-1:2])+2.0*numpy.sum(psi2[2:-2:2]) #use simpson's rule
 	psimag=1.0/math.sqrt(integral*dx/3.0)
 	
 	return psi0*psimag, error*psimag
@@ -167,7 +167,7 @@ if __name__=='__main__':
 	potlen=101
 	xmax=7.0
 	dx=2.0*xmax/(potlen-1)
-	xar=(Numeric.array(range(potlen),Numeric.Float)-(potlen-1)/2.0)*(xmax*2.0/(potlen-1))
+	xar=(numpy.array(range(potlen),numpy.float)-(potlen-1)/2.0)*(xmax*2.0/(potlen-1))
 	testpot=xar**2
 	
 	results=find_spectrum(testpot, dx, 10, 1.,  trace=0)
