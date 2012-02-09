@@ -93,11 +93,16 @@ class PyUSB_mixin:
 			stop_time=time.time()
 			while self.__keep_running:
 				start_time=stop_time #close enough to detect timeouts
-				data = self.usbdev.bulkRead(usb.ENDPOINT_IN | 2 , 64, 10000);
+				try:
+					data = self.usbdev.bulkRead(usb.ENDPOINT_IN | 2 , 64, 10)
+				except usb.USBError:
+					continue
 				stop_time=time.time()
 				if stop_time - start_time > 9.5:  continue #probably a timeout, just keep going
 				self.read_queue.put((stop_time, array.array('B', data).tostring()))
 		except:
+			import traceback
+			traceback.print_exc()
 			self.__keep_running=0
 			try:
 				self.usbdev.clearHalt(usb.ENDPOINT_OUT | 2)
@@ -150,7 +155,7 @@ class PyUSB_mixin:
 			if zp>=0:
 				res=res[:zp] #trim any nulls
 		
-		if not self.__keep_running: raise IOErr("USB Labpro index %d closed, reading still going on" % self.device_index)
+		if not self.__keep_running: raise IOError("USB Labpro index %d closed, reading still going on" % self.device_index)
 		return res
 			
 		
