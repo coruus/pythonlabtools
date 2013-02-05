@@ -3,7 +3,7 @@ _rcsid="$Id$"
 
 from vxi_11 import vxi_11_connection
 import struct
-import Numeric
+import numpy
 import time
 import array
 
@@ -80,19 +80,19 @@ class hp_8753e(vxi_11_connection):
 	def get_complex_data(self):
 		"return array of complex data from active channel"
 		values=self.get_converted_data("OUTPDATF;")
-		cv=Numeric.fromstring(values.tostring(), Numeric.Complex64)
+		cv=numpy.fromstring(values.tostring(), numpy.complex128)
 		return cv
 
 	def get_real_display_data(self):
 		"return array of real data from active channel (assuming channel is a real format)"
 		values=self.get_converted_data("OUTPFORF;")
-		cv=Numeric.fromstring(values.tostring(), Numeric.Float64)
+		cv=numpy.fromstring(values.tostring(), numpy.float64)
 		return cv
 
 	def get_complex_display_data(self):
 		"return array of complex data from active channel"
 		values=self.get_converted_data("OUTPFORF;")
-		cv=Numeric.fromstring(values.tostring(), Numeric.Complex64)
+		cv=numpy.fromstring(values.tostring(), numpy.complex128)
 		return cv
 
 	def generate_xaxis_data(self):
@@ -105,12 +105,12 @@ class hp_8753e(vxi_11_connection):
 		linf, logf, transform = [int(info[i]) for i in [3,4,5]] 
 		fpoints, start, stop = [float(info[i]) for i in [0, 1,2]]
 		points=int(fpoints)
-		basearray=Numeric.array(range(points), Numeric.Float)*(1.0/(points-1)) #array on [0,1]
+		basearray=numpy.array(range(points), numpy.float)*(1.0/(points-1)) #array on [0,1]
 		
 		if transform or linf:
 			return basearray*(stop-start)+start
 		elif logf:
-			return Numeric.exp(basearray*Numeric.log(stop/start))*start
+			return numpy.exp(basearray*numpy.log(stop/start))*start
 		else:
 			raise HP8753_Error("Unknown x-axis mode... not linear, log, or time, and I don't handle segments yet")
 	
