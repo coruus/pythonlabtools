@@ -1,7 +1,7 @@
 "simple 4th order Runge-Kutta integration"
 _rcsid="$Id$"
 
-from Numeric import *
+from numpy import *
 
 rk4nsave=0
 
@@ -10,9 +10,9 @@ def rk4(y, dydx, n, x, h, yout, derivs):
 	global rk4nsave, dyt, dym, yt
 	
 	if n!=rk4nsave:
-		dyt=zeros(n,Float)
-		dym=zeros(n,Float)
-		yt=zeros(n,Float)
+		dyt=zeros(n,float)
+		dym=zeros(n,float)
+		yt=zeros(n,float)
 		rk4nsave=n
 	
 	hh=h*0.5
@@ -46,12 +46,12 @@ def rk4(y, dydx, n, x, h, yout, derivs):
 
 def rk4dumb(vstart, nvar, x1, x2, nstep, derivs):
 	
-	v=zeros(nvar, Float)
-	vout=zeros(nvar,Float)
-	dv=zeros(nvar,Float)
+	v=zeros(nvar, float)
+	vout=zeros(nvar,float)
+	dv=zeros(nvar,float)
 	
-	y=zeros((nstep+1, nvar),Float)
-	xx=zeros(nstep+1,Float)
+	y=zeros((nstep+1, nvar),float)
+	xx=zeros(nstep+1,float)
 	
 	y[0,:]=vstart[:]
 	v[:]=vstart[:]

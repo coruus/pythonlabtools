@@ -28,7 +28,7 @@ def bare_numerov(V, dx):
 	coef=2.0+dx2*V*ypsifact
 	
 	Y[0]=1.0/ypsifact[0]
-	Y[1]=math.exp(math.sqrt(V[0])*dx)/ypsifact[1]
+	Y[1]=math.exp(max(-500, min(500,math.sqrt(V[0])*dx)))/ypsifact[1]
 	
 	numerov_iter(Y,coef)
 
