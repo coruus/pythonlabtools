@@ -587,7 +587,7 @@ class fit:
 			if not operator.isSequenceType(sigi):
 				design=self.derivs()*float(sigi)
 			else:
-				design=self.derivs()*sigi[:,Numeric.NewAxis] #w should be a column vector
+				design=self.derivs()*sigi[:,Numeric.newaxis] #w should be a column vector
 						
 			if(self.firstpass):
 				self.funcvals=self.compute_funcvals()
