@@ -535,9 +535,17 @@ class fit:
 		self.reduced_chi2=float(self.chi2/(self.pointcount-self.param_count))
 
 	##
-	## Take one inverse-Hessian or Levenberg-Marquardt step in a fit.  
+	## Take one inverse-Hessian or Levenberg-Marquardt step in a fit.
+	##
+	## This handles frozen parameters by putting '1' on the diagonal of the squared matrix
+	## and clearing the rest of the associated row and column.  This isn't terribly efficient,
+	## especially if a lot of parameters are frozen.
+	## It is probably superseded by hessian_compute_fit(), which
+	## deletes the appropriate rows and columns, allowing the system to be solved
+	## much faster.
+	#\param self self
 	#\param lm_lambda The Levenberg-Marquardt  lambda parameter
-	def hessian_compute_fit(self, lm_lambda=None): 
+	def hessian_compute_fit_old(self, lm_lambda=None):
 		"take one Hessian fitting step  if lm_lambda undefined, otherwise make Levenberg-Marquardt adjustment"
 		
 		if hasattr(self, 'fitmat'):
@@ -567,6 +575,62 @@ class fit:
 
 		self.fitvector=solve_linear_equations(self.fitmat, dot(fxwarray, self.yarray[:n]-self.funcvals) )
 		self.funcparams=self.funcparams+self.fitvector*(1-self.frozen)
+		self.funcvals=self.compute_funcvals()
+		self.compute_chi2()			
+
+	##
+	## Take one inverse-Hessian or Levenberg-Marquardt step in a fit.
+	##
+	## This handles frozen parameters by
+	## deleting the appropriate rows and columns, allowing the system to be solved
+	## much faster when parameters are frozen.
+	#\param self self
+	#\param lm_lambda The Levenberg-Marquardt  lambda parameter
+	def hessian_compute_fit(self, lm_lambda=None):
+		"take one Hessian fitting step  if lm_lambda undefined, otherwise make Levenberg-Marquardt adjustment"
+		
+		if hasattr(self, 'fitmat'):
+			del self.fitmat
+			self.collect() #if we are recycing, thoroughly clean up possibly huge objects
+			
+		n=self.pointcount		
+		fxarray=self.derivs()
+
+		self.set_weights()
+		fxwarray=self.weights_multiply(Numeric.transpose(fxarray))
+		self.fitmat=dot(fxwarray, fxarray)
+		
+		if lm_lambda is not None: #make Levenberg-Marquardt correction to inverse-covariance matrix
+			for i in range(self.param_count):
+				self.fitmat[i,i]*=(1.0+lm_lambda)
+
+		mask=1-self.frozen
+
+		#compress out rows & columns of frozen parameters, to make fit much faster
+		if numpy.any(self.frozen):
+			fitmat=self.fitmat.compress(mask,0).compress(mask, 1)
+		else:
+			fitmat=self.fitmat
+			
+		if self.firstpass:
+			self.funcvals=self.compute_funcvals()
+			self.firstpass=0
+
+		#compress corresponding elements out of the 'y' array
+		yarray=dot(fxwarray, self.yarray[:n]-self.funcvals).compress(mask)
+
+		fitvector=solve_linear_equations(fitmat, yarray )
+
+		fullfit=Numeric.zeros_like(self.funcparams)
+
+		#uncompress fit vector
+		idx=0
+		for i in xrange(self.param_count):
+			if mask[i]:
+				fullfit[i]=fitvector[idx]
+				idx+=1
+
+		self.funcparams=self.funcparams+fullfit*(1-self.frozen)
 		self.funcvals=self.compute_funcvals()
 		self.compute_chi2()			
 
