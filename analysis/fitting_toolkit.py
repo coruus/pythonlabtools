@@ -956,10 +956,10 @@ def find_peak(data):
 	
 	topchan=Numeric.argmax(y)
 	topy=y[topchan]
-	#find half-height points
-	startx=topchan
+	#find half-height points, starting a few points away to make it noise resistant
+	startx=topchan-3
 	while(y[startx] >= 0.5*topy): startx -= 1
-	endx=topchan
+	endx=topchan+3
 	while(y[endx] >= 0.5*topy): endx += 1
 	
 	#f=polynomial_fit(2, xcenter=x[topchan])
