@@ -604,6 +604,12 @@ class fit:
 			for i in range(self.param_count):
 				self.fitmat[i,i]*=(1.0+lm_lambda)
 
+		for i in range(self.param_count): #handle frozen parameters
+			if self.frozen[i]:
+				self.fitmat[i,:]=0.0
+				self.fitmat[:,i]=0.0
+				self.fitmat[i,i]=1.0
+
 		mask=1-self.frozen
 
 		#compress out rows & columns of frozen parameters, to make fit much faster
@@ -704,8 +710,13 @@ class fit:
 	## Return the variance-covariance matrix for the fit.
 	def covariance_matrix(self):
 		"return the variance-covariance matrix resulting from this fit"
-		return matinverse(self.fitmat)
-	
+		cvmat=matinverse(self.fitmat)
+		for i in range(self.param_count): #handle frozen parameters
+			if self.frozen[i]:
+				cvmat[i,:]=0.0
+				cvmat[:,i]=0.0
+		return cvmat
+
 	##
 	## Return the variance-covariance matrix for the fit if svd fitting was used.
 	def svd_covariance_matrix(self):
