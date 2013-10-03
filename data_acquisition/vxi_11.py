@@ -204,7 +204,7 @@ class vxi_11_connection:
 		self.portmap_proxy_host=portmap_proxy_host
 		self.portmap_proxy_port=portmap_proxy_port
 		self.core=None
-		self.abortChannel=None
+		self.abort_channel=None
 		self.mux=None #default is no multiplexer active
 		self.use_vxi_locking=use_vxi_locking
 		
@@ -295,9 +295,9 @@ class vxi_11_connection:
 				
 		if self.core:
 			self.core.close() #if this is a reconnect, break old connection the hard way
-		if self.abortChannel:
-			self.abortChannel.close()
-			
+		if self.abort_channel:
+			self.abort_channel.close()
+        
 		self.core=rpc.TCPClient(self.host, 395183, 1, 
 				portmap_proxy_host=self.portmap_proxy_host, 
 				portmap_proxy_port=self.portmap_proxy_port)
@@ -318,7 +318,7 @@ class vxi_11_connection:
 		elif self.abortPort:
 			self.abort_channel=RawTCPClient(self.host, 395184, 1, self.abortPort)
 		else:
-			self.abortChannel=None
+			self.abort_channel=None
     
 		connection_dict[self.lid]=(self.device_name, weakref.ref(self))
 
@@ -332,6 +332,8 @@ class vxi_11_connection:
 
 	def abort(self):
 		
+		if self.abort_channel is None: return 0
+    
 		self.abort_channel.select_timeout_seconds=self.timeout/1000.0 #convert to seconds
 		try:
 			err=self.abort_channel.make_call(1, self.lid, self.abort_channel.packer.pack_int, self.abort_channel.unpacker.unpack_int) #abort
@@ -353,10 +355,10 @@ class vxi_11_connection:
 			del connection_dict[self.lid]
 			self.lid=None
 			self.core.close()
-			self.abort_channel.close()
+			if self.abort_channel is not None: self.abort_channel.close()
 			del self.core, self.abort_channel
 			self.core=None
-			self.abortChannel=None
+			self.abort_channel=None
 		
 	def __del__(self):
 		if self.lid is not None:
