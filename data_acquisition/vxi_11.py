@@ -306,18 +306,20 @@ class vxi_11_connection:
 		
 		err, self.lid, self.abortPort, self.maxRecvSize=self.command(
 			10, "create_link","create_link", (0, 0, self.timeout, self.device_sicl_name), ignore_connect=1) #execute create_link
-		
+		    
 		if err: #at this stage, we always raise exceptions since there isn't any way to bail out or retry reasonably
 			raise VXI_11_Error(err)
 		
 		self.maxRecvSize=min(self.maxRecvSize, 1048576) #never transfer more than 1MB at a shot
 					
-		if self.OneWayAbort:
+		if self.abortPort and self.OneWayAbort:
 			#self.abort_channel=OneWayAbortClient(self.host, 395184, 1, self.abortPort)
 			self.abort_channel=rpc.RawUDPClient(self.host, 395184, 1, self.abortPort)
-		else:
+		elif self.abortPort:
 			self.abort_channel=RawTCPClient(self.host, 395184, 1, self.abortPort)
-			
+		else:
+			self.abortChannel=None
+    
 		connection_dict[self.lid]=(self.device_name, weakref.ref(self))
 
 		self.locklevel=0
