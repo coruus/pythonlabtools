@@ -315,7 +315,7 @@ class fit:
 				self.arg_count=len(sample_x)
 			else:
 				self.arg_count=1
-			self.frozen=zeros(self.param_count)
+			self.frozen=zeros(self.param_count, numpy.int8)
 			self.xarray=zeros((self.arg_count, self.pointhint), self.atype)
 			self.yarray=zeros(self.pointhint, self.atype )
 			self.currentlen=self.pointhint
