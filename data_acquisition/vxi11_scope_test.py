@@ -11,20 +11,20 @@ try: #if the persistent scope module exists, use it
 	from hp_scope_module import scope
 except:
 	class hp54542(vxi_11.agilentscope):
-		
+
 		default_lock_timeout=5000
-		
+
 		idn_head="HEWLETT-PACKARD,54542C,US36040757" #key this device down to the serial-number level
-		
-		def abort(self): #aborts hang on this device, just override 
+
+		def abort(self): #aborts hang on this device, just override
 			return 0
 
 	if 0:
-		scope=hp54542(host="***REMOVED***", portmap_proxy_host="127.0.0.1", portmap_proxy_port=1111,
+		scope=hp54542(host="", portmap_proxy_host="127.0.0.1", portmap_proxy_port=1111,
 				 device="gpib0,7",  timeout=4000, device_name="hp54542",
 				raise_on_err=1)
 	else:
-		scope=hp54542(host="***REMOVED***", 
+		scope=hp54542(host="",
 				 device="gpib0,7",  timeout=5000, device_name="hp54542",
 				raise_on_err=1)
 
@@ -46,10 +46,10 @@ def test1():
 		scope.lock()
 		scope.write("*rst")
 		#vxi_11.vxi_11_connection.abort(scope)
-		print scope.core.port, scope.abort_channel.port, scope.idn				
-		
+		print scope.core.port, scope.abort_channel.port, scope.idn
+
 		grablen=512; loops=1; averages=16; mode="real"; timerange=1e-5
-		
+
 		if mode=="rep":
 			scope.average_mode(averages)
 		else:
@@ -60,54 +60,54 @@ def test1():
 			scope.set_timebase(range=timerange)
 			scope.set_channel(2, range=5, offset=2.5, coupling=scope.dc, lowpass=0, impedance=None)
 			scope.set_channel(3, range=0.1, offset=0, coupling=scope.dc, lowpass=0, impedance=None)
-		
-									
+
+
 		sum=None
-		
+
 		for i in range(loops):
 			scope.digitize((2,3))
-			scope.wait_for_done(sleep=0.1, max_loops=100)									
+			scope.wait_for_done(sleep=0.1, max_loops=100)
 			waveform=Numeric.array( scope.get_current_data((2,3)) )
-			
+
 			if sum is None:
 				sum = waveform
 			else:
 				sum += waveform
-				
+
 			print i
-		
+
 		sum *= (1.0/loops)
-		
+
 		scope.unlock()
 
 		g=graphite.Graph()
 		g.formats=[dots(graphite.green), dots(graphite.red)]
-		
+
 		axis=g.axes[graphite.X]
-		tick=axis.tickMarks[0]				
+		tick=axis.tickMarks[0]
 		tick.labels = "%.2g"
 		axis.label.text = "&mu;Seconds"
 		#tick.spacing = 0.05
 		#axis.range=[-tick.spacing,plottime]
 		axis.label.points[0]=(0., -0.1, 0.) #move label closer to axis
-		
+
 		axis=g.axes[graphite.Y]
 		tick=axis.tickMarks[0]
 		tick.labels = "%+.3f"
-		axis.label.text = "Volts"				
+		axis.label.text = "Volts"
 		tick.inextent= 0.02
-		tick.labelStyle=graphite.TextStyle(hjust=graphite.RIGHT, vjust=graphite.CENTER, 
-			font=graphite.Font(10,0,0,0,None), 
+		tick.labelStyle=graphite.TextStyle(hjust=graphite.RIGHT, vjust=graphite.CENTER,
+			font=graphite.Font(10,0,0,0,None),
 			color=graphite.Color(0.00,0.00,0.00))
 		tick.labeldist=-0.01
 		axis.label.points[0]=(-0.07, 0, 0.) #move label closer to axis
-		
-		
+
+
 		g.top = 25
 		g.bottom=g.top+400
 		g.left=100
-		g.right=g.left+600		
-				
+		g.right=g.left+600
+
 		d=graphite.Dataset()
 		d.x=scope.xaxis*1e6
 		d.y=sum[0]
@@ -124,6 +124,6 @@ def test1():
 		scope.unlock_completely()
 		scope.abort()
 		traceback.print_exc()
-		
-			
+
+
 test1()

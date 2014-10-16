@@ -8,12 +8,12 @@ else:
 	proxy=None
 	proxy_port=111
 
-crate_host="***REMOVED***"
+crate_host=""
 crate_portmap_proxy_host=proxy
 crate_portmap_proxy_port=proxy_port
 crate_using_e5810=1
 
-magnet_host="***REMOVED***"
+magnet_host=""
 magnet_portmap_proxy_host=proxy
 magnet_portmap_proxy_port=proxy_port
 magnets_using_e5810=1

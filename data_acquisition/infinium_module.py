@@ -9,9 +9,9 @@ class infinium_54825a(agilentscope):
 	default_lock_timeout=1000
 
 	preamble_items=(("format", int), ("type", int), ("POINTS", int), ("SHOT_COUNT", int),
-			("XINC", float), ("XORG", float), ("XREF", int), 
+			("XINC", float), ("XORG", float), ("XREF", int),
 			("YINC", float), ("YORG", float), ("YREF", int),
-			("coupling", int), ("xdisprange",float), ("xdisporg", float), 
+			("coupling", int), ("xdisprange",float), ("xdisporg", float),
 			("ydisprange", float), ("ydisporg", float), ("date", str), ("time", str), ("model", str),
 			("acqmode", int), ("complete", int), ("xunits", int), ("yunits", int), ("bandpass-upper", float), ("bandpass-lower", float) )
 
@@ -36,7 +36,7 @@ class infinium_54825a(agilentscope):
 				self.saved_error=err
 				self.saved_reason=reason
 				channels.append(None)
-		
+
 		self.preambles=preambles
 		return channels
 
@@ -45,7 +45,7 @@ class infinium_54825a(agilentscope):
 
 	def realtime_mode(self, length):
 		self.write(""":acquire:mode rtime;average 0;points %d;complete 100""" % length)
-	
+
 	def set_channel(self, chan, range, offset=0, coupling=agilentscope.dc, impedance=None, atten=1.0, lowpass=None):
 		if impedance==50 and coupling==self.dc:
 			coupling="dc50"
@@ -59,12 +59,12 @@ class infinium_54825a(agilentscope):
 	def set_edge_trigger(self, source, level=0, slope=1,coupling=agilentscope.dc, auto_trigger=1):
 		if not(source==self.line or source==self.aux or source==self.ext):
 			source="chan%d"%source
-		
+
 		if slope>0:
 			slope="pos"
 		else:
 			slope="neg"
-			
+
 		if auto_trigger:
 			mode="auto"
 		else:
@@ -74,7 +74,7 @@ class infinium_54825a(agilentscope):
 			levelstr="level %s,%.2e;edge:source %s;coup %s;slop %s;:trig:sweep %s"%(source, level, source, coupling, slope, mode)
 		else:
 			 levelstr="edge:source line"
-		
+
 		s="trig:mode edge;%s;"%(levelstr)
 		self.write(s)
 
@@ -83,28 +83,28 @@ class infinium_54825a(agilentscope):
 		if self.preamble["type"]==2: #fix shot count on averaged data
 			shots=self.preamble["SHOT_COUNT"]
 			self.preamble["SHOT_COUNT"]=1
-				
+
 		result=agilentscope.parse_binary_data(self, data)
 
 		if self.preamble["type"]==2: #fix shot count on averaged data
 			self.preamble["SHOT_COUNT"]=shots
-		
+
 		return result
 
-if 1:	
-	infinium=infinium_54825a(host="***REMOVED***", 
+if 1:
+	infinium=infinium_54825a(host="",
 		 device="inst0",  timeout=4000, device_name="infinium", raise_on_err=1)
 else:
-	infinium=infinium_emulated(host="***REMOVED***",  portmap_proxy_host='127.0.0.1', portmap_proxy_port=1111, 
+	infinium=infinium_emulated(host="",  portmap_proxy_host='127.0.0.1', portmap_proxy_port=1111,
 			 device="inst0",  timeout=4000, device_name="infinium", raise_on_err=1)
 
 if __name__=="__main__":
 	try:
 		print infinium.idn
 		#infinium.maxRecvSize=1024
-		
+
 		for i in range(10):
 			err, reason, s=infinium.transaction(":syst:setup?")
 			print i, len(s)
-	finally:	
-		infinium.close()	
+	finally:
+		infinium.close()

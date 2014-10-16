@@ -32,7 +32,7 @@ class LabProError(Exception):
 class LabProTransientError(LabProError):
 	"class for LabPro transient errors, which might be recoverable"
 	pass
-		
+
 class LabProTimeout(LabProTransientError):
 	"class for timeouts"
 	pass
@@ -40,7 +40,7 @@ class LabProTimeout(LabProTransientError):
 class LabProDataError(LabProTransientError):
 	"class for badly formatted data, may be recoverable on a retry"
 	pass
-	
+
 def init_port_memory():
 	global _highspeedports
 	#_highspeedports is a persistent memory of which serial ports have had their LabPros set to high speed
@@ -61,14 +61,14 @@ def remember_highspeed_port(port_name):
 	init_port_memory()
 	if port_name not in _highspeedports:
 		_highspeedports.append(port_name)
-		
+
 class RawLabPro:
 	"support for Vernier Software LabPro data acquisition device.  RawLabPro class has no I/O and needs a mixin for the serial port support"
-	
-	commands={'reset':0, 'channel_setup':1, 'data_collection_setup':3, 
-			'conversion_equation_setup':4, 'data_control':5, 'system_setup':6, 
+
+	commands={'reset':0, 'channel_setup':1, 'data_collection_setup':3,
+			'conversion_equation_setup':4, 'data_control':5, 'system_setup':6,
 			'request_system_status':7, 'request_channel_status':8, 'request_channel_data':9,
-			'digital_data_capture':12, 'baudrate':105 , 'request_channel_setup':115, 'archive': 201, 
+			'digital_data_capture':12, 'baudrate':105 , 'request_channel_setup':115, 'archive': 201,
 			'analog_output':401, 'led':1998, 'sound': 1999, 'dig_out':2001,
 			'power_control':102}
 
@@ -90,7 +90,7 @@ class RawLabPro:
 				if i==2: raise #last try failed, allow exception out
 			else:
 				break #transfer worked, all done
-						
+
 	def high_speed_setup(self):
 		"use this to command the LabPro up to high speed, then switch the serial up. Do not use if it has already been commanded!"
 		self.write('s\rs\rs\rs\r')
@@ -105,17 +105,17 @@ class RawLabPro:
 		self.command('baudrate',115)
 		self.command('baudrate',115)
 		self.read()
-		
+
 	def send_string(self, s='s', delay=0.05):
 		"send a string with appropriate end-of-line, and wait the specified time"
 		self.write(s+'\r')
 		time.sleep(delay)
-		
+
 	def command(self, name, *parms, **kwargs):
 		"send a command based on either a command number of a symbolic name, with specified parameters and optional delay=xxx"
 		if type(name) is not types.IntType: #if command is not an int, look it up
 			name=self.commands[name]
-			
+
 		s='s{%d' %  name
 		for p in parms:
 			s=s+','+str(p)
@@ -125,7 +125,7 @@ class RawLabPro:
 		except:
 			delay=0.05
 		self.send_string(s, delay)
-	
+
 	def read_ascii_response(self):
 		"""read an ascii list reponse that looks like {1.23e4, 5.67e8,  "hello", ...}"""
 		str=''
@@ -137,9 +137,9 @@ class RawLabPro:
 			if newdata:
 				empties=0
 			else:
-				empties+=1	
+				empties+=1
 		if empties: #last result must have gotten data, so empties should be zero
-			raise LabProTimeout('timeout getting ascii data, current result: '+repr(str))		
+			raise LabProTimeout('timeout getting ascii data, current result: '+repr(str))
 		goodstart=str.find('{')
 		if goodstart<0:
 			raise LabProDataError('bad ascii data: '+repr(str))
@@ -156,13 +156,13 @@ class RawLabPro:
 			if newdata:
 				empties=0
 			else:
-				empties+=1	
+				empties+=1
 		if empties: #last result must have gotten data, so empties should be zero
-			raise LabProTimeout('timeout getting ascii data, current result: '+repr(str))		
+			raise LabProTimeout('timeout getting ascii data, current result: '+repr(str))
 		return str.strip()
 
 	def reset(self):
-		"reset LabPro to powerupd state, except baud rate" 
+		"reset LabPro to powerupd state, except baud rate"
 		self.send_string('s')
 		self.command('reset', delay=0.25)
 
@@ -177,30 +177,30 @@ class RawLabPro:
 		if  l[3]!=8888:
 			raise LabProError("Bad system status from LabPro: "+str(l))
 		dict={}
-		
+
 		dict['version']="%.5f"%l[0] #make string version
 		for i, name in ((1,'error'), (2,'battery'),(5,'trigger condition'), (6,'channel function'),
 				(7,'channel post'), (8,'channel filter'),(9,'sample count'),
 				(10,'record time'),(12,'piezo flag'),(13,'system state'),
 				(14,'datastart'), (15,'dataend'), (16,'system id')):
 			dict[name]=int(l[i])
-	 	
+
 		for i, name in ((4,'sample time'),(11,'temperature')):
 			dict[name]=float(l[i])
-		
-		return dict 
+
+		return dict
 
 	def setup_data_collection(self, samptime=0.1, numpoints=100, trigtype=0, trigchan=0,
 			trigthresh=0.0, prestore=0, rectime=0, filter=0, fastmode=0):
 		"set up and start LabPro data acquisition"
 		self.__saved_realtime_frag='' #just for safety
-		self.command('data_collection_setup', 
-				samptime, numpoints, trigtype, trigchan, trigthresh, prestore, 0, 
+		self.command('data_collection_setup',
+				samptime, numpoints, trigtype, trigchan, trigthresh, prestore, 0,
 				rectime, filter, fastmode, delay=0.1)
-	
+
 	def collect_data_again(self):
 		self.command('data_collection_setup', -1)
-			
+
 	def setup_channel(self, chan=0, operation=1, postproc=0, equation=0):
 		"configure a LabPro channel"
 		self.command('channel_setup', chan, operation, postproc, equation)
@@ -224,10 +224,10 @@ class RawLabPro:
 				raise LabProError('Waiting for data when none being collected')
 			if syst==4:
 				break #all done
-	
+
 		if misses:
 			raise LabProError("5 consecutives retry failures in wait_for_data_done()... bailing out")
-		
+
 		return state['sample count']
 
 	def get_data_ascii(self, chan=0):
@@ -266,7 +266,7 @@ class RawLabPro:
 		for i in l:
 			i[-1]*=0.0001 #convert time code to seconds
 		return l
-		
+
 	def get_data_binary_realtime(self, channels=1):
 		"read the most recently collected realtime data from the LabPro and return as a list, using binary transfers and no scaling"
 		s=self.__saved_realtime_frag
@@ -282,14 +282,14 @@ class RawLabPro:
 			s=s[:-leftovers]
 		else:
 			self.__saved_realtime_frag=''
-	
+
 		return self.parse_binary(s, channels, chunklen)
 
 	def scale_binary_data(self, idata, scaled_range):
 		"scale data from LabPro binary transfer to specified full-scale min and max and return in Numeric (NumPy) array"
-		scaled_min, scaled_max=scaled_range	
+		scaled_min, scaled_max=scaled_range
 		return Numeric.array(idata,numeric_float)*((scaled_max-scaled_min)/65536.0)+scaled_min
-	
+
 	def get_data_binary(self, chan=0, points=None, scaled_range=None, max_wait_time=1.0, loop_sleep_time=0.1):
 		"get specified channel data, either as raw integers if scaled_range=None, or as floats scaled to specified range in Numeric array"
 		if points is None:
@@ -310,10 +310,10 @@ class RawLabPro:
 				empties=0
 			else:
 				empties+=1
-		
+
 		if empties:
-			raise LabProTimeout('timeout getting binary data, got %d bytes, expected %d, stuff looks like: %s' %(len(s), chunklen, repr(s[:100])))		
-			
+			raise LabProTimeout('timeout getting binary data, got %d bytes, expected %d, stuff looks like: %s' %(len(s), chunklen, repr(s[:100])))
+
 		chk=reduce(operator.xor, array.array('B',s))
 		if not (chk ==0 or chk==0xff):
 			raise LabProDataError( "Bad checksum on string: "+('%02x '%chk)+repr(s[:100]))
@@ -322,14 +322,14 @@ class RawLabPro:
 		if not _bigendian:
 			data.byteswap()
 		if scaled_range is None:
-			return data #return raw integers	
+			return data #return raw integers
 		else:
-			return self.scale_binary_data(data, scaled_range) 
-	
+			return self.scale_binary_data(data, scaled_range)
+
 	def stop(self):
 		"abort LabPro data acquisition"
 		self.command('system_setup',0, delay=0.25)
-		
+
 	def get_current_channel_data(self, channel=1):
 		"read current value of a channel"
 		self.command('request_channel_data', channel, 0)
@@ -344,18 +344,18 @@ class RawLabPro:
 		for i, name in ((0,'cbl_2_sigfigs'), (1,'sigfigs'),(6,'typical_nsamples'), (7,'typical_command'),
 				(8,'equation_index'), (13,'cal_pages'),(14,'current_cal_page')):
 			dict[name]=int(l[i])
-	 	
-		for i, name in ((2,'ymin'),(3,'ymax'),(4,'yscale'), (5,'sample_rate'), 
+
+		for i, name in ((2,'ymin'),(3,'ymax'),(4,'yscale'), (5,'sample_rate'),
 				(9,'warmup_time'), (10,'K0'), (11,'K1'), (12,'K2')):
 			dict[name]=float(l[i])
-		
-		return dict 
+
+		return dict
 
 	def analog_output(self, waveform='dc', center=0.0, amplitude=1.0, period_sec=1.0):
 		"output the specified waveform, amplitude and center value on channel 4.  Beware many funny rules from tech manual about limitations"
 		if waveform=='off':
 			self.command('analog_output',0,0,0,0)
-			return			
+			return
 		elif waveform=='dc':
 			mode=1
 			if center>=0.0:
@@ -367,12 +367,12 @@ class RawLabPro:
 		elif waveform[:3]=='sin':
 			mode=6
 			ampl=(4,3,2,2,1,1,0,0,0)[int(2.0*amplitude+0.01)]
-			offset=int(0.5+((4,2,1,0.5,0.25)[ampl]*0.75-center)*1024)	
+			offset=int(0.5+((4,2,1,0.5,0.25)[ampl]*0.75-center)*1024)
 		else:
-			mode={'rampup':2, 'rampdown':3, 'triangle':4, 'square':5}[waveform] 
+			mode={'rampup':2, 'rampdown':3, 'triangle':4, 'square':5}[waveform]
 			ampl=int(0.5+amplitude/0.0012)
 			offset=int(0.5+(amplitude-center)/0.0012)
-	
+
 		self.command('analog_output', mode, ampl, offset, int(1000.0*period_sec), delay=0.1)
 
 	def analog_output_off(self):
@@ -383,27 +383,27 @@ class RawLabPro:
 	ledcolors={'red':1, 'RED':1, 'r':1, 'R':1, 1:1,
 			'yellow':2, 'YELLOW':2,'y':2,'Y':2,2:2,
 			'green':3, 'GREEN':3,'g':3,'G':3,3:3 }
-	
+
 	def set_led(self, color='red', state=1):
 		"set specified LED on (state=1) or off (state=0)"
 		led=self.ledcolors[color]
 		self.command('led', led, state, delay=0.01)
-	
+
 	def flash_led(self, color='green', flashtime=0.5):
 		"flash specified LED on and then off"
 		self.set_led(color,1)
 		time.sleep(flashtime)
 		self.set_led(color,0)
-	
+
 	def pattern_led(self,pattern, delay=0.0):
 		"output a list of LED states"
 		for ops in pattern:
 			self.set_led(ops[0],ops[1])
 			time.sleep(delay)
-			
+
 	red_green_ripple=(
 		('red',1),('yellow',1),('red',0),('green',1),('yellow',0),('green',0))
-	
+
 	def sound(self, frequency=500.0, duration=0.1):
 		"make a beep"
 		self.command('sound', int(0.5+duration*1e4), int(0.5+4e4/frequency))
@@ -431,10 +431,10 @@ class RawLabPro:
 				self.command('archive', 3, dir_type, i+1) #request name string
 			else:
 				self.command('archive', 3, dir_type, i+1, calc_type) #request name string for calculator-specific program
-			
+
 			names.append(eval(self.read_ascii_line())) #line is quoted
 		return names
-	
+
 	def get_archive_list(self, name=None, idx=None):
 		if name is not None:
 			names=self.get_directory_labels(dir_type=1)
@@ -446,7 +446,7 @@ class RawLabPro:
 			self.command('archive', 35, idx, 1, listsize) #get elements
 			result=self.read_ascii_response()
 		return result
-	
+
 	def create_new_archive_list(self, name=None, data=(), ident1=0, ident2=0):
 		ndataset, nlist, nprograms, nsupplemental, nbytes = self.get_archive_status()
 		nl=len(data)
@@ -461,29 +461,29 @@ class RawLabPro:
 			self.command('archive', 4,  1, nlist+1) #set up label
 			self.send_string('s{"%s"}' % name, 0.05)
 		self.get_system_config() #this also disables flash writing
-		
+
 	def delete_item(self, idx, dir_type=1, calc_type=None):
 			self.command('archive', 0, 0, 0, 1.35791) #enable delete
 			if calc_type is None or dir_type != 2:
-				self.command('archive', 11, dir_type, idx) 
+				self.command('archive', 11, dir_type, idx)
 			else:
-				self.command('archive', 11, dir_type, idx, calc_type) 
-	
+				self.command('archive', 11, dir_type, idx, calc_type)
+
 _have_default_labpro=0
 
 try:
 	import termios
 	import fcntl
 	import tty
-	
+
 	class termios_mixin:
 		"mixin class for RawLabPro to support Unix, MacOSX and Linux termios serial control"
-					
+
 		def close(self):
 			self.serial_read_port.close()
 			if self.serial_write_port != self.serial_read_port:
 				self.serial_write_port.close()
-			
+
 		def set_port_params(self, baud=termios.B38400):
 			port=self.serial_read_port
 			tty.setraw(self.serial_read_port.fileno())
@@ -492,28 +492,28 @@ try:
 			attrs[2] = attrs[2] | termios.CLOCAL #ignore connection indicators
 			cc=attrs[6]; cc[termios.VMIN]=0; cc[termios.VTIME]=0 #non-blocking reads
 			termios.tcsetattr(port, termios.TCSADRAIN, attrs)
-			fcntl.fcntl(self.serial_read_port, fcntl.F_SETFL, os.O_NONBLOCK) 
-	
+			fcntl.fcntl(self.serial_read_port, fcntl.F_SETFL, os.O_NONBLOCK)
+
 		def setup_serial(self, port_name):
 			self.serial_write_port=port=open(port_name,"r+" , 8192)
-			self.serial_read_port=self.serial_write_port	
+			self.serial_read_port=self.serial_write_port
 			self.set_port_params() #setup default port
 			try:
 				self.serial_read_port.seek(0) #see if seeking clears EOF (works on MacOSX, not on Linux)
 				self.__allow_serial_seek=1
 			except:
 				self.__allow_serial_seek=0
-	
+
 		def high_speed_serial(self):
 			"use this if you know the LabPro is already running at high speed"
 			self.set_port_params(baud=termios.B115200) #should work now, since it worked before
 			time.sleep(0.1)
-	
+
 		def write(self, data):
 			"override this if communication is not over normal serial"
 			self.serial_write_port.write(data)
 			self.serial_write_port.flush()
-		
+
 		def read(self, maxlen=None):
 			"override this as for write()"
 			if self.__allow_serial_seek: self.serial_read_port.seek(0) #try to clear EOF
@@ -528,9 +528,9 @@ try:
 	class LabPro(termios_mixin, RawLabPro):
 		"default LabPro uses system native serial, on MacOSX & Linux, this is termios"
 		pass
-	
+
 	_have_default_labpro=1 #flag that this worked, don't look for other methods to make default
-	
+
 except: #no termios serial support
 	#insert check for other system architectures here, such as Windows or MacOS classic
 	pass
@@ -541,30 +541,30 @@ if not _have_default_labpro:
 		import ctb
 		class ctb_mixin:
 			"mixin class for RawLabPro for serial on pre-OS-X Macs running Classic python (not Carbon)"
-						
+
 			def close(self):
 				self.serial_read_port.Close(1,1)
 				if self.serial_write_port != self.serial_read_port:
 					self.serial_write_port.Close(1,1)
-					
+
 			def set_port_params(self):
 				pass
-			
+
 			def setup_serial(self, port_name):
 				port=ctb.CMNew("Serial Tool",None)
 				port.SetConfig(port.GetConfig()+" Baud 38400 Port "+port_name)
 				port.Open(-1)
 				self.serial_write_port=port
 				self.serial_read_port=port
-			
+
 			def high_speed_serial(self):
 				"use this if you know the LabPro is already running at high speed"
 				pass
-		
+
 			def write(self, data):
 				"override this if communication is not over normal serial"
 				self.serial_write_port.Write(data,ctb.cmData,0x3fffffff,0)
-			
+
 			def read(self, maxlen=None):
 				"override this as for write()"
 				if maxlen is None:
@@ -572,48 +572,48 @@ if not _have_default_labpro:
 				else:
 					indata=self.serial_read_port.read(maxlen,ctb.cmData,.05)
 				return indata[0]
-	
+
 		class LabPro(ctb_mixin, RawLabPro):
 			"LabPro using Communications Toolbox for older Macintoshes"
 			pass
-		
+
 		_have_default_labpro=1
-		
+
 	except: #no CTB serial support
 		#insert check for other system architectures here, such as Windows or MacOS classic
 		pass
 
 if not _have_default_labpro:
 	pass #insert other attempts to find a valid serial connection method
-	
+
 try:
 	import vxi_11
 	class e5810_serial_mixin:
 		"mixin class for RawLabPro to allow operation of LabPro via remote network connection over Agilent E5810 interface"
 		def setup_serial(self,port_name=None):
-			self.vxi11_host=vxi_11.vxi_11_connection(host=port_name, device="COM1", raise_on_err=1, timeout=5000, 
+			self.vxi11_host=vxi_11.vxi_11_connection(host=port_name, device="COM1", raise_on_err=1, timeout=5000,
 					device_name="Serial port on E5810")
 			self.vxi11_host.lock() #we are exclusive owners by default!
-		
+
 
 		def high_speed_serial(self):
 			"not implemented on vxi-11"
-			return 
-	
+			return
+
 		def high_speed_setup(self):
 			"not implemented on vxi-11"
-			return 
-	
+			return
+
 		def set_port_params(self):
 			"not implemented on vxi-11"
-			return 
-	
+			return
+
 		def read(self, maxlen=None):
 			return self.vxi11_host.read(count=maxlen)[-1] #last element of read is actual data
-	
+
 		def write(self, data):
 			self.vxi11_host.write(data)
-	
+
 		def close(self):
 			self.vxi11_host.disconnect()
 
@@ -622,10 +622,10 @@ try:
 
 except ImportError:
 	pass
-	
+
 try:
 	import socket	as _socket
-		
+
 	class iPocket_serial_mixin:
 		"mixin class for RawLabPro to allow operation of LabPro via iPocket serial interface in transparent server mode. port_name is an (ip, port) tuple."
 		def setup_serial(self,port_name=(None, None)):
@@ -633,47 +633,47 @@ try:
 			self.sock.connect(port_name)
 			self.timeout_seconds=0.1
 			self.sock.settimeout(0.1)
-			
+
 		def read(self, maxlen=1000):
 			#print "receiving from ", sock
 			return self.sock.recv(maxlen)
-	
+
 		def high_speed_serial(self):
 			"not implemented on iPocket"
-			return 
-	
+			return
+
 		def high_speed_setup(self):
 			"not implemented on iPocket"
-			return 
-	
+			return
+
 		def set_port_params(self):
 			"not implemented on iPocket"
-			return 
-		
+			return
+
 		def write(self, data):
 			self.sock.send(data)
-	
+
 		def close(self):
 			self.sock.close()
-	
+
 	class LabPro_iPocket(iPocket_serial_mixin, RawLabPro):
 		pass
-	
+
 	if 0:
-		a=LabPro_iPocket(("***REMOVED***",9998))
+		a=LabPro_iPocket(("",9998))
 		a.reset()
 		print a.get_system_config()
 		del a
-	
+
 except ImportError:
 	pass
 
 if __name__=='__main__':
-	
+
 	def try_labpro(binary=1):
-		
+
 		lp=LabPro(highspeed=0, port_name='/dev/cu.USA28X213P1.1')
-		
+
 		try:
 			print lp.get_system_config()
 			lp.reset()
@@ -685,7 +685,7 @@ if __name__=='__main__':
 				print map(lambda x: "%.4f" % x, lp.get_data(chan=1)[:100] )
 				print map(lambda x: "%.4f" % x, lp.get_data(chan=2)[:100] )
 			lp.setup_channel(chan=2, operation=0)
-			if 0:		
+			if 0:
 				lp.setup_data_collection(samptime=0.02, numpoints=-1, rectime=0)
 				data=[]
 				for i in range(10):
@@ -693,10 +693,10 @@ if __name__=='__main__':
 					data+=lp.get_data_ascii_realtime()
 				lp.stop()
 				data+=lp.get_data_ascii_realtime()
-				
+
 				data=Numeric.array(data,numeric_float)
 				print Numeric.array_str(data[:,0],precision=4, suppress_small=1)
-			if 0:		
+			if 0:
 				lp.binary_mode()
 				lp.setup_data_collection(samptime=0.002, numpoints=-1, rectime=2)
 				data=[]
@@ -712,11 +712,11 @@ if __name__=='__main__':
 				lp.analog_output(waveform='sine', center=-0.25, amplitude=4.0, period_sec=0.05)
 				lp.setup_channel(chan=4) #let channel read back its own data
 				lp.setup_channel(chan=2, operation=22) #current monitor (hidden command)
-				
+
 				if binary:
 					lp.binary_mode()
-				
-				
+
+
 				deltat=0.0002; npoints=1000
 				lp.setup_data_collection(samptime=deltat, numpoints=npoints)
 				#BG time.sleep(2)
@@ -727,11 +727,11 @@ if __name__=='__main__':
 				else:
 					current=Numeric.array(lp.get_data_ascii(chan=2))
 					voltage=Numeric.array(lp.get_data_ascii(chan=4))
-				
+
 				print Numeric.array_str(current, precision=4, suppress_small=1)
 				print Numeric.array_str(voltage, precision=4, suppress_small=1)
-				
-					
+
+
 		finally:
 			lp.stop()
 			try:
@@ -740,5 +740,5 @@ if __name__=='__main__':
 				print 'cannot get final status'
 			lp.reset()
 			lp.close()
-				
+
 	try_labpro()
