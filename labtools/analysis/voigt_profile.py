@@ -1,4 +1,5 @@
 """generate voigt functions and their derivatives with respect to parameters"""
+from __future__ import print_function
 _rcsid = "$Id$"
 
 # \file
@@ -60,7 +61,7 @@ class Voigt_calculator:
   ##
   def voigt_with_derivs(
           self, sigma, alpha, k_points=None, xfullwidth=10.0, kexptail=25):
-    """return an x grid, voigt function with specified params, and d/dsigma and d/dalpha of this.  
+    """return an x grid, voigt function with specified params, and d/dsigma and d/dalpha of this.
             Function is normalized to unit integral of points"""
     if k_points is None:
       # autorange k by solving for k such that 0.5*sigma**2*k**2+alpha*k==kexptail
@@ -250,7 +251,7 @@ if __name__ == '__main__':
       t2 = time.time()
 
       diff = vgta1 - convlist
-      print len(xvals1), (t1 - t0) / 100.0, t2 - t1, math.sqrt(sum(diff * diff) / len(diff))
+      print(len(xvals1), (t1 - t0) / 100.0, t2 - t1, math.sqrt(sum(diff * diff) / len(diff)))
 
       datasets.append(
           GracePlot.Data(

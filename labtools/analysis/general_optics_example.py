@@ -716,7 +716,7 @@ class blue_compressor(composite_optic):
 
 def doit_bc(theta1, clen, lambda0, drawit=0):
 
-  print "\n\n***start blue line trace***\n"
+  print("\n\n***start blue line trace***\n")
   grating_offset = -0.075
   exit_height = 0
   exit_z = -0.3
@@ -763,23 +763,23 @@ def doit_bc(theta1, clen, lambda0, drawit=0):
   trace2.color = graphite.red
 
   try:  # if one of the traces failed, this may not work
-    print "Theta1=%.3f eta=%.3f len=%.3f lambda=%.4f" % (theta1, eta1, clen, lambda0 * 1e6)
+    print("Theta1=%.3f eta=%.3f len=%.3f lambda=%.4f" % (theta1, eta1, clen, lambda0 * 1e6))
     d0 = trace0[-1]['total_drift']
     d1 = trace1[-1]['total_drift']
     d2 = trace2[-1]['total_drift']
-    print("d(lambda0-0.5nm)=%.3f m, d(lambda0+0.5nm)=%.3f m, dt/dl=%.0f ps/nm, " %
-          (d1, d2, (d2 - d1) * 1e12 / clight)),
-    print "d2t/dl2 = %.2f ps/nm^2" % ((d2 + d1 - 2.0 * d0) * (1e12 / clight) * 4)
+    print(("d(lambda0-0.5nm)=%.3f m, d(lambda0+0.5nm)=%.3f m, dt/dl=%.0f ps/nm, " %
+          (d1, d2, (d2 - d1) * 1e12 / clight)), end=' ')
+    print("d2t/dl2 = %.2f ps/nm^2" % ((d2 + d1 - 2.0 * d0) * (1e12 / clight) * 4))
     spot1info = trace0[(GRATE, 0)]
     spot2info = trace0[(GRATE, 1)]
     ir1info = trace0[(IR1, 0)]
     ir2info = trace0[(IR2, 0)]
     spot_offset = spot2info['position'] - spot1info['position']
     retro_offset = ir2info['position'] - ir1info['position']
-    print "Grating offset = %.3f, retro_offset=%.3f" % (vec_mag(spot_offset), vec_mag(retro_offset))
-    print "measured vertex length = %.3f" % vec_mag(comp[GRATE].center - comp[IR1].center)
-    print "dispersion offset on grating = %.3f m / nm" % vec_mag(trace2[(GRATE, 1)]['position'] - trace1[(GRATE, 1)]['position'])
-    print "final q = ", trace0[-1]['q']
+    print("Grating offset = %.3f, retro_offset=%.3f" % (vec_mag(spot_offset), vec_mag(retro_offset)))
+    print("measured vertex length = %.3f" % vec_mag(comp[GRATE].center - comp[IR1].center))
+    print("dispersion offset on grating = %.3f m / nm" % vec_mag(trace2[(GRATE, 1)]['position'] - trace1[(GRATE, 1)]['position']))
+    print("final q = ", trace0[-1]['q'])
   except:
     traceback.print_exc()
     pass
@@ -1007,22 +1007,22 @@ def show_table():
   if 0:
     glabel = ircomp.mark_label(ircomp.INPUT)
     m = ir_trace[(glabel, 0)]
-    print "\n\n**start**\n\n"
-    print m.incoming_direction, m.direction()
-    print m.incoming_q
-    print m.incoming_q.qi_moments()[1:3]
-    print m.incoming_q.q_moments()[1:3]
-    print m.incoming_q.qit, "\n"
-    print m.localize_transform_tensor
-    print m.footprint_q
-    print m.footprint_q.qi_moments()[1:3]
-    print m.footprint_q.q_moments()[1:3]
-    print m.footprint_q.qit, "\n"
-    print m.globalize_transform_tensor
-    print m.q
-    print m.q.qi_moments()[1:3]
-    print m.q.q_moments()[1:3]
-    print m.q.qit, "\n"
+    print("\n\n**start**\n\n")
+    print(m.incoming_direction, m.direction())
+    print(m.incoming_q)
+    print(m.incoming_q.qi_moments()[1:3])
+    print(m.incoming_q.q_moments()[1:3])
+    print(m.incoming_q.qit, "\n")
+    print(m.localize_transform_tensor)
+    print(m.footprint_q)
+    print(m.footprint_q.qi_moments()[1:3])
+    print(m.footprint_q.q_moments()[1:3])
+    print(m.footprint_q.qit, "\n")
+    print(m.globalize_transform_tensor)
+    print(m.q)
+    print(m.q.qi_moments()[1:3])
+    print(m.q.q_moments()[1:3])
+    print(m.q.qit, "\n")
 
   glabel = ircomp.mark_label(ircomp.INPUT)
   # endpoint=ir_trace[(glabel,0)]  #get first hit on optic <glabel>
@@ -1033,8 +1033,8 @@ def show_table():
   theta = math.atan2(t[0, 1].real, t[0, 0].real) / deg
   qxx, qyy = endpoint.transform_q_to_table(q)
   dzx, dzy = (1e6 / qxx).real, (1e6 / qyy).real
-  print("qxx = %.1f, dzx = %.0f, qyy=%.1f, dzy=%.0f, (in um), theta=%.1f deg" %
-        (q.rw(qxx)[1] * 1e6, dzx, q.rw(qyy)[1] * 1e6, dzy, theta))
+  print(("qxx = %.1f, dzx = %.0f, qyy=%.1f, dzy=%.0f, (in um), theta=%.1f deg" %
+        (q.rw(qxx)[1] * 1e6, dzx, q.rw(qyy)[1] * 1e6, dzy, theta)))
 
 show_pdf = 0
 show_qd = 1

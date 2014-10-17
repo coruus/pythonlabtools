@@ -1,4 +1,5 @@
 "simple 4th order Runge-Kutta integration"
+from __future__ import print_function
 _rcsid = "$Id$"
 
 from numpy import *

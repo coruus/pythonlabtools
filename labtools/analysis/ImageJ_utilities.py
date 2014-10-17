@@ -1,4 +1,6 @@
 """Miscellaneous utilities for python interaction with ImageJ"""
+from __future__ import print_function
+
 _rcsid = "$Id$"
 
 

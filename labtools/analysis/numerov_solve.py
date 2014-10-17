@@ -47,7 +47,7 @@ def zbrent(func, x1, x2, tol, itmax=100, trace=0):
   fc = fb
   for iter in range(itmax):
     if trace:
-      print iter, a, b, fa, fb
+      print(iter, a, b, fa, fb)
     if (fb * fc > 0.0):
       c = a
       fc = fa
@@ -167,7 +167,7 @@ def find_spectrum(
       state_separation_estimate, ground_state_estimate - state_separation_estimate
   for i in range(levels):
     if trace:
-      print '***', i, e0, e1
+      print('***', i, e0, e1)
     delta_e = (e1 - e0) / subdivide
     if i & 1:
       parity = -1
@@ -183,7 +183,7 @@ def find_spectrum(
         psi, test_slope = single_well_numerov_match(
             V0 - e_test, dx, parity)  # initial slope
         if trace:
-          print "%4d %4d %8.2e %8.2e %8.2e %8.2e" % (i, s, firstguess, slope, e_test, test_slope)
+          print("%4d %4d %8.2e %8.2e %8.2e %8.2e" % (i, s, firstguess, slope, e_test, test_slope))
         if test_slope == 0.0 or test_slope * slope < 0.0:  # got a sign change
           break
         if s == (10 * subdivide - 1):
@@ -195,7 +195,7 @@ def find_spectrum(
       results.append((i, e_n, psi_n))
       e0, e1 = e1, e_n  # use last two energies to estimate search size
     except:
-      print sys.exc_value
+      print(sys.exc_value)
       break  # stop if we can't find a level!
   return results
 
@@ -211,4 +211,4 @@ if __name__ == '__main__':
 
   results = find_spectrum(testpot, dx, 10, 1.,  trace=0)
   for n, e_n, psi_n in results:
-    print n, e_n
+    print(n, e_n)

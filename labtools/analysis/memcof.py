@@ -1,6 +1,9 @@
-"""Compute maximum entropy coefficients for data. Based loosely on the the
-concepts in "Numerical Recipes in C", 2nd ed., by Press, Flannery, Teukolsky and Vetterling (q.v.)
-but I don't think it is any copyright infringement"""
+"""Compute maximum entropy coefficients for data. Based loosely on
+the the concepts in "Numerical Recipes in C", 2nd ed., by Press,
+Flannery, Teukolsky and Vetterling (q.v.) but I don't think it is
+any copyright infringement"""
+from __future__ import print_function
+
 _rcsid = "$Id$"
 
 import numpy
@@ -61,4 +64,4 @@ if __name__ == "__main__":
 
   pssum = 2.0 * numpy.sum(pspect) * (0.5 / pspoints)
 
-  print "input power = ", d2, "output power = ", pssum, "ratio =", pssum / d2
+  print("input power = ", d2, "output power = ", pssum, "ratio =", pssum / d2)

@@ -249,19 +249,19 @@ if __name__ == "__main__":
   #testlist=((0,0), (1,1),(2,4),(3,9),(4,16),(5,25),(7,49),(10,100),(15,225), (16,256))
   xlist = [i[0] for i in testlist]
   ylist = [i[1] for i in testlist]
-  print "\n\nStarting splint tests...\n", testlist
+  print("\n\nStarting splint tests...\n", testlist)
   y2 = spline(xlist, ylist, yp1=-5, ypn=10)
   r = (0, 1, 2, 3.5, 3.7, 4, 6, 7, 2, 8, 9, 10, 11, 5, 12, 13, 14, 15, 16)
   v = splint(xlist, ylist, y2, r)
-  print y2
+  print(y2)
   for i in range(len(r)):
-    print "%.1f %.3f %.3f" % (r[i], v[i], splint(xlist, ylist, y2, r[i]))
+    print("%.1f %.3f %.3f" % (r[i], v[i], splint(xlist, ylist, y2, r[i])))
 
   v, vp, vpp = splint(xlist, ylist, y2, r, derivs=True)
   for i in range(len(r)):
-    print "%5.1f %10.3f %10.3f %10.3f" % (r[i], v[i], vp[i], vpp[i])
+    print("%5.1f %10.3f %10.3f %10.3f" % (r[i], v[i], vp[i], vpp[i]))
 
-  print "The next operations should print exceptions"
+  print("The next operations should print exceptions")
   try:
     splint(xlist, ylist, y2, 100.0)
   except:
@@ -312,4 +312,4 @@ if __name__ == "__main__":
   except:
     import traceback
     traceback.print_exc()
-    print "Graphite not available... plotted results not shown"
+    print("Graphite not available... plotted results not shown")

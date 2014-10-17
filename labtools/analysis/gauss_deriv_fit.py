@@ -1,5 +1,6 @@
 "Fit the derivative of a Gaussian to a data set.  Mostly an example of using fitting_toolkit.py"
 _rcsid = "$Id$"
+from __future__ import print_function
 
 import fitting_toolkit
 import Numeric
@@ -47,7 +48,7 @@ if __name__ == "__main__":
 
   x.add_points(xlist, ylist)
 
-  print "\n\n***Start nonlinear test fit***"
+  print("\n\n***Start nonlinear test fit***")
   for i in range(10):
     x.lm_fit_step()
-    print Numeric.array_str(x.funcparams, precision=5),  sqrt(x.reduced_chi2)
+    print(Numeric.array_str(x.funcparams, precision=5),  sqrt(x.reduced_chi2))

@@ -1,11 +1,14 @@
 """
-r-250 random number generator... VERY fast, high quality random bit strings and floats
-implemented by Marcus Mendenhall, Vanderbilt University Free Electron Laser Center, nashville, TN USA
+r-250 random number generator... VERY fast, high quality random bit
+strings and floats implemented by Marcus Mendenhall, Vanderbilt
+University Free Electron Laser Center, nashville, TN USA
+
 Public Domain
 December, 2002
 
-The code which follows is a pythonization of code derived from the following two sources:
-    
+The code which follows is a pythonization of code derived from the
+following two sources:
+
 DESCRIPTION:
 Shift-register Random Number Generator.
 
@@ -53,11 +56,12 @@ into Eq. (1) yields to the algorithm:
    x[i] = x[i] XOR x[i - p]      when i >= p,                      (3a)
    x[i] = x[i] XOR x[i - p + q]  when i < p.                       (3b)
 
-The operations have been extended to include r521 and r250_521, per the recommendations of
-Heuer, Dunweg and Ferrenberg,
-"Considerations on Correlations in Shift-Register Pseudorandom Number Generators and Their Removal"
-by Marcus Mendenhall
-                                                                
+The operations have been extended to include r521 and r250_521, per
+the recommendations of Heuer, Dunweg and Ferrenberg. See "Considerations
+on Correlations in Shift-Register Pseudorandom Number Generators and Their
+Removal" http://www2.mpip-mainz.mpg.de/~duenweg/Public/rannums.ps
+
+by Marcus Mendenhall.
 """
 _rcsid = "$Id$"
 
@@ -221,39 +225,39 @@ if __name__ == "__main__":
   r = r250_521()
 
   for i in range(20):
-    print r.random(),
-  print
+    print(r.random(), end=' ')
+  print()
 
-  print 10 * "%08lx " % tuple(r.fast_random_series(10).tolist())
-  print
+  print(10 * "%08lx " % tuple(r.fast_random_series(10).tolist()))
+  print()
 
   state = r.getstate()
 
-  print r.single_float_random_series(10)
-  print
+  print(r.single_float_random_series(10))
+  print()
 
-  print r.double_float_random_series(10)
-  print
-
-  r.setstate(state)
-  print r.single_float_random_series(10)
-  print
+  print(r.double_float_random_series(10))
+  print()
 
   r.setstate(state)
-  print r.single_float_random_series(10)
-  print
+  print(r.single_float_random_series(10))
+  print()
+
+  r.setstate(state)
+  print(r.single_float_random_series(10))
+  print()
 
   import struct
 
-  print "checking for uniformly filled bit in combined doubles"
+  print("checking for uniformly filled bit in combined doubles")
   r.setstate(state)
   s = r.double_float_random_series(100).tostring()
   ss = struct.unpack("20L", s[:80])
-  print(20 * "%08lx ") % ss
+  print((20 * "%08lx ") % ss)
   b1, b2 = 0, 0
   for i, j in zip(ss[0::2], ss[1::2]):
     b1, b2 = b1 | i, b2 | j
-  print "this should be 3fffffff ffffffff:", "%08lx %08lx" % (b1, b2)
+  print("this should be 3fffffff ffffffff:", "%08lx %08lx" % (b1, b2))
 
   r.setstate(state)
   ranlistfast = r.fast_random_series(1000).tolist()
@@ -261,10 +265,10 @@ if __name__ == "__main__":
   ranlist = [r.next() for i in range(1000)]
 
   if ranlist != ranlistfast:
-    print "fast series is not same as single randoms"
-    print zip(ranlist, ranlistfast)
+    print("fast series is not same as single randoms")
+    print(zip(ranlist, ranlistfast))
   else:
-    print "fast series sequence is same as individual numbers"
+    print("fast series sequence is same as individual numbers")
 
   r.setstate(state)
   ranlistfast = r.single_float_random_series(1000).tolist()
@@ -272,10 +276,10 @@ if __name__ == "__main__":
   ranlist = [r.single_float_random() for i in range(1000)]
 
   if ranlist != ranlistfast:
-    print "fast single series is not same as single randoms"
-    print zip(ranlist, ranlistfast)
+    print("fast single series is not same as single randoms")
+    print(zip(ranlist, ranlistfast))
   else:
-    print "fast single series sequence is same as individual numbers"
+    print("fast single series sequence is same as individual numbers")
 
   r.setstate(state)
   ranlistfast = r.double_float_random_series(1000).tolist()
@@ -283,13 +287,13 @@ if __name__ == "__main__":
   ranlist = [r.random() for i in range(1000)]
 
   if ranlist != ranlistfast:
-    print "fast double series is not same as single randoms"
-    print zip(ranlist, ranlistfast)
+    print("fast double series is not same as single randoms")
+    print(zip(ranlist, ranlistfast))
   else:
-    print "fast double series sequence is same as individual numbers"
+    print("fast double series sequence is same as individual numbers")
 
   if 1:
-    print "running pi-darts in 3d"
+    print("running pi-darts in 3d")
     cycles = 100
     count = 10000
     sum = 0.0
@@ -301,6 +305,6 @@ if __name__ == "__main__":
       pi = 6.0 * insum / count
       sum += pi
       sum2 += pi * pi
-      print pi, " ",
-    print
-    print "pi estimate = %.6f +- %.6f" % (sum / cycles, math.sqrt(sum2 / cycles - (sum / cycles) ** 2) / math.sqrt(cycles))
+      print(pi, " ", end=' ')
+    print()
+    print("pi estimate = %.6f +- %.6f" % (sum / cycles, math.sqrt(sum2 / cycles - (sum / cycles) ** 2) / math.sqrt(cycles)))

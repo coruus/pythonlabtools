@@ -1,7 +1,15 @@
-"""Gaussian (paraxial) Optics matrix formalism and diffration calculations
-Marcus H. Mendenhall, Vanderbilt University Keck Free Electron Laser Center, Nashville, TN, 37235
+"""Gaussian (paraxial) optics matrix formalism and diffraction
+calculations.
+
+Marcus H. Mendenhall,
+Vanderbilt University Keck Free Electron Laser Center,
+Nashville, TN, 37235
 16 April, 2002
-This is really the little brother of general_optics.py, which mostly should be used instead"""
+
+This is really the little brother of general_optics.py, which mostly
+should be used instead.
+"""
+from __future__ import print_function
 _rcsid = "$Id$"
 
 import math
@@ -12,7 +20,6 @@ try:
   numeric_float = Numeric.float
   numeric_complex = Numeric.complex
   eigenvectors = numpy.linalg.eig
-
 except:
   import Numeric
   import LinearAlgebra

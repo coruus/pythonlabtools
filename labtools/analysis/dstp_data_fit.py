@@ -1,4 +1,6 @@
 """A shakedown application for the use of the dstp server.  Maybe out of date"""
+from __future__ import print_function
+
 _rcsid = "$Id$"
 
 import sys
@@ -22,7 +24,7 @@ import dstp_async
 # use Numeric.array instead of array.array as standard format
 nati_dstp_basics.UseNumericArray(1)
 
-print "go!"
+print("go!")
 
 s = dstp_async.DSTPServer()
 

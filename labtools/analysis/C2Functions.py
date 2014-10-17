@@ -1,19 +1,29 @@
-"""A group of classes which make it easy to manipulate smooth functions, including cubic splines. 
+"""A group of classes which make it easy to manipulate smooth
+functions, including cubic splines.
 
-C2Functions know how to keep track of the first and second derivatives of functions, and to use this information in, for example, find_root()
-to allow much more efficient solutions to problems for which the general solution may be expensive.
+C2Functions know how to keep track of the first and second derivatives
+of functions, and to use this information in, for example, find_root()
+to allow much more efficient solutions to problems for which the
+general solution may be expensive.
 
-The two primary classes are 
-	C2Function, which represents an unevaluted function and its derivatives, and 
-	InterpolatingFunction,  which represent a cubic spline of provided data.
+The two primary classes are
+	C2Function, which represents an unevaluted function and its
+	  derivatives, and
+    InterpolatingFunction, which represent a cubic spline of
+      provided data.
 
-C2Functions can be combined with unary operators (nested functions) or binary operators (+-*/ etc.)
+C2Functions can be combined with unary operators (nested functions)
+or binary operators (+-*/ etc.)
 
-Developed by Marcus H. Mendenhall, Vanderbilt University Keck Free Electron Laser Center, Nashville, TN USA
+Developed by Marcus H. Mendenhall,
+Vanderbilt University Keck Free Electron Laser Center,
+Nashville, TN
 email: mendenhall@users.sourceforge.net
-Work supported by the US DoD  MFEL program under grant FA9550-04-1-0045
-version $Id$
+
+Work supported by the US DoD MFEL program under grant FA9550-04-1-0045.
 """
+from __future__ import print_function
+
 _rcsid = "$Id$"
 
 # \file
@@ -228,8 +238,8 @@ class C2Function(object):
 
       if trace:
         import sys
-        print >> sys.stderr, "find_root x, dx, c, b, a", ((
-            5 * "%10.4g ") % (root, delta, c, b, ypp / 2))
+        print("find_root x, dx, c, b, a", ((
+            5 * "%10.4g ") % (root, delta, c, b, ypp / 2)), file=sys.stderr)
 
       if abs(c) < ftol or abs(c) < xtol * abs(b):
         return root  # got it close enough
@@ -346,17 +356,17 @@ class C2Function(object):
   # \param extrapolate carry out simple Richardson-Romberg extrapolation if true
   # \return  vector in which results from subdomains are returned.
   def partial_integrals(self, recur_data, **args):
-    """def partial_integrals(self, xgrid, relative_error_tolerance=1e-12, derivs=2, 
+    """def partial_integrals(self, xgrid, relative_error_tolerance=1e-12, derivs=2,
             absolute_error_tolerance=1e-12, depth=0, debug=0, extrapolate=1, allow_recursion=True)
-            Return the integrals of a function between the sampling points xgrid.  
+            Return the integrals of a function between the sampling points xgrid.
             The sum is the definite integral.
             The choices for derivs are 0, 1 or 2, anything else is an error.
-            The derivs parameter is used as follows: 
-                    derivs=0 uses Simpsons rule (no derivative information).   
+            The derivs parameter is used as follows:
+                    derivs=0 uses Simpsons rule (no derivative information).
                     derivs=1 uses a 6th order technique based the first derivatives, but no second derivatives
-                    derivs=2 uses a 9th (really 10th, since the 9th order error vanishes by symmetry) 
+                    derivs=2 uses a 9th (really 10th, since the 9th order error vanishes by symmetry)
                             order tehcnique based the first and second derivatives.
-                    Be very aware that the 9th order method will only really benefit with very smooth functions, 
+                    Be very aware that the 9th order method will only really benefit with very smooth functions,
                             but then it is magic!
     """
 
@@ -458,12 +468,12 @@ class C2Function(object):
               extrap_coef * (left + right) - total) / (extrap_coef - 1)
           # since h fell by 2, h**6=64, and we are extrapolating in h**6
         if debug == 1:
-          print "accepted results at depth ", depth,  "x, dx = %7.3f, %10.6f" % (x1, dx),
-          print "scaled error = ", eps / (abs(total) * relative_error_tolerance)
+          print("accepted results at depth ", depth,  "x, dx = %7.3f, %10.6f" % (x1, dx), end=' ')
+          print("scaled error = ", eps / (abs(total) * relative_error_tolerance))
       else:
         if debug == 1:
-          print "rejected results at depth ", depth,  "x, dx = %7.3f, %10.6f" % (x1, dx),
-          print "scaled error = ", eps / (abs(total) * relative_error_tolerance)
+          print("rejected results at depth ", depth,  "x, dx = %7.3f, %10.6f" % (x1, dx), end=' ')
+          print("scaled error = ", eps / (abs(total) * relative_error_tolerance))
         recur_data[
             0: 4] = (
             depth + 1, (funcgrid[i],
@@ -474,14 +484,14 @@ class C2Function(object):
         l, r = self.partial_integrals(recur_data)
         retvals[i] = l + r
     if debug == 2:
-      print "\nintegrating at depth ", depth
-      print xgrid
-      print funcgrid
+      print("\nintegrating at depth ", depth)
+      print(xgrid)
+      print(funcgrid)
       import operator
-      print retvals
+      print(retvals)
       if old_integrals:
-        print map(operator.sub, old_integrals, retvals)
-      print "\nreturning from depth ", depth
+        print(map(operator.sub, old_integrals, retvals))
+      print("\nreturning from depth ", depth)
     return retvals
 
   ##
@@ -1161,8 +1171,8 @@ def _spline(x, y, yp1=None, ypn=None):
 
 
 def _spline_extension(x, y, y2, xmin=None, xmax=None):
-  """x, y, y2 = spline_extension(x_vals,y_vals, y2vals, xmin=None, xmax=None) 
-  returns the x, y, y2 table for the spline as needed by splint() with adjustments to allow quadratic extrapolation 
+  """x, y, y2 = spline_extension(x_vals,y_vals, y2vals, xmin=None, xmax=None)
+  returns the x, y, y2 table for the spline as needed by splint() with adjustments to allow quadratic extrapolation
   outside the range x[0]-x[-1], from xmin (or x[0] if xmin is None) to xmax (or x[-1] if xmax is None),
   working from x, y, y2 from an already-created spline"""
 
@@ -1307,14 +1317,14 @@ def _mylog(x):
 class InterpolatingFunction(C2Function):
 
   """An InterpolatingFunction stores a cubic spline or piecewise linear representation of a set of x,y pairs.
-          It can also transform the variable on input and output, so that the underlying spline may live in log-log space, 
+          It can also transform the variable on input and output, so that the underlying spline may live in log-log space,
           but such transforms are transparent to the setup and use of the function.  This makes it possible to
           store splines of, e.g., data which are very close to a power law, as a LogLogInterpolatingFunction, and
           to then have very accurate interpolation and extrapolation, since the curvature of such a function is small in log-log space.
 
-          InterpolatingFunction(x, y, lowerSlope, upperSlope, XConversions, YConversions, cubic_spline) sets up a spline.  
+          InterpolatingFunction(x, y, lowerSlope, upperSlope, XConversions, YConversions, cubic_spline) sets up a spline.
           If lowerSlope or upperSlope is None, the corresponding boundary is set to 'natural', with zero second derivative.
-          XConversions is a list of g, g', g'' to evaluate for transforming the X axis.  
+          XConversions is a list of g, g', g'' to evaluate for transforming the X axis.
           YConversions is a list of f, f', f'', f(-1) to evaluate for transforming the Y axis.
                   Note that the y transform f and f(-1) MUST be exact inverses, or the system will melt.
           If cubic_spline is True (default), create a cubic spline, otherwise, create a piecewise linear interpolator.
@@ -1423,7 +1433,7 @@ class InterpolatingFunction(C2Function):
   # \param bound the bound to which the left edge of the data should be extrapolated
 
   def SetLeftExtrapolation(self, bound):
-    """Set extrapolation on left end of data set.  
+    """Set extrapolation on left end of data set.
     This will be dynamically assigned to either SetLowerExtrapolation or SetUpperExtrapolation by the constructor
     """
     xmin = self.fXin(bound)
@@ -1445,7 +1455,7 @@ class InterpolatingFunction(C2Function):
   # This is necessary since the arrays may have been  reversed because of a transformation of \a x.
   # \param bound the bound to which the right edge of the data should be extrapolated
   def SetRightExtrapolation(self, bound):
-    """Set extrapolation on right end of data set.  
+    """Set extrapolation on right end of data set.
     This will be dynamically assigned to either SetLowerExtrapolation or SetUpperExtrapolation by the constructor
     """
     xmax = self.fXin(bound)
@@ -1604,7 +1614,7 @@ class LogLogInterpolatingFunction(InterpolatingFunction):
 
 def LinearInterpolatingGrid(xmin, dx, count):
   """create a linear-linear interpolating grid with both x & y set to (xmin, xmin+dx, ... xmin + dx*(count -1) )
-          very useful for transformaiton with other functions e.g. 
+          very useful for transformaiton with other functions e.g.
           f=C2sin(LinearInterpolatingGrid(-0.1,0.1, 65)) creates a spline table of sin(x) slightly beyond the first period
   """
   x = [xmin + dx * i for i in xrange(count)]
@@ -1624,9 +1634,9 @@ def LogLogInterpolatingGrid(xmin, dx, count):
 class AccumulatedHistogram(InterpolatingFunction):
 
   """An InterpolatingFunction which is the cumulative integral of the (histogram) specified by binedges and binheights.
-          Note than binedges should be one element longer than binheights, since the lower & upper edges are specified. 
+          Note than binedges should be one element longer than binheights, since the lower & upper edges are specified.
           Note that this is a malformed spline, since the second derivatives are all zero, so it has less continuity.
-          Also, note that the bin edges can be given in backwards order to generate the reversed accumulation (starting at the high end) 
+          Also, note that the bin edges can be given in backwards order to generate the reversed accumulation (starting at the high end)
   """
   ClassName = 'AccumulatedHistogram'
 
@@ -1677,11 +1687,11 @@ class LogLogAccumulatedHistogram(AccumulatedHistogram):
 
 class InverseIntegratedDensity(InterpolatingFunction):
 
-  """InverseIntegratedDensity starts with a probability density function, generates the integral, 
+  """InverseIntegratedDensity starts with a probability density function, generates the integral,
   and generates a LinLogInterpolatingFunction which, when evaluated using a uniform random on [0,1] returns values
   with a density distribution equal to the input distribution
   If the data are passed in reverse order (large X first), the integral is carried out from the big end,
-  and then the data are reversed to the result in in increasing X order.  
+  and then the data are reversed to the result in in increasing X order.
   """
 
   IntermediateInterpolator = InterpolatingFunction
@@ -1731,7 +1741,7 @@ class LinLogInverseIntegratedDensity(InverseIntegratedDensity):
 
 class C2InverseFunction(C2Function):
 
-  """C2InverseFunction creates a C2Function h(x) which is the solution to g(h)=x.  It is different than just finding the 
+  """C2InverseFunction creates a C2Function h(x) which is the solution to g(h)=x.  It is different than just finding the
   root, because it provides the derivatives, so it is a first-class C2Function"""
 
   def __init__(self, sourceFunction):
@@ -1919,89 +1929,89 @@ class C2LHopitalRatio(C2Ratio):
     return self.cache[-1].value_with_derivatives(x)
 
 if __name__ == "__main__":
-  print _rcsid
+  print(_rcsid)
 
   if 1:
     ag = ag1 = LinearInterpolatingGrid(1, 1.0, 4)
-    print ag
+    print(ag)
     try:
       ag.SetLowerExtrapolation(2)
     except:
       import sys
-      print "***got expected error on bad extrapolation: ", sys.exc_value
+      print("***got expected error on bad extrapolation: ", sys.exc_value)
     else:
-      print "***failed to get expected exception on bad extrapolation"
+      print("***failed to get expected exception on bad extrapolation")
 
     ag.SetLowerExtrapolation(-2)
     ag.SetUpperExtrapolation(15)
-    print ag
+    print(ag)
 
-    print C2Constant(11.5)
-    print C2Quadratic(x0=5, a=2, b=1, c=0)
-    print C2PowerLaw(a=1.5, b=-2.3)
-    print LogLogInterpolatingGrid(0.1, 1.1, 20)
+    print(C2Constant(11.5))
+    print(C2Quadratic(x0=5, a=2, b=1, c=0))
+    print(C2PowerLaw(a=1.5, b=-2.3))
+    print(LogLogInterpolatingGrid(0.1, 1.1, 20))
 
-    print C2Linear(1.3, 2.5).apply(ag1)
-    print C2Quadratic(0, 1, 0, 0).apply(ag1)
-    print ag1 * ag1 * ag1
-    print(ag1 * ag1 * ag1).YtoX()
+    print(C2Linear(1.3, 2.5).apply(ag1))
+    print(C2Quadratic(0, 1, 0, 0).apply(ag1))
+    print(ag1 * ag1 * ag1)
+    print((ag1 * ag1 * ag1).YtoX())
 
     try:
       ag13 = (ag1 * ag1).YtoX()
     except:
       import sys
-      print "***got expected error on bad X axis: ", sys.exc_value
+      print("***got expected error on bad X axis: ", sys.exc_value)
     else:
-      print "***failed to get expected exception on bad X axis"
+      print("***failed to get expected exception on bad X axis")
 
     # cut off sqrt(negative)
     fn = C2sin(C2sqrt(ag1 * ag1 * ag1)).SetDomain(0, ag1.GetDomain()[1])
-    print fn
+    print(fn)
 
     for i in range(10):
-      print i, "%20.15f %20.15f" % (math.sin((i + 0.01) ** (3. / 2.)), fn(i + 0.01))
+      print(i, "%20.15f %20.15f" % (math.sin((i + 0.01) ** (3. / 2.)), fn(i + 0.01)))
 
     x1 = fn.find_root(0.0, 1.35128, 0.1, 0.995, trace=True)
-    print x1, math.sin(x1 ** (3. / 2.)), fn(x1) - 0.995
+    print(x1, math.sin(x1 ** (3. / 2.)), fn(x1) - 0.995)
 
-    print fn([1., 2., 3., 4.])
+    print(fn([1., 2., 3., 4.]))
 
-    print "\nPower law sin(x)**log(x) tests"
+    print("\nPower law sin(x)**log(x) tests")
     fn = C2sin ** C2log
     for i in range(10):
       x = 0.1 * i + 6.4
-      print(
-          "%10.3f " + 3 * "%15.12f ") % ((x, ) + fn.value_with_derivatives(x))
+      print((
+          "%10.3f " + 3 * "%15.12f ") % ((x, ) + fn.value_with_derivatives(x)))
 
-    print "\nPower law sin(x)**3.2 tests"
+    print("\nPower law sin(x)**3.2 tests")
     fn = C2sin ** 3.2
     for i in range(10):
       x = 0.1 * i + 6.4
-      print(
-          "%10.3f " + 3 * "%15.12f ") % ((x, ) + fn.value_with_derivatives(x))
+      print((
+          "%10.3f " + 3 * "%15.12f ") % ((x, ) + fn.value_with_derivatives(x)))
 
     import math
-    print "\nIntegration tests"
+    print("\nIntegration tests")
     sna = C2sin(C2PowerLaw(1, 2))  # integrate sin(x**2)
     for sample in (5, 11, 21, 41, 101):
       xg = _numeric.array(range(sample), _numeric_float) * (2.0 / (sample - 1))
       partials = sna.partial_integrals(xg)
       if sample == 10:
-        print _numeric.array_str(partials, precision=8, suppress_small=False, max_line_width=10000)
+        print(_numeric.array_str(partials, precision=8, suppress_small=False, max_line_width=10000))
       sumsum = sum(partials)
       yg = sna(xg)
       simp = sum(sna.partial_integrals(xg, derivs=1))
       exact = 0.804776489343756110
-      print("%3d " + 6 * "%18.10g") % (sample, simp, simp - exact,
+      print(("%3d " + 6 * "%18.10g") % (sample, simp, simp - exact,
                                        (exact - simp) * sample ** 4, sumsum, sumsum - exact, (exact - sumsum) *
-                                       sample ** 6)  # the comparision is to the Fresnel Integral from Mathematica
+                                       sample ** 6))  # the comparision is to the Fresnel Integral from Mathematica
 
   if 0:
-    print "\nBessel Functions by integration"
-    print """Warning... the adaptive integrator looks worse than the non-adaptive one here. 
-		There is some subtle cancellation which makes uniform sampling give extremely accurate answers for Bessel's integral, 
+    print("\nBessel Functions by integration")
+    print("""Warning... the adaptive integrator looks worse than the non-adaptive one here.
+		There is some subtle cancellation which makes uniform sampling give extremely accurate answers for Bessel's integral,
 		so it isn't the fault of the adaptive integrator.  The simple one works way too well, here, by accident.
-		"""
+		""")
 
     def bessj(n, z, point_density=2):
       f = C2cos(C2Linear(slope=n) - C2Constant(z) * C2sin)
@@ -2019,11 +2029,11 @@ if __name__ == "__main__":
       v1, n1 = bessj(order, x)
       v2, n2 = bessj_adaptive(order, x, 1)
       v3, n3 = bessj_adaptive(order, x, 2)
-      print("%6.2f %6.2f %6d %6d %6d " + 3 * "%20.15f ") % (order,
-                                                            x, n1, n2, n3, v1, v2, v3)
+      print(("%6.2f %6.2f %6d %6d %6d " + 3 * "%20.15f ") % (order,
+                                                            x, n1, n2, n3, v1, v2, v3))
 
   if 0:
-    print "\nLogarithms  by integration"
+    print("\nLogarithms  by integration")
 
     pc = 3
     for lv in (0.1, 1.0, 2.0, 5.0, 10.0):
@@ -2052,11 +2062,11 @@ if __name__ == "__main__":
           absolute_error_tolerance=1e-12, extrapolate=1, debug=0, derivs=2)
       n3 = C2recip.total_func_evals
 
-      print("%20.15f %10.2f %6d %6d %6d %6d " + 4 * "%20.15f ") % (lv,
-                                                                   b, n0, n1, n2, n3, sum(v0), sum(v1), sum(v2), sum(v3))
+      print(("%20.15f %10.2f %6d %6d %6d %6d " + 4 * "%20.15f ") % (lv,
+                                                                   b, n0, n1, n2, n3, sum(v0), sum(v1), sum(v2), sum(v3)))
 
   if 0:
-    print "\nPowers  by integration"
+    print("\nPowers  by integration")
 
     # make approximate power law
     fn = C2recip(C2Quadratic(a=1.0, b=0.01, c=0.01))
@@ -2091,23 +2101,23 @@ if __name__ == "__main__":
           extrapolate=1, debug=0, derivs=2)
       n3 = fn.total_func_evals
 
-      print("%20.15f %10.2f %6d %6d %6d %6d " + 4 * "%20.15f ") % (lv,
-                                                                   b, n0, n1, n2, n3, sum(v0), sum(v1), sum(v2), sum(v3))
+      print(("%20.15f %10.2f %6d %6d %6d %6d " + 4 * "%20.15f ") % (lv,
+                                                                   b, n0, n1, n2, n3, sum(v0), sum(v1), sum(v2), sum(v3)))
 
   if 0:
-    print "\nAccumulatedHistogram tests"
+    print("\nAccumulatedHistogram tests")
     xg = (_numeric.array(range(21), _numeric_float) - 10.0) * 0.25
     yy = _numeric.exp(-xg[:-1] * xg[:-1])
     yy[3] = yy[8] = yy[9] = 0
     ah = AccumulatedHistogram(xg[::-1], yy[::-1], normalize=True)
-    print ah([-2, -1, 0, 1, 2])
+    print(ah([-2, -1, 0, 1, 2]))
     ah = AccumulatedHistogram(
         xg[:: -1],
         yy[:: -1],
         normalize=True, drop_zeros=False)
-    print ah([-2, -1, 0, 1, 2])
+    print(ah([-2, -1, 0, 1, 2]))
     ahi = AccumulatedHistogram(xg, yy, normalize=True, inverse_function=True)
-    print ahi([0, 0.01, 0.5, 0.7, 0.95, 1])
+    print(ahi([0, 0.01, 0.5, 0.7, 0.95, 1]))
 
   if 0:
     xv = _numeric.array([1.5 ** (0.1 * i) for i in range(100)])
@@ -2116,22 +2126,22 @@ if __name__ == "__main__":
         xv, yv, lowerSlope=-4 * xv[0] ** (-5) + (0.25) * (-3) * xv[0] ** (-4),
         upperSlope=-4 * xv[-1] ** (-5) + (0.25) * (-3) * xv[-1] ** (-4))
     f0 = C2PowerLaw(1., -4) + C2PowerLaw(0.25, -3)
-    print f(_numeric.array([1., 2., 3., 4., 5., 10., 20.]))
-    print f0(_numeric.array([1., 2., 3., 4., 5., 10., 20.]))
+    print(f(_numeric.array([1., 2., 3., 4., 5., 10., 20.])))
+    print(f0(_numeric.array([1., 2., 3., 4., 5., 10., 20.])))
     partials = f.partial_integrals(
         _numeric.array([1., 2., 3., 4., 5., 10., 20., 21.]),
         debug=False)
-    print partials, sum(partials)
+    print(partials, sum(partials))
     partials = f.log_log_partial_integrals(
         _numeric.array([1., 2., 3., 4., 5., 10., 20., 21.]),
         debug=False)
-    print partials, sum(partials)
+    print(partials, sum(partials))
     pp = f0.partial_integrals(
         _numeric.array(range(11), _numeric_float) * 0.1 + 20)
-    print pp, sum(pp)
+    print(pp, sum(pp))
 
   if 0:
-    print "\nTesting LinLogInverseIntegratedDensity for 1/e^2"
+    print("\nTesting LinLogInverseIntegratedDensity for 1/e^2")
     energies = [float(2 ** (0.5 * n)) for n in range(41)]
     spect = [10000.0 / (e * e) for e in energies]
 
@@ -2140,14 +2150,14 @@ if __name__ == "__main__":
 
     pf = LinLogInverseIntegratedDensity(energies[::-1], spect[::-1])
 
-    print energies[0], energies[-1]
+    print(energies[0], energies[-1])
 
     for i in range(41):
       r = (0.025 * i) ** 2
       mma = (e0 * e1) / (r * e0 + e1 - r * e1)
-      print "%12.6f %12.4e %12.4e %12.4f " % (r, pf(r), mma, 100 * (pf(r) - mma) / mma)
+      print("%12.6f %12.4e %12.4e %12.4f " % (r, pf(r), mma, 100 * (pf(r) - mma) / mma))
 
-    print "\nTesting LinLogInverseIntegratedDensity for 1/e using a C2Function instead of a table"
+    print("\nTesting LinLogInverseIntegratedDensity for 1/e using a C2Function instead of a table")
     energies = [float(2.0 ** n) for n in range(21)]
 
     e0 = energies[-1]
@@ -2157,25 +2167,25 @@ if __name__ == "__main__":
         energies[:: -1],
         C2PowerLaw(a=1000.0, b=-1))
 
-    print energies[0], energies[-1]
+    print(energies[0], energies[-1])
 
     for i in range(41):
       r = (0.025 * i) ** 2
       mma = e0 * (e1 / e0) ** r
 
-      print "%12.6f %12.4e %12.4e %12.4e " % (r, pf(r), mma, 100 * (pf(r) - mma) / mma)
+      print("%12.6f %12.4e %12.4e %12.4e " % (r, pf(r), mma, 100 * (pf(r) - mma) / mma))
 
   if 0:
     fn = C2sin * 2.0  # make a new function
-    print "\nInitial sampling grid =",
+    print("\nInitial sampling grid =", end=' ')
     grid = (0., 3., 6., 9., 12.)
     for i in range(len(grid)):
-      print grid[i],
-    print
+      print(grid[i], end=' ')
+    print()
 
     fn.SetSamplingGrid(grid)
 
-    print "Starting tests of samples from grid"
+    print("Starting tests of samples from grid")
 
     for xmin, xmax in(
             (-10, -1),
@@ -2189,14 +2199,14 @@ if __name__ == "__main__":
             (2, 9.01),
             (5., 20.)):
       v = fn.GetSamplingGrid(xmin, xmax)
-      print "%10.3f %10.3f: " % (xmin, xmax),
+      print("%10.3f %10.3f: " % (xmin, xmax), end=' ')
       for i in range(len(v)):
-        print v[i],
-      print
+        print(v[i], end=' ')
+      print()
 
     sn = fn.NormalizedFunction(0., math.pi)
 
-    print "integral of non-normalized and normalized function ", fn.integral(0., math.pi), sn.integral(0., math.pi)
+    print("integral of non-normalized and normalized function ", fn.integral(0., math.pi), sn.integral(0., math.pi))
 
     gn = fn.SquareNormalizedFunction(0., 4.0 * math.pi)
 
@@ -2207,11 +2217,11 @@ if __name__ == "__main__":
     gn2.SetSamplingGrid(
         (0., math.pi, 2.0 * math.pi, 3.0 * math.pi, 4.0 * math.pi))
 
-    print "integral of square of non-normalized and square-normalized function ", fn2.integral(0., 4.0 * math.pi), gn2.integral(0., 4.0 * math.pi)
+    print("integral of square of non-normalized and square-normalized function ", fn2.integral(0., 4.0 * math.pi), gn2.integral(0., 4.0 * math.pi))
 
   if 1:
     import math
-    print "\nL'Hopital's rule test"
+    print("\nL'Hopital's rule test")
     for fn, fn0 in(
         (C2LHopitalRatio(C2sin, C2Linear(y0=-math.pi)),
          lambda x: math.sin(x) / (x - math.pi)),
@@ -2219,21 +2229,21 @@ if __name__ == "__main__":
          lambda x: math.sin(x) / (x - math.pi) * x),
         (C2LHopitalRatio(C2Linear() * C2sin, C2Linear(y0=-math.pi)),
          lambda x: math.sin(x) / (x - math.pi) * x),):
-      print
-      print fn
+      print()
+      print(fn)
       for x in(
               0.1, 1, math.pi - 0.1, math.pi - 0.001, math.pi - 1e-6, math.pi + 1e-14,
               math.pi + 1e-12):
         y, yp, ypp = fn.value_with_derivatives(x)
-        print 5 * "%22.15f" % (x, y, yp, ypp, fn0(x))
+        print(5 * "%22.15f" % (x, y, yp, ypp, fn0(x)))
 
   if 1:
     import math
-    print "inverse exponential function test"
+    print("inverse exponential function test")
     myexp = _fC2exp()  # make a private copy of exp so we can change its domain
     myexp.SetDomain(-10, 10)
     a = C2InverseFunction(myexp)
     y, yp, ypp = a.value_with_derivatives(3)
-    print y, yp, ypp
-    print myexp(y), math.log(3), (a(3.01) - a(2.99)) * 50, (a(3.01) + a(2.99) - 2.0 * a(3)) * 10000
-    print a.GetDomain()
+    print(y, yp, ypp)
+    print(myexp(y), math.log(3), (a(3.01) - a(2.99)) * 50, (a(3.01) + a(2.99) - 2.0 * a(3)) * 10000)
+    print(a.GetDomain())
